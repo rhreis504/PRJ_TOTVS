@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cockpit PMO | Monitoramento e Controle do Projeto - MIT013</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --panel:#111827;
+      --panel2:#1f2937;
+      --card:#ffffff;
+      --muted:#64748b;
+      --text:#0f172a;
+      --soft:#f8fafc;
+      --line:#e5e7eb;
+      --blue:#2563eb;
+      --cyan:#0891b2;
+      --green:#16a34a;
+      --yellow:#ca8a04;
+      --red:#dc2626;
+      --purple:#7c3aed;
+      --shadow:0 18px 45px rgba(15,23,42,.12);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;
+      background:#eef2f7;
+      color:var(--text);
+    }
+
+    .app{display:grid;grid-template-columns:290px 1fr;min-height:100vh}
+    aside{
+      background:linear-gradient(180deg,#0f172a,#111827);
+      color:white;
+      padding:28px 22px;
+      position:sticky;
+      top:0;
+      height:100vh;
+      overflow:auto;
+    }
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:28px}
+    .logo{
+      width:44px;height:44px;border-radius:14px;
+      background:linear-gradient(135deg,#38bdf8,#2563eb,#7c3aed);
+      box-shadow:0 10px 28px rgba(59,130,246,.35);
+    }
+    .brand h1{font-size:18px;margin:0;line-height:1.2}
+    .brand p{font-size:12px;margin:4px 0 0;color:#cbd5e1}
+    nav a{
+      display:block;
+      color:#dbeafe;
+      text-decoration:none;
+      padding:12px 14px;
+      border-radius:12px;
+      margin:6px 0;
+      font-size:14px;
+    }
+    nav a:hover, nav a.active{background:rgba(255,255,255,.1);color:white}
+    .side-note{
+      margin-top:28px;
+      padding:16px;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      color:#cbd5e1;
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    main{padding:30px;overflow:hidden}
+    .hero{
+      background:linear-gradient(135deg,#fff,#f8fafc);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:26px;
+      box-shadow:var(--shadow);
+      display:grid;
+      grid-template-columns:1.5fr .9fr;
+      gap:20px;
+      align-items:stretch;
+    }
+    .hero h2{margin:0 0 8px;font-size:30px;letter-spacing:-.03em}
+    .hero p{margin:0;color:#475569;line-height:1.5}
+    .badge-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    .badge{
+      padding:8px 11px;
+      border-radius:999px;
+      background:#eff6ff;
+      color:#1d4ed8;
+      font-weight:700;
+      font-size:12px;
+      border:1px solid #bfdbfe;
+    }
+    .source-card{
+      background:#0f172a;color:white;border-radius:20px;padding:20px;
+      display:flex;flex-direction:column;justify-content:space-between;
+    }
+    .source-card code{
+      display:block;margin-top:12px;padding:10px;border-radius:10px;
+      background:rgba(255,255,255,.08);font-size:11px;color:#dbeafe;word-break:break-all;
+    }
+
+    section{margin-top:24px}
+    .section-title{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:14px}
+    .section-title h3{margin:0;font-size:22px;letter-spacing:-.02em}
+    .section-title small{color:#64748b}
+
+    .grid{display:grid;gap:16px}
+    .kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+    .two{grid-template-columns:1fr 1fr}
+    .three{grid-template-columns:repeat(3,1fr)}
+    .card{
+      background:white;border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:0 10px 30px rgba(15,23,42,.06);
+      padding:18px;min-width:0;
+    }
+    .kpi .label{font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .kpi .value{font-size:32px;font-weight:800;margin-top:8px;letter-spacing:-.04em}
+    .kpi .hint{font-size:12px;color:#64748b;margin-top:6px}
+    .status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+    .green{background:var(--green)} .yellow{background:var(--yellow)} .red{background:var(--red)} .blue{background:var(--blue)}
+
+    .chart{height:260px;display:flex;align-items:end;gap:12px;padding:10px 4px 0;border-top:1px solid #f1f5f9;margin-top:8px}
+    .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+    .bar{width:100%;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#60a5fa,#2563eb);min-height:6px}
+    .bar-label{font-size:11px;color:#64748b;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+    .bar-value{font-size:12px;font-weight:800;color:#0f172a}
+
+    .donut-wrap{display:flex;align-items:center;gap:20px;min-height:260px}
+    .donut{
+      width:180px;height:180px;border-radius:50%;
+      background:conic-gradient(var(--green) 0 35%, var(--yellow) 35% 62%, var(--red) 62% 78%, var(--blue) 78% 100%);
+      position:relative;flex:0 0 auto;
+    }
+    .donut:after{
+      content:"";position:absolute;inset:28px;background:white;border-radius:50%;
+    }
+    .legend{display:grid;gap:10px;font-size:13px}
+    .legend span{display:flex;align-items:center;gap:8px;color:#334155}
+
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:11px 10px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}
+    th{font-size:12px;color:#475569;background:#f8fafc;text-transform:uppercase;letter-spacing:.035em}
+    tbody tr:hover{background:#f8fafc}
+    .pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-weight:700;font-size:11px}
+    .pill.ok{background:#dcfce7;color:#166534}
+    .pill.warn{background:#fef9c3;color:#854d0e}
+    .pill.bad{background:#fee2e2;color:#991b1b}
+    .pill.info{background:#dbeafe;color:#1e40af}
+
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    button,.file-label{
+      border:0;border-radius:12px;background:#2563eb;color:white;
+      padding:11px 14px;font-weight:800;cursor:pointer;font-size:13px;
+      display:inline-flex;align-items:center;gap:8px;
+    }
+    button.secondary,.file-label.secondary{background:#0f172a}
+    button.light{background:#e2e8f0;color:#0f172a}
+    input[type=file]{display:none}
+    .search{
+      flex:1;min-width:220px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;
+      font-size:14px;background:white;
+    }
+    .notice{
+      border:1px dashed #93c5fd;background:#eff6ff;color:#1e3a8a;
+      padding:14px;border-radius:16px;font-size:13px;line-height:1.45;
+    }
+
+    .timeline{position:relative;padding-left:20px}
+    .timeline:before{content:"";position:absolute;left:7px;top:5px;bottom:5px;width:2px;background:#dbeafe}
+    .tl-item{position:relative;padding:0 0 18px 18px}
+    .tl-item:before{content:"";position:absolute;left:-18px;top:3px;width:12px;height:12px;border-radius:50%;background:#2563eb;border:3px solid #dbeafe}
+    .tl-item strong{display:block}
+    .tl-item small{color:#64748b}
+
+    .footer{color:#64748b;font-size:12px;margin:28px 0 4px;text-align:center}
+    @media (max-width:1100px){
+      .app{grid-template-columns:1fr}
+      aside{position:relative;height:auto}
+      .hero,.kpis,.two,.three{grid-template-columns:1fr}
+      main{padding:18px}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Cockpit PMO</h1>
+        <p>Monitoramento e Controle</p>
+      </div>
+    </div>
+    <nav>
+      <a class="active" href="#visao">Visão Executiva</a>
+      <a href="#dashboards">Dashboards</a>
+      <a href="#pendencias">Pendências</a>
+      <a href="#timeline">Timeline</a>
+      <a href="#dados">Base de Dados</a>
+    </nav>
+    <div class="side-note">
+      Este cockpit foi preparado para consumir a planilha publicada na Web. Caso o Google bloqueie a leitura automática no navegador, importe o CSV/XLSX pela área de dados.
+    </div>
+  </aside>
+
+  <main>
+    <div class="hero" id="visao">
+      <div>
+        <h2>Monitoramento e Controle do Projeto</h2>
+        <p>Painel executivo para consolidação de status, pendências, eventos, riscos, responsáveis, evolução e pontos críticos do projeto.</p>
+        <div class="badge-row">
+          <span class="badge">MIT013</span>
+          <span class="badge">PMO</span>
+          <span class="badge">Projeto Rossi</span>
+          <span class="badge">Dashboard Executivo</span>
+        </div>
+        <div class="controls">
+          <button onclick="loadFromGoogle()">Atualizar pela planilha publicada</button>
+          <label class="file-label secondary" for="fileInput">Importar CSV</label>
+          <input id="fileInput" type="file" accept=".csv,.txt" />
+          <button class="light" onclick="window.print()">Imprimir / PDF</button>
+        </div>
+      </div>
+      <div class="source-card">
+        <div>
+          <strong>Fonte publicada</strong>
+          <p style="color:#cbd5e1;margin:8px 0 0;font-size:13px;line-height:1.45">Leitura dinâmica via endpoint público CSV. O painel também aceita importação manual.</p>
+          <code id="sourceUrl"></code>
+        </div>
+        <div id="loadStatus" style="font-size:13px;color:#bfdbfe;margin-top:18px">Status: aguardando carga de dados.</div>
+      </div>
+    </div>
+
+    <section>
+      <div class="grid kpis">
+        <div class="card kpi"><div class="label">Total de registros</div><div class="value" id="kpiTotal">0</div><div class="hint">Linhas úteis encontradas</div></div>
+        <div class="card kpi"><div class="label">Pendências abertas</div><div class="value" id="kpiOpen">0</div><div class="hint">Status não concluído</div></div>
+        <div class="card kpi"><div class="label">Concluídos</div><div class="value" id="kpiDone">0</div><div class="hint">Itens finalizados</div></div>
+        <div class="card kpi"><div class="label">Atenção / risco</div><div class="value" id="kpiRisk">0</div><div class="hint">Itens críticos ou em alerta</div></div>
+        <div class="card kpi"><div class="label">Responsáveis</div><div class="value" id="kpiOwners">0</div><div class="hint">Pessoas/áreas distintas</div></div>
+      </div>
+    </section>
+
+    <section id="dashboards">
+      <div class="section-title">
+        <h3>Dashboards do Projeto</h3>
+        <small id="lastUpdate">Sem atualização carregada</small>
+      </div>
+      <div class="grid two">
+        <div class="card">
+          <h4>Status dos itens</h4>
+          <div class="donut-wrap">
+            <div class="donut" id="donut"></div>
+            <div class="legend" id="statusLegend"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h4>Volume por responsável / área</h4>
+          <div class="chart" id="ownerChart"></div>
+        </div>
+      </div>
+      <div class="grid two" style="margin-top:16px">
+        <div class="card">
+          <h4>Distribuição por categoria / tipo</h4>
+          <div class="chart" id="categoryChart"></div>
+        </div>
+        <div class="card">
+          <h4>Itens críticos destacados</h4>
+          <div id="criticalList" class="timeline"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pendencias">
+      <div class="section-title">
+        <h3>Pendências e Acompanhamentos</h3>
+        <small>Filtro rápido por qualquer campo</small>
+      </div>
+      <div class="card">
+        <input class="search" id="searchInput" placeholder="Pesquisar por responsável, status, descrição, data, observação..." />
+        <div style="overflow:auto;margin-top:14px">
+          <table id="mainTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="timeline">
+      <div class="section-title">
+        <h3>Timeline de Eventos</h3>
+        <small>Ordenação automática por data quando houver coluna de data</small>
+      </div>
+      <div class="card">
+        <div class="timeline" id="timelineList"></div>
+      </div>
+    </section>
+
+    <section id="dados">
+      <div class="section-title">
+        <h3>Base de Dados</h3>
+        <small>Diagnóstico de leitura</small>
+      </div>
+      <div class="notice" id="dataNotice">
+        Nenhum dado carregado ainda. Use “Atualizar pela planilha publicada” ou importe um CSV exportado da planilha.
+      </div>
+    </section>
+
+    <div class="footer">Cockpit PMO | HTML executivo gerado para acompanhamento do projeto</div>
+  </main>
+</div>
+
+<script>
+const PUB_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub";
+const CSV_URL = PUB_BASE + "?gid=0&single=true&output=csv";
+document.getElementById("sourceUrl").textContent = CSV_URL;
+
+let rows = [];
+let headers = [];
+
+function normalize(s){
+  return String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().trim();
+}
+
+function parseCSV(text){
+  const out = [];
+  let row = [], cur = "", inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i], n = text[i+1];
+    if(c === '"' && inQuotes && n === '"'){ cur += '"'; i++; }
+    else if(c === '"'){ inQuotes = !inQuotes; }
+    else if(c === ',' && !inQuotes){ row.push(cur); cur = ""; }
+    else if((c === '\n' || c === '\r') && !inQuotes){
+      if(cur !== "" || row.length){ row.push(cur); out.push(row); row=[]; cur=""; }
+      if(c === '\r' && n === '\n') i++;
+    } else cur += c;
+  }
+  if(cur !== "" || row.length){ row.push(cur); out.push(row); }
+  return out.filter(r => r.some(v => String(v).trim() !== ""));
+}
+
+function findColumn(candidates){
+  const hs = headers.map(h => normalize(h));
+  for(const cand of candidates){
+    const nc = normalize(cand);
+    const idx = hs.findIndex(h => h === nc || h.includes(nc) || nc.includes(h));
+    if(idx >= 0) return headers[idx];
+  }
+  return null;
+}
+
+function classifyStatus(v){
+  const s = normalize(v);
+  if(!s) return "Sem status";
+  if(/concl|final|feito|resol|encerr|ok|validado|aprovado/.test(s)) return "Concluído";
+  if(/atras|crit|risco|bloque|imped|problema|pendente critico/.test(s)) return "Crítico";
+  if(/andamento|exec|em curso|tratativa|iniciado/.test(s)) return "Em andamento";
+  if(/pend|abert|aguard|valid|analise|aten/.test(s)) return "Pendente";
+  return v;
+}
+
+function statusClass(s){
+  const n = normalize(s);
+  if(/concl|final|feito|ok|validado|aprovado/.test(n)) return "ok";
+  if(/crit|risco|atras|bloque|imped|problema/.test(n)) return "bad";
+  if(/andamento|curso|exec|tratativa/.test(n)) return "info";
+  return "warn";
+}
+
+function countBy(arr, keyFn){
+  const map = {};
+  arr.forEach(x => {
+    const k = keyFn(x) || "Não informado";
+    map[k] = (map[k] || 0) + 1;
+  });
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]);
+}
+
+function toObjects(matrix){
+  headers = matrix[0].map((h,i)=> String(h || `Coluna ${i+1}`).trim());
+  return matrix.slice(1).map(r => {
+    const o = {};
+    headers.forEach((h,i)=> o[h] = String(r[i] || "").trim());
+    return o;
+  }).filter(o => Object.values(o).some(v => v));
+}
+
+function render(){
+  const statusCol = findColumn(["status","situação","situacao","andamento","fase"]);
+  const ownerCol = findColumn(["responsável","responsavel","owner","dono","área","area","consultor"]);
+  const categoryCol = findColumn(["categoria","tipo","módulo","modulo","produto","frente","processo"]);
+  const dateCol = findColumn(["data","dt","prazo","vencimento","início","inicio","fim"]);
+  const descCol = findColumn(["descrição","descricao","atividade","pendência","pendencia","assunto","evento","observação","observacao"]);
+
+  const statusCounts = countBy(rows, r => classifyStatus(statusCol ? r[statusCol] : ""));
+  const ownerCounts = countBy(rows, r => ownerCol ? r[ownerCol] : "Não informado").slice(0,8);
+  const categoryCounts = countBy(rows, r => categoryCol ? r[categoryCol] : "Não informado").slice(0,8);
+
+  const done = rows.filter(r => classifyStatus(statusCol ? r[statusCol] : "") === "Concluído").length;
+  const critical = rows.filter(r => ["Crítico"].includes(classifyStatus(statusCol ? r[statusCol] : "")) || /crit|risco|bloque|imped|atras|problema/i.test(JSON.stringify(r))).length;
+  const open = Math.max(rows.length - done, 0);
+  const owners = new Set(rows.map(r => ownerCol ? r[ownerCol] : "").filter(Boolean)).size;
+
+  kpiTotal.textContent = rows.length;
+  kpiOpen.textContent = open;
+  kpiDone.textContent = done;
+  kpiRisk.textContent = critical;
+  kpiOwners.textContent = owners;
+
+  renderDonut(statusCounts);
+  renderBar("ownerChart", ownerCounts);
+  renderBar("categoryChart", categoryCounts);
+  renderTable(rows);
+  renderTimeline(dateCol, descCol, statusCol, ownerCol);
+  renderCritical(descCol, statusCol, ownerCol);
+  dataNotice.innerHTML = `Dados carregados com sucesso. <strong>${rows.length}</strong> registros, <strong>${headers.length}</strong> colunas. Colunas reconhecidas: Status: <strong>${statusCol || "não identificada"}</strong>; Responsável/Área: <strong>${ownerCol || "não identificada"}</strong>; Categoria/Tipo: <strong>${categoryCol || "não identificada"}</strong>; Data: <strong>${dateCol || "não identificada"}</strong>.`;
+  lastUpdate.textContent = "Atualizado em " + new Date().toLocaleString("pt-BR");
+}
+
+function renderDonut(counts){
+  const total = counts.reduce((a,b)=>a+b[1],0) || 1;
+  const colors = ["#16a34a","#ca8a04","#dc2626","#2563eb","#7c3aed","#0891b2"];
+  let start = 0;
+  const parts = counts.map(([k,v],i)=>{
+    const end = start + (v/total)*100;
+    const part = `${colors[i%colors.length]} ${start}% ${end}%`;
+    start = end;
+    return part;
+  });
+  donut.style.background = `conic-gradient(${parts.join(",")})`;
+  statusLegend.innerHTML = counts.map(([k,v],i)=>`<span><i class="status-dot" style="background:${colors[i%colors.length]}"></i>${k}: <strong>${v}</strong></span>`).join("");
+}
+
+function renderBar(id, data){
+  const el = document.getElementById(id);
+  const max = Math.max(...data.map(x=>x[1]),1);
+  el.innerHTML = data.map(([k,v]) => `
+    <div class="bar-wrap">
+      <div class="bar-value">${v}</div>
+      <div class="bar" style="height:${Math.max(8,(v/max)*205)}px"></div>
+      <div class="bar-label" title="${k}">${k}</div>
+    </div>
+  `).join("") || "<p style='color:#64748b'>Sem dados para este gráfico.</p>";
+}
+
+function renderTable(data){
+  const thead = document.querySelector("#mainTable thead");
+  const tbody = document.querySelector("#mainTable tbody");
+  const visibleHeaders = headers.slice(0,10);
+  thead.innerHTML = `<tr>${visibleHeaders.map(h=>`<th>${h}</th>`).join("")}</tr>`;
+  tbody.innerHTML = data.slice(0,300).map(r => `<tr>${visibleHeaders.map(h => {
+    const val = r[h] || "";
+    if(normalize(h).includes("status") || normalize(h).includes("situacao")){
+      return `<td><span class="pill ${statusClass(val)}">${val || "Sem status"}</span></td>`;
+    }
+    return `<td>${escapeHtml(val)}</td>`;
+  }).join("")}</tr>`).join("");
+}
+
+function renderTimeline(dateCol, descCol, statusCol, ownerCol){
+  const data = [...rows].slice(0,80);
+  data.sort((a,b)=> parseDate(a[dateCol]) - parseDate(b[dateCol]));
+  timelineList.innerHTML = data.map(r => {
+    const date = dateCol ? r[dateCol] : "";
+    const desc = descCol ? r[descCol] : Object.values(r).find(Boolean);
+    const owner = ownerCol ? r[ownerCol] : "";
+    const st = statusCol ? r[statusCol] : "";
+    return `<div class="tl-item"><strong>${escapeHtml(desc || "Registro do projeto")}</strong><small>${escapeHtml(date || "Sem data")} ${owner ? " · " + escapeHtml(owner) : ""} ${st ? " · " + escapeHtml(st) : ""}</small></div>`;
+  }).join("") || "Sem eventos identificados.";
+}
+
+function renderCritical(descCol, statusCol, ownerCol){
+  const crit = rows.filter(r => /crit|risco|bloque|imped|atras|problema/i.test(JSON.stringify(r))).slice(0,8);
+  criticalList.innerHTML = crit.map(r => {
+    const desc = descCol ? r[descCol] : Object.values(r).find(Boolean);
+    const owner = ownerCol ? r[ownerCol] : "";
+    const st = statusCol ? r[statusCol] : "";
+    return `<div class="tl-item"><strong>${escapeHtml(desc || "Item crítico")}</strong><small>${escapeHtml(owner || "Sem responsável")} ${st ? " · " + escapeHtml(st) : ""}</small></div>`;
+  }).join("") || "<p style='color:#64748b'>Nenhum item crítico localizado por palavra-chave.</p>";
+}
+
+function parseDate(v){
+  if(!v) return 9999999999999;
+  const s = String(v).trim();
+  const m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){
+    let y = Number(m[3]); if(y<100) y += 2000;
+    return new Date(y, Number(m[2])-1, Number(m[1])).getTime();
+  }
+  const t = Date.parse(s);
+  return isNaN(t) ? 9999999999999 : t;
+}
+
+function escapeHtml(s){
+  return String(s || "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+async function loadFromGoogle(){
+  loadStatus.textContent = "Status: tentando carregar dados da planilha publicada...";
+  try{
+    const res = await fetch(CSV_URL, {cache:"no-store"});
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    const matrix = parseCSV(text);
+    if(matrix.length < 2) throw new Error("CSV sem linhas suficientes.");
+    rows = toObjects(matrix);
+    render();
+    loadStatus.textContent = "Status: dados carregados da planilha publicada.";
+  }catch(e){
+    loadStatus.textContent = "Status: não foi possível ler automaticamente. Use a importação CSV.";
+    dataNotice.innerHTML = "A leitura automática foi bloqueada ou a aba publicada não retornou CSV. Exporte a planilha como CSV e importe pelo botão acima. Erro técnico: " + escapeHtml(e.message);
+  }
+}
+
+document.getElementById("fileInput").addEventListener("change", async (ev)=>{
+  const file = ev.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const matrix = parseCSV(text);
+  rows = toObjects(matrix);
+  render();
+  loadStatus.textContent = "Status: dados carregados por importação CSV.";
+});
+
+document.getElementById("searchInput").addEventListener("input", e=>{
+  const q = normalize(e.target.value);
+  const filtered = !q ? rows : rows.filter(r => normalize(Object.values(r).join(" ")).includes(q));
+  renderTable(filtered);
+});
+</script>
+</body>
+</html>
