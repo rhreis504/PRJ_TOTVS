@@ -3,537 +3,280 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cockpit PMO | Monitoramento e Controle do Projeto - MIT013</title>
+  <title>PRJ Rossi Supermercados | Cockpit PMO</title>
   <style>
     :root{
-      --bg:#0f172a;
-      --panel:#111827;
-      --panel2:#1f2937;
-      --card:#ffffff;
-      --muted:#64748b;
-      --text:#0f172a;
-      --soft:#f8fafc;
-      --line:#e5e7eb;
-      --blue:#2563eb;
-      --cyan:#0891b2;
-      --green:#16a34a;
-      --yellow:#ca8a04;
-      --red:#dc2626;
-      --purple:#7c3aed;
-      --shadow:0 18px 45px rgba(15,23,42,.12);
-      --radius:18px;
+      --bg:#f3f6fb;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--card:#fff;
+      --nav:#0b1220;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--violet:#7c3aed;
+      --shadow:0 18px 45px rgba(15,23,42,.10);--radius:20px;
     }
-
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;
-      background:#eef2f7;
-      color:var(--text);
-    }
-
-    .app{display:grid;grid-template-columns:290px 1fr;min-height:100vh}
-    aside{
-      background:linear-gradient(180deg,#0f172a,#111827);
-      color:white;
-      padding:28px 22px;
-      position:sticky;
-      top:0;
-      height:100vh;
-      overflow:auto;
-    }
-    .brand{display:flex;gap:12px;align-items:center;margin-bottom:28px}
-    .logo{
-      width:44px;height:44px;border-radius:14px;
-      background:linear-gradient(135deg,#38bdf8,#2563eb,#7c3aed);
-      box-shadow:0 10px 28px rgba(59,130,246,.35);
-    }
-    .brand h1{font-size:18px;margin:0;line-height:1.2}
-    .brand p{font-size:12px;margin:4px 0 0;color:#cbd5e1}
-    nav a{
-      display:block;
-      color:#dbeafe;
-      text-decoration:none;
-      padding:12px 14px;
-      border-radius:12px;
-      margin:6px 0;
-      font-size:14px;
-    }
-    nav a:hover, nav a.active{background:rgba(255,255,255,.1);color:white}
-    .side-note{
-      margin-top:28px;
-      padding:16px;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:16px;
-      color:#cbd5e1;
-      font-size:12px;
-      line-height:1.45;
-    }
-
-    main{padding:30px;overflow:hidden}
-    .hero{
-      background:linear-gradient(135deg,#fff,#f8fafc);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:26px;
-      box-shadow:var(--shadow);
-      display:grid;
-      grid-template-columns:1.5fr .9fr;
-      gap:20px;
-      align-items:stretch;
-    }
-    .hero h2{margin:0 0 8px;font-size:30px;letter-spacing:-.03em}
-    .hero p{margin:0;color:#475569;line-height:1.5}
-    .badge-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-    .badge{
-      padding:8px 11px;
-      border-radius:999px;
-      background:#eff6ff;
-      color:#1d4ed8;
-      font-weight:700;
-      font-size:12px;
-      border:1px solid #bfdbfe;
-    }
-    .source-card{
-      background:#0f172a;color:white;border-radius:20px;padding:20px;
-      display:flex;flex-direction:column;justify-content:space-between;
-    }
-    .source-card code{
-      display:block;margin-top:12px;padding:10px;border-radius:10px;
-      background:rgba(255,255,255,.08);font-size:11px;color:#dbeafe;word-break:break-all;
-    }
-
-    section{margin-top:24px}
-    .section-title{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:14px}
-    .section-title h3{margin:0;font-size:22px;letter-spacing:-.02em}
-    .section-title small{color:#64748b}
-
-    .grid{display:grid;gap:16px}
-    .kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
-    .two{grid-template-columns:1fr 1fr}
-    .three{grid-template-columns:repeat(3,1fr)}
-    .card{
-      background:white;border:1px solid var(--line);border-radius:var(--radius);
-      box-shadow:0 10px 30px rgba(15,23,42,.06);
-      padding:18px;min-width:0;
-    }
-    .kpi .label{font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-    .kpi .value{font-size:32px;font-weight:800;margin-top:8px;letter-spacing:-.04em}
-    .kpi .hint{font-size:12px;color:#64748b;margin-top:6px}
-    .status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
-    .green{background:var(--green)} .yellow{background:var(--yellow)} .red{background:var(--red)} .blue{background:var(--blue)}
-
-    .chart{height:260px;display:flex;align-items:end;gap:12px;padding:10px 4px 0;border-top:1px solid #f1f5f9;margin-top:8px}
-    .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
-    .bar{width:100%;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#60a5fa,#2563eb);min-height:6px}
-    .bar-label{font-size:11px;color:#64748b;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-    .bar-value{font-size:12px;font-weight:800;color:#0f172a}
-
-    .donut-wrap{display:flex;align-items:center;gap:20px;min-height:260px}
-    .donut{
-      width:180px;height:180px;border-radius:50%;
-      background:conic-gradient(var(--green) 0 35%, var(--yellow) 35% 62%, var(--red) 62% 78%, var(--blue) 78% 100%);
-      position:relative;flex:0 0 auto;
-    }
-    .donut:after{
-      content:"";position:absolute;inset:28px;background:white;border-radius:50%;
-    }
-    .legend{display:grid;gap:10px;font-size:13px}
-    .legend span{display:flex;align-items:center;gap:8px;color:#334155}
-
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{padding:11px 10px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}
-    th{font-size:12px;color:#475569;background:#f8fafc;text-transform:uppercase;letter-spacing:.035em}
-    tbody tr:hover{background:#f8fafc}
-    .pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-weight:700;font-size:11px}
-    .pill.ok{background:#dcfce7;color:#166534}
-    .pill.warn{background:#fef9c3;color:#854d0e}
-    .pill.bad{background:#fee2e2;color:#991b1b}
-    .pill.info{background:#dbeafe;color:#1e40af}
-
-    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
-    button,.file-label{
-      border:0;border-radius:12px;background:#2563eb;color:white;
-      padding:11px 14px;font-weight:800;cursor:pointer;font-size:13px;
-      display:inline-flex;align-items:center;gap:8px;
-    }
-    button.secondary,.file-label.secondary{background:#0f172a}
-    button.light{background:#e2e8f0;color:#0f172a}
-    input[type=file]{display:none}
-    .search{
-      flex:1;min-width:220px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;
-      font-size:14px;background:white;
-    }
-    .notice{
-      border:1px dashed #93c5fd;background:#eff6ff;color:#1e3a8a;
-      padding:14px;border-radius:16px;font-size:13px;line-height:1.45;
-    }
-
-    .timeline{position:relative;padding-left:20px}
-    .timeline:before{content:"";position:absolute;left:7px;top:5px;bottom:5px;width:2px;background:#dbeafe}
-    .tl-item{position:relative;padding:0 0 18px 18px}
-    .tl-item:before{content:"";position:absolute;left:-18px;top:3px;width:12px;height:12px;border-radius:50%;background:#2563eb;border:3px solid #dbeafe}
-    .tl-item strong{display:block}
-    .tl-item small{color:#64748b}
-
-    .footer{color:#64748b;font-size:12px;margin:28px 0 4px;text-align:center}
-    @media (max-width:1100px){
-      .app{grid-template-columns:1fr}
-      aside{position:relative;height:auto}
-      .hero,.kpis,.two,.three{grid-template-columns:1fr}
-      main{padding:18px}
-    }
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Roboto,Arial,sans-serif}
+    .layout{display:grid;grid-template-columns:290px 1fr;min-height:100vh}
+    aside{background:linear-gradient(180deg,#0b1220,#111827);color:#fff;padding:26px 20px;position:sticky;top:0;height:100vh;overflow:auto}
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:26px}
+    .mark{width:44px;height:44px;border-radius:15px;background:linear-gradient(135deg,#38bdf8,#2563eb,#7c3aed)}
+    .brand h1{font-size:17px;margin:0;line-height:1.2}.brand p{font-size:12px;color:#cbd5e1;margin:4px 0 0}
+    nav a{display:block;color:#dbeafe;text-decoration:none;padding:12px 14px;border-radius:12px;margin:6px 0;font-size:14px}
+    nav a:hover,nav a.active{background:rgba(255,255,255,.1);color:#fff}
+    .note{margin-top:22px;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:14px;color:#cbd5e1;font-size:12px;line-height:1.45}
+    main{padding:28px;min-width:0}
+    .hero{background:linear-gradient(135deg,#fff,#f8fafc);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:26px;display:grid;grid-template-columns:1.4fr .9fr;gap:20px}
+    h2{font-size:31px;letter-spacing:-.035em;margin:0 0 8px}.hero p{margin:0;color:#475569;line-height:1.5}
+    .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.badge{padding:8px 11px;border-radius:999px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:800;font-size:12px}
+    .statusbox{background:#0f172a;color:#fff;border-radius:20px;padding:18px;display:flex;flex-direction:column;justify-content:space-between}
+    .statusbox small{color:#bfdbfe;line-height:1.45}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    button{border:0;background:var(--blue);color:#fff;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer}
+    button.dark{background:#0f172a}button.light{background:#e2e8f0;color:#0f172a}
+    section{margin-top:24px}.section-title{display:flex;justify-content:space-between;align-items:end;margin-bottom:14px;gap:16px}
+    h3{font-size:22px;margin:0;letter-spacing:-.02em}.section-title small{color:var(--muted)}
+    .grid{display:grid;gap:16px}.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,1fr)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 10px 28px rgba(15,23,42,.06);padding:18px;min-width:0}
+    .kpi .label{font-size:11px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.05em}.kpi .value{font-size:31px;font-weight:900;margin-top:8px;letter-spacing:-.04em}.kpi .hint{font-size:12px;color:var(--muted);margin-top:6px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tab{background:#e2e8f0;color:#0f172a}.tab.active{background:#2563eb;color:#fff}
+    .chart{height:245px;display:flex;align-items:end;gap:10px;border-top:1px solid #f1f5f9;padding-top:12px;overflow:hidden}
+    .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0}.bar{width:100%;background:linear-gradient(180deg,#60a5fa,#2563eb);border-radius:10px 10px 4px 4px;min-height:6px}.bar-label{font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}.bar-value{font-weight:900;font-size:12px}
+    .donut-wrap{display:flex;align-items:center;gap:20px;min-height:245px}.donut{width:170px;height:170px;border-radius:50%;background:conic-gradient(#16a34a 0 25%,#d97706 25% 55%,#dc2626 55% 80%,#2563eb 80% 100%);position:relative;flex:0 0 auto}.donut:after{content:"";position:absolute;inset:28px;background:#fff;border-radius:50%}
+    .legend{display:grid;gap:9px;font-size:13px}.legend span{display:flex;gap:8px;align-items:center;color:#334155}.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+    .search{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:14px;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em}tbody tr:hover{background:#f8fafc}
+    .pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}.info{background:#dbeafe;color:#1e40af}
+    .timeline{position:relative;padding-left:18px}.timeline:before{content:"";position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:#dbeafe}.tl{position:relative;padding:0 0 16px 18px}.tl:before{content:"";position:absolute;left:-17px;top:3px;width:11px;height:11px;border-radius:50%;background:#2563eb;border:3px solid #dbeafe}.tl strong{display:block}.tl small{color:#64748b}
+    .alert{border:1px dashed #93c5fd;background:#eff6ff;color:#1e3a8a;border-radius:16px;padding:14px;font-size:13px;line-height:1.5}
+    .footer{font-size:12px;color:#64748b;text-align:center;margin:28px 0 4px}
+    @media(max-width:1100px){.layout{grid-template-columns:1fr}aside{position:relative;height:auto}.hero,.kpis,.two,.three{grid-template-columns:1fr}main{padding:18px}}
   </style>
 </head>
 <body>
-<div class="app">
+<div class="layout">
   <aside>
-    <div class="brand">
-      <div class="logo"></div>
-      <div>
-        <h1>Cockpit PMO</h1>
-        <p>Monitoramento e Controle</p>
-      </div>
-    </div>
+    <div class="brand"><div class="mark"></div><div><h1>PRJ Rossi Supermercados</h1><p>Cockpit PMO</p></div></div>
     <nav>
-      <a class="active" href="#visao">Visão Executiva</a>
+      <a class="active" href="#visao">Visão executiva</a>
       <a href="#dashboards">Dashboards</a>
+      <a href="#riscos">Riscos</a>
       <a href="#pendencias">Pendências</a>
-      <a href="#timeline">Timeline</a>
-      <a href="#dados">Base de Dados</a>
+      <a href="#stakeholders">Stakeholders</a>
+      <a href="#dados">Base de dados</a>
     </nav>
-    <div class="side-note">
-      Este cockpit foi preparado para consumir a planilha publicada na Web. Caso o Google bloqueie a leitura automática no navegador, importe o CSV/XLSX pela área de dados.
-    </div>
+    <div class="note">Fonte: abas publicadas em CSV no Google Sheets. O painel é estático e pode ser publicado no GitHub Pages como <strong>index.html</strong>.</div>
   </aside>
 
   <main>
     <div class="hero" id="visao">
       <div>
         <h2>Monitoramento e Controle do Projeto</h2>
-        <p>Painel executivo para consolidação de status, pendências, eventos, riscos, responsáveis, evolução e pontos críticos do projeto.</p>
-        <div class="badge-row">
-          <span class="badge">MIT013</span>
-          <span class="badge">PMO</span>
-          <span class="badge">Projeto Rossi</span>
-          <span class="badge">Dashboard Executivo</span>
-        </div>
-        <div class="controls">
-          <button onclick="loadFromGoogle()">Atualizar pela planilha publicada</button>
-          <label class="file-label secondary" for="fileInput">Importar CSV</label>
-          <input id="fileInput" type="file" accept=".csv,.txt" />
+        <p>Visão consolidada de riscos, pendências e stakeholders do projeto Rossi Supermercados, com leitura automática das abas publicadas.</p>
+        <div class="badges"><span class="badge">Riscos</span><span class="badge">Pendências</span><span class="badge">Mapa de Stakeholders</span><span class="badge">PMO</span></div>
+        <div class="actions">
+          <button onclick="loadAll()">Atualizar dados</button>
+          <button class="dark" onclick="downloadSnapshot()">Exportar resumo JSON</button>
           <button class="light" onclick="window.print()">Imprimir / PDF</button>
         </div>
       </div>
-      <div class="source-card">
-        <div>
-          <strong>Fonte publicada</strong>
-          <p style="color:#cbd5e1;margin:8px 0 0;font-size:13px;line-height:1.45">Leitura dinâmica via endpoint público CSV. O painel também aceita importação manual.</p>
-          <code id="sourceUrl"></code>
-        </div>
-        <div id="loadStatus" style="font-size:13px;color:#bfdbfe;margin-top:18px">Status: aguardando carga de dados.</div>
+      <div class="statusbox">
+        <div><strong>Status da integração</strong><br><small id="loadStatus">Aguardando carga inicial.</small></div>
+        <small id="lastUpdate">Última atualização: não carregada</small>
       </div>
     </div>
 
     <section>
       <div class="grid kpis">
-        <div class="card kpi"><div class="label">Total de registros</div><div class="value" id="kpiTotal">0</div><div class="hint">Linhas úteis encontradas</div></div>
-        <div class="card kpi"><div class="label">Pendências abertas</div><div class="value" id="kpiOpen">0</div><div class="hint">Status não concluído</div></div>
-        <div class="card kpi"><div class="label">Concluídos</div><div class="value" id="kpiDone">0</div><div class="hint">Itens finalizados</div></div>
-        <div class="card kpi"><div class="label">Atenção / risco</div><div class="value" id="kpiRisk">0</div><div class="hint">Itens críticos ou em alerta</div></div>
-        <div class="card kpi"><div class="label">Responsáveis</div><div class="value" id="kpiOwners">0</div><div class="hint">Pessoas/áreas distintas</div></div>
+        <div class="card kpi"><div class="label">Riscos</div><div id="kpiRiscos" class="value">0</div><div class="hint">Registros na aba</div></div>
+        <div class="card kpi"><div class="label">Pendências</div><div id="kpiPendencias" class="value">0</div><div class="hint">Registros na aba</div></div>
+        <div class="card kpi"><div class="label">Stakeholders</div><div id="kpiStakeholders" class="value">0</div><div class="hint">Registros na aba</div></div>
+        <div class="card kpi"><div class="label">Críticos / alerta</div><div id="kpiCriticos" class="value">0</div><div class="hint">Por palavra-chave/status</div></div>
+        <div class="card kpi"><div class="label">Concluídos</div><div id="kpiConcluidos" class="value">0</div><div class="hint">Pendências finalizadas</div></div>
+        <div class="card kpi"><div class="label">Responsáveis</div><div id="kpiResponsaveis" class="value">0</div><div class="hint">Pessoas/áreas distintas</div></div>
       </div>
     </section>
 
     <section id="dashboards">
-      <div class="section-title">
-        <h3>Dashboards do Projeto</h3>
-        <small id="lastUpdate">Sem atualização carregada</small>
-      </div>
+      <div class="section-title"><h3>Dashboards executivos</h3><small>Consolidação automática das três abas</small></div>
       <div class="grid two">
-        <div class="card">
-          <h4>Status dos itens</h4>
-          <div class="donut-wrap">
-            <div class="donut" id="donut"></div>
-            <div class="legend" id="statusLegend"></div>
-          </div>
-        </div>
-        <div class="card">
-          <h4>Volume por responsável / área</h4>
-          <div class="chart" id="ownerChart"></div>
-        </div>
+        <div class="card"><h4>Status geral</h4><div class="donut-wrap"><div id="donut" class="donut"></div><div id="statusLegend" class="legend"></div></div></div>
+        <div class="card"><h4>Volume por responsável / área</h4><div id="ownerChart" class="chart"></div></div>
       </div>
       <div class="grid two" style="margin-top:16px">
-        <div class="card">
-          <h4>Distribuição por categoria / tipo</h4>
-          <div class="chart" id="categoryChart"></div>
-        </div>
-        <div class="card">
-          <h4>Itens críticos destacados</h4>
-          <div id="criticalList" class="timeline"></div>
-        </div>
+        <div class="card"><h4>Riscos por classificação / categoria</h4><div id="riskChart" class="chart"></div></div>
+        <div class="card"><h4>Itens críticos destacados</h4><div id="criticalList" class="timeline"></div></div>
       </div>
+    </section>
+
+    <section id="riscos">
+      <div class="section-title"><h3>Riscos</h3><small>Aba CSV: Riscos</small></div>
+      <div class="card"><input id="searchRiscos" class="search" placeholder="Pesquisar riscos..." oninput="renderTable('riscos')" /><div style="overflow:auto"><table id="tableRiscos"></table></div></div>
     </section>
 
     <section id="pendencias">
-      <div class="section-title">
-        <h3>Pendências e Acompanhamentos</h3>
-        <small>Filtro rápido por qualquer campo</small>
-      </div>
-      <div class="card">
-        <input class="search" id="searchInput" placeholder="Pesquisar por responsável, status, descrição, data, observação..." />
-        <div style="overflow:auto;margin-top:14px">
-          <table id="mainTable">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="section-title"><h3>Pendências</h3><small>Aba CSV: Pendências</small></div>
+      <div class="card"><input id="searchPendencias" class="search" placeholder="Pesquisar pendências..." oninput="renderTable('pendencias')" /><div style="overflow:auto"><table id="tablePendencias"></table></div></div>
     </section>
 
-    <section id="timeline">
-      <div class="section-title">
-        <h3>Timeline de Eventos</h3>
-        <small>Ordenação automática por data quando houver coluna de data</small>
-      </div>
-      <div class="card">
-        <div class="timeline" id="timelineList"></div>
-      </div>
+    <section id="stakeholders">
+      <div class="section-title"><h3>Mapa de Stakeholders</h3><small>Aba CSV: Mapa de StakeHolders</small></div>
+      <div class="card"><input id="searchStakeholders" class="search" placeholder="Pesquisar stakeholders..." oninput="renderTable('stakeholders')" /><div style="overflow:auto"><table id="tableStakeholders"></table></div></div>
     </section>
 
     <section id="dados">
-      <div class="section-title">
-        <h3>Base de Dados</h3>
-        <small>Diagnóstico de leitura</small>
-      </div>
-      <div class="notice" id="dataNotice">
-        Nenhum dado carregado ainda. Use “Atualizar pela planilha publicada” ou importe um CSV exportado da planilha.
-      </div>
+      <div class="section-title"><h3>Diagnóstico da base</h3><small>Leitura das abas publicadas</small></div>
+      <div id="diagnostico" class="alert">Nenhuma carga realizada.</div>
     </section>
-
-    <div class="footer">Cockpit PMO | HTML executivo gerado para acompanhamento do projeto</div>
+    <div class="footer">PRJ Rossi Supermercados | Cockpit PMO | MIT013</div>
   </main>
 </div>
 
 <script>
-const PUB_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub";
-const CSV_URL = PUB_BASE + "?gid=0&single=true&output=csv";
-document.getElementById("sourceUrl").textContent = CSV_URL;
+const SOURCES = {
+  riscos: {
+    label: "Riscos",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv"
+  },
+  pendencias: {
+    label: "Pendências",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv"
+  },
+  stakeholders: {
+    label: "Mapa de Stakeholders",
+    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv"
+  }
+};
+let DATA = {riscos:{headers:[],rows:[],error:null},pendencias:{headers:[],rows:[],error:null},stakeholders:{headers:[],rows:[],error:null}};
 
-let rows = [];
-let headers = [];
-
-function normalize(s){
-  return String(s || "")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .toLowerCase().trim();
-}
-
+function norm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function parseCSV(text){
-  const out = [];
-  let row = [], cur = "", inQuotes = false;
-  for(let i=0;i<text.length;i++){
-    const c = text[i], n = text[i+1];
-    if(c === '"' && inQuotes && n === '"'){ cur += '"'; i++; }
-    else if(c === '"'){ inQuotes = !inQuotes; }
-    else if(c === ',' && !inQuotes){ row.push(cur); cur = ""; }
-    else if((c === '\n' || c === '\r') && !inQuotes){
-      if(cur !== "" || row.length){ row.push(cur); out.push(row); row=[]; cur=""; }
-      if(c === '\r' && n === '\n') i++;
-    } else cur += c;
+  const rows=[]; let row=[], cur="", q=false;
+  for(let i=0;i<text.length;i++){const c=text[i], n=text[i+1];
+    if(c=='"' && q && n=='"'){cur+='"';i++}
+    else if(c=='"'){q=!q}
+    else if(c=="," && !q){row.push(cur);cur=""}
+    else if((c=="\n"||c=="\r")&&!q){if(cur!==""||row.length){row.push(cur);rows.push(row);row=[];cur=""} if(c=="\r"&&n=="\n")i++}
+    else cur+=c;
   }
-  if(cur !== "" || row.length){ row.push(cur); out.push(row); }
-  return out.filter(r => r.some(v => String(v).trim() !== ""));
+  if(cur!==""||row.length){row.push(cur);rows.push(row)}
+  return rows.filter(r=>r.some(v=>String(v).trim()!=""));
 }
-
-function findColumn(candidates){
-  const hs = headers.map(h => normalize(h));
-  for(const cand of candidates){
-    const nc = normalize(cand);
-    const idx = hs.findIndex(h => h === nc || h.includes(nc) || nc.includes(h));
-    if(idx >= 0) return headers[idx];
-  }
+function toObjects(matrix){
+  if(!matrix.length) return {headers:[],rows:[]};
+  let headerIndex = matrix.findIndex(r => r.filter(c => String(c).trim()).length >= 2);
+  if(headerIndex < 0) headerIndex = 0;
+  const headers = matrix[headerIndex].map((h,i)=>String(h||`Coluna ${i+1}`).trim() || `Coluna ${i+1}`);
+  const rows = matrix.slice(headerIndex+1).map(r=>{
+    const o={}; headers.forEach((h,i)=>o[h]=String(r[i]||"").trim()); return o;
+  }).filter(o=>Object.values(o).some(Boolean));
+  return {headers,rows};
+}
+function findCol(headers,cands){
+  const ns=headers.map(h=>norm(h));
+  for(const c of cands){const nc=norm(c); const i=ns.findIndex(h=>h==nc||h.includes(nc)||nc.includes(h)); if(i>=0)return headers[i]}
   return null;
 }
-
-function classifyStatus(v){
-  const s = normalize(v);
-  if(!s) return "Sem status";
+function classify(v,row){
+  const s=norm(v||Object.values(row||{}).join(" "));
   if(/concl|final|feito|resol|encerr|ok|validado|aprovado/.test(s)) return "Concluído";
-  if(/atras|crit|risco|bloque|imped|problema|pendente critico/.test(s)) return "Crítico";
-  if(/andamento|exec|em curso|tratativa|iniciado/.test(s)) return "Em andamento";
+  if(/crit|alto|alta|risco alto|bloque|imped|atras|problema|vermelho/.test(s)) return "Crítico";
+  if(/andamento|exec|tratativa|curso|iniciado/.test(s)) return "Em andamento";
   if(/pend|abert|aguard|valid|analise|aten/.test(s)) return "Pendente";
-  return v;
+  return "Sem status";
 }
-
-function statusClass(s){
-  const n = normalize(s);
-  if(/concl|final|feito|ok|validado|aprovado/.test(n)) return "ok";
-  if(/crit|risco|atras|bloque|imped|problema/.test(n)) return "bad";
-  if(/andamento|curso|exec|tratativa/.test(n)) return "info";
+function pillClass(v){
+  const s=norm(v);
+  if(/concl|final|feito|ok|validado|aprovado/.test(s)) return "ok";
+  if(/crit|alto|risco|bloque|imped|atras|problema|vermelho/.test(s)) return "bad";
+  if(/andamento|curso|exec|tratativa/.test(s)) return "info";
   return "warn";
 }
+async function loadOne(key){
+  const res = await fetch(SOURCES[key].url + "&cacheBust=" + Date.now(), {cache:"no-store"});
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  const text = await res.text();
+  const obj = toObjects(parseCSV(text));
+  DATA[key] = {...obj,error:null};
+}
+async function loadAll(){
+  loadStatus.textContent = "Carregando abas publicadas...";
+  const keys = Object.keys(SOURCES);
+  const results = await Promise.allSettled(keys.map(k=>loadOne(k)));
+  results.forEach((r,i)=>{ if(r.status==="rejected") DATA[keys[i]].error = r.reason.message; });
+  renderAll();
+}
+function allRows(){return Object.entries(DATA).flatMap(([k,d])=>d.rows.map(r=>({...r,__aba:SOURCES[k].label,__key:k})))}
+function renderAll(){
+  const pend = DATA.pendencias.rows, riscos = DATA.riscos.rows, st = DATA.stakeholders.rows;
+  kpiRiscos.textContent = riscos.length; kpiPendencias.textContent = pend.length; kpiStakeholders.textContent = st.length;
+  const all = allRows();
+  const statusColPend = findCol(DATA.pendencias.headers,["status","situação","situacao","andamento"]);
+  const done = pend.filter(r=>classify(statusColPend ? r[statusColPend] : "",r)==="Concluído").length;
+  const crit = all.filter(r=>/crit|risco alto|bloque|imped|atras|problema|vermelho/i.test(Object.values(r).join(" "))).length;
+  kpiConcluidos.textContent = done; kpiCriticos.textContent = crit;
+  const ownerCols = [findCol(DATA.riscos.headers,["responsável","responsavel","owner","dono","area","área"]),findCol(DATA.pendencias.headers,["responsável","responsavel","owner","dono","area","área"]),findCol(DATA.stakeholders.headers,["nome","stakeholder","responsável","responsavel","área","area"])];
+  const owners = new Set();
+  Object.entries(DATA).forEach(([k,d],idx)=>d.rows.forEach(r=>{const c=ownerCols[idx]; if(c && r[c]) owners.add(r[c])}));
+  kpiResponsaveis.textContent = owners.size;
 
-function countBy(arr, keyFn){
-  const map = {};
-  arr.forEach(x => {
-    const k = keyFn(x) || "Não informado";
-    map[k] = (map[k] || 0) + 1;
+  renderStatusDonut(all);
+  renderOwners(all);
+  renderRisksChart();
+  renderCritical(all);
+  renderTable("riscos"); renderTable("pendencias"); renderTable("stakeholders");
+  diagnostico.innerHTML = Object.entries(DATA).map(([k,d])=>`<strong>${SOURCES[k].label}</strong>: ${d.rows.length} registros, ${d.headers.length} colunas${d.error ? " — erro: "+esc(d.error) : ""}`).join("<br>");
+  loadStatus.textContent = "Carga concluída.";
+  lastUpdate.textContent = "Última atualização: " + new Date().toLocaleString("pt-BR");
+}
+function countBy(arr, fn){
+  const m={}; arr.forEach(x=>{const k=fn(x)||"Não informado"; m[k]=(m[k]||0)+1}); return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+}
+function renderStatusDonut(rows){
+  const counts = countBy(rows, r=>{
+    const d = DATA[r.__key]; const c=findCol(d.headers,["status","situação","situacao","andamento","classificação","classificacao","criticidade"]);
+    return classify(c ? r[c] : "", r);
   });
-  return Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  const colors=["#16a34a","#d97706","#dc2626","#2563eb","#7c3aed","#0891b2"];
+  const total=counts.reduce((a,b)=>a+b[1],0)||1; let start=0;
+  donut.style.background="conic-gradient("+counts.map(([k,v],i)=>{const end=start+(v/total)*100;const p=`${colors[i%colors.length]} ${start}% ${end}%`;start=end;return p}).join(",")+")";
+  statusLegend.innerHTML = counts.map(([k,v],i)=>`<span><i class="dot" style="background:${colors[i%colors.length]}"></i>${esc(k)}: <strong>${v}</strong></span>`).join("") || "Sem dados";
 }
-
-function toObjects(matrix){
-  headers = matrix[0].map((h,i)=> String(h || `Coluna ${i+1}`).trim());
-  return matrix.slice(1).map(r => {
-    const o = {};
-    headers.forEach((h,i)=> o[h] = String(r[i] || "").trim());
-    return o;
-  }).filter(o => Object.values(o).some(v => v));
+function renderBars(id, data){
+  const el=document.getElementById(id), max=Math.max(1,...data.map(x=>x[1]));
+  el.innerHTML = data.slice(0,9).map(([k,v])=>`<div class="bar-wrap"><div class="bar-value">${v}</div><div class="bar" style="height:${Math.max(8,(v/max)*200)}px"></div><div class="bar-label" title="${esc(k)}">${esc(k)}</div></div>`).join("") || "<p style='color:#64748b'>Sem dados.</p>";
 }
-
-function render(){
-  const statusCol = findColumn(["status","situação","situacao","andamento","fase"]);
-  const ownerCol = findColumn(["responsável","responsavel","owner","dono","área","area","consultor"]);
-  const categoryCol = findColumn(["categoria","tipo","módulo","modulo","produto","frente","processo"]);
-  const dateCol = findColumn(["data","dt","prazo","vencimento","início","inicio","fim"]);
-  const descCol = findColumn(["descrição","descricao","atividade","pendência","pendencia","assunto","evento","observação","observacao"]);
-
-  const statusCounts = countBy(rows, r => classifyStatus(statusCol ? r[statusCol] : ""));
-  const ownerCounts = countBy(rows, r => ownerCol ? r[ownerCol] : "Não informado").slice(0,8);
-  const categoryCounts = countBy(rows, r => categoryCol ? r[categoryCol] : "Não informado").slice(0,8);
-
-  const done = rows.filter(r => classifyStatus(statusCol ? r[statusCol] : "") === "Concluído").length;
-  const critical = rows.filter(r => ["Crítico"].includes(classifyStatus(statusCol ? r[statusCol] : "")) || /crit|risco|bloque|imped|atras|problema/i.test(JSON.stringify(r))).length;
-  const open = Math.max(rows.length - done, 0);
-  const owners = new Set(rows.map(r => ownerCol ? r[ownerCol] : "").filter(Boolean)).size;
-
-  kpiTotal.textContent = rows.length;
-  kpiOpen.textContent = open;
-  kpiDone.textContent = done;
-  kpiRisk.textContent = critical;
-  kpiOwners.textContent = owners;
-
-  renderDonut(statusCounts);
-  renderBar("ownerChart", ownerCounts);
-  renderBar("categoryChart", categoryCounts);
-  renderTable(rows);
-  renderTimeline(dateCol, descCol, statusCol, ownerCol);
-  renderCritical(descCol, statusCol, ownerCol);
-  dataNotice.innerHTML = `Dados carregados com sucesso. <strong>${rows.length}</strong> registros, <strong>${headers.length}</strong> colunas. Colunas reconhecidas: Status: <strong>${statusCol || "não identificada"}</strong>; Responsável/Área: <strong>${ownerCol || "não identificada"}</strong>; Categoria/Tipo: <strong>${categoryCol || "não identificada"}</strong>; Data: <strong>${dateCol || "não identificada"}</strong>.`;
-  lastUpdate.textContent = "Atualizado em " + new Date().toLocaleString("pt-BR");
+function renderOwners(rows){
+  renderBars("ownerChart", countBy(rows, r=>{
+    const d=DATA[r.__key]; const c=findCol(d.headers,["responsável","responsavel","owner","dono","area","área","nome","stakeholder"]);
+    return c ? r[c] : "";
+  }));
 }
-
-function renderDonut(counts){
-  const total = counts.reduce((a,b)=>a+b[1],0) || 1;
-  const colors = ["#16a34a","#ca8a04","#dc2626","#2563eb","#7c3aed","#0891b2"];
-  let start = 0;
-  const parts = counts.map(([k,v],i)=>{
-    const end = start + (v/total)*100;
-    const part = `${colors[i%colors.length]} ${start}% ${end}%`;
-    start = end;
-    return part;
-  });
-  donut.style.background = `conic-gradient(${parts.join(",")})`;
-  statusLegend.innerHTML = counts.map(([k,v],i)=>`<span><i class="status-dot" style="background:${colors[i%colors.length]}"></i>${k}: <strong>${v}</strong></span>`).join("");
+function renderRisksChart(){
+  const c = findCol(DATA.riscos.headers,["classificação","classificacao","criticidade","categoria","tipo","impacto","probabilidade","status"]);
+  renderBars("riskChart", countBy(DATA.riscos.rows, r=> c ? r[c] : "Não informado"));
 }
-
-function renderBar(id, data){
-  const el = document.getElementById(id);
-  const max = Math.max(...data.map(x=>x[1]),1);
-  el.innerHTML = data.map(([k,v]) => `
-    <div class="bar-wrap">
-      <div class="bar-value">${v}</div>
-      <div class="bar" style="height:${Math.max(8,(v/max)*205)}px"></div>
-      <div class="bar-label" title="${k}">${k}</div>
-    </div>
-  `).join("") || "<p style='color:#64748b'>Sem dados para este gráfico.</p>";
+function renderCritical(rows){
+  const crit = rows.filter(r=>/crit|risco alto|bloque|imped|atras|problema|vermelho/i.test(Object.values(r).join(" "))).slice(0,10);
+  criticalList.innerHTML = crit.map(r=>{
+    const d=DATA[r.__key]; const desc=findCol(d.headers,["descrição","descricao","risco","pendência","pendencia","atividade","assunto","nome"]);
+    const owner=findCol(d.headers,["responsável","responsavel","owner","dono","area","área"]);
+    return `<div class="tl"><strong>${esc(desc ? r[desc] : Object.values(r).find(Boolean))}</strong><small>${esc(r.__aba)}${owner && r[owner] ? " · "+esc(r[owner]) : ""}</small></div>`;
+  }).join("") || "<p style='color:#64748b'>Nenhum item crítico encontrado por palavra-chave.</p>";
 }
-
-function renderTable(data){
-  const thead = document.querySelector("#mainTable thead");
-  const tbody = document.querySelector("#mainTable tbody");
-  const visibleHeaders = headers.slice(0,10);
-  thead.innerHTML = `<tr>${visibleHeaders.map(h=>`<th>${h}</th>`).join("")}</tr>`;
-  tbody.innerHTML = data.slice(0,300).map(r => `<tr>${visibleHeaders.map(h => {
-    const val = r[h] || "";
-    if(normalize(h).includes("status") || normalize(h).includes("situacao")){
-      return `<td><span class="pill ${statusClass(val)}">${val || "Sem status"}</span></td>`;
-    }
-    return `<td>${escapeHtml(val)}</td>`;
-  }).join("")}</tr>`).join("");
+function renderTable(key){
+  const d=DATA[key], table=document.getElementById("table"+(key==="riscos"?"Riscos":key==="pendencias"?"Pendencias":"Stakeholders"));
+  const input=document.getElementById("search"+(key==="riscos"?"Riscos":key==="pendencias"?"Pendencias":"Stakeholders"));
+  const q=norm(input.value);
+  const rows = q ? d.rows.filter(r=>norm(Object.values(r).join(" ")).includes(q)) : d.rows;
+  const heads=d.headers.slice(0,12);
+  table.innerHTML = `<thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,400).map(r=>`<tr>${heads.map(h=>{
+    const v=r[h]||""; const hn=norm(h);
+    if(/status|situacao|situação|criticidade|classificacao|classificação/.test(hn)) return `<td><span class="pill ${pillClass(v)}">${esc(v||"—")}</span></td>`;
+    return `<td>${esc(v)}</td>`;
+  }).join("")}</tr>`).join("")}</tbody>`;
 }
-
-function renderTimeline(dateCol, descCol, statusCol, ownerCol){
-  const data = [...rows].slice(0,80);
-  data.sort((a,b)=> parseDate(a[dateCol]) - parseDate(b[dateCol]));
-  timelineList.innerHTML = data.map(r => {
-    const date = dateCol ? r[dateCol] : "";
-    const desc = descCol ? r[descCol] : Object.values(r).find(Boolean);
-    const owner = ownerCol ? r[ownerCol] : "";
-    const st = statusCol ? r[statusCol] : "";
-    return `<div class="tl-item"><strong>${escapeHtml(desc || "Registro do projeto")}</strong><small>${escapeHtml(date || "Sem data")} ${owner ? " · " + escapeHtml(owner) : ""} ${st ? " · " + escapeHtml(st) : ""}</small></div>`;
-  }).join("") || "Sem eventos identificados.";
+function downloadSnapshot(){
+  const blob = new Blob([JSON.stringify(DATA,null,2)], {type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="cockpit-rossi-snapshot.json"; a.click(); URL.revokeObjectURL(a.href);
 }
-
-function renderCritical(descCol, statusCol, ownerCol){
-  const crit = rows.filter(r => /crit|risco|bloque|imped|atras|problema/i.test(JSON.stringify(r))).slice(0,8);
-  criticalList.innerHTML = crit.map(r => {
-    const desc = descCol ? r[descCol] : Object.values(r).find(Boolean);
-    const owner = ownerCol ? r[ownerCol] : "";
-    const st = statusCol ? r[statusCol] : "";
-    return `<div class="tl-item"><strong>${escapeHtml(desc || "Item crítico")}</strong><small>${escapeHtml(owner || "Sem responsável")} ${st ? " · " + escapeHtml(st) : ""}</small></div>`;
-  }).join("") || "<p style='color:#64748b'>Nenhum item crítico localizado por palavra-chave.</p>";
-}
-
-function parseDate(v){
-  if(!v) return 9999999999999;
-  const s = String(v).trim();
-  const m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-  if(m){
-    let y = Number(m[3]); if(y<100) y += 2000;
-    return new Date(y, Number(m[2])-1, Number(m[1])).getTime();
-  }
-  const t = Date.parse(s);
-  return isNaN(t) ? 9999999999999 : t;
-}
-
-function escapeHtml(s){
-  return String(s || "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-}
-
-async function loadFromGoogle(){
-  loadStatus.textContent = "Status: tentando carregar dados da planilha publicada...";
-  try{
-    const res = await fetch(CSV_URL, {cache:"no-store"});
-    if(!res.ok) throw new Error("HTTP " + res.status);
-    const text = await res.text();
-    const matrix = parseCSV(text);
-    if(matrix.length < 2) throw new Error("CSV sem linhas suficientes.");
-    rows = toObjects(matrix);
-    render();
-    loadStatus.textContent = "Status: dados carregados da planilha publicada.";
-  }catch(e){
-    loadStatus.textContent = "Status: não foi possível ler automaticamente. Use a importação CSV.";
-    dataNotice.innerHTML = "A leitura automática foi bloqueada ou a aba publicada não retornou CSV. Exporte a planilha como CSV e importe pelo botão acima. Erro técnico: " + escapeHtml(e.message);
-  }
-}
-
-document.getElementById("fileInput").addEventListener("change", async (ev)=>{
-  const file = ev.target.files[0];
-  if(!file) return;
-  const text = await file.text();
-  const matrix = parseCSV(text);
-  rows = toObjects(matrix);
-  render();
-  loadStatus.textContent = "Status: dados carregados por importação CSV.";
-});
-
-document.getElementById("searchInput").addEventListener("input", e=>{
-  const q = normalize(e.target.value);
-  const filtered = !q ? rows : rows.filter(r => normalize(Object.values(r).join(" ")).includes(q));
-  renderTable(filtered);
-});
+window.addEventListener("DOMContentLoaded", loadAll);
 </script>
 </body>
 </html>
