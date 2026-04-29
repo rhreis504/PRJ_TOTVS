@@ -13,13 +13,13 @@
       --ink:#172033;
       --muted:#667085;
       --line:#e5eaf2;
-      --red:#d8242f;
-      --red2:#b91c1c;
+      --red:#334155;
+      --red2:#1e293b;
       --blue:#2563eb;
       --green:#16a34a;
       --amber:#d97706;
-      --danger:#dc2626;
-      --soft-red:#fff1f2;
+      --danger:#64748b;
+      --soft-red:#f1f5f9;
       --soft-blue:#eff6ff;
       --soft-green:#ecfdf3;
       --soft-amber:#fffbeb;
@@ -60,13 +60,15 @@
       display:flex;
       align-items:center;
       gap:13px;
-      background:linear-gradient(135deg,#df2632,#a9161f);
+      background:linear-gradient(135deg,#ffffff,#f8fafc);
+      color:#111827;
+      border-bottom:1px solid var(--line);
     }
 
     .brand-icon{
       width:46px;height:46px;border-radius:14px;
       display:grid;place-items:center;
-      background:rgba(255,255,255,.14);
+      background:#eef2f7;
       font-size:25px;
     }
 
@@ -83,6 +85,7 @@
       font-weight:900;
       letter-spacing:.08em;
       margin-top:6px;
+      color:#475569;
     }
 
     .nav-section{
@@ -335,7 +338,7 @@
     }
 
     .kpi-value{
-      font-size:36px;
+      font-size:34px;
       font-weight:950;
       letter-spacing:-.05em;
       line-height:1;
@@ -346,6 +349,10 @@
       color:var(--muted);
       font-size:12px;
       margin-top:6px;
+    }
+    #timePct{
+      font-size:28px;
+      white-space:nowrap;
     }
 
     .mini-breakdown{
@@ -541,9 +548,9 @@
       white-space:nowrap;
     }
 
-    .pill.high{background:var(--soft-red);color:#b91c1c}
-    .pill.mid{background:var(--soft-amber);color:#92400e}
-    .pill.low{background:var(--soft-green);color:#15803d}
+    .pill.high{background:#f1f5f9;color:#334155}
+    .pill.mid{background:#fff7ed;color:#9a3412}
+    .pill.low{background:#ecfdf3;color:#15803d}
     .pill.info{background:var(--soft-blue);color:#1d4ed8}
 
     .bar-chart{
@@ -575,7 +582,7 @@
       background:var(--green);
     }
 
-    .bar-item:nth-child(1) .bar{background:var(--danger)}
+    .bar-item:nth-child(1) .bar{background:#64748b}
     .bar-item:nth-child(2) .bar{background:var(--amber)}
     .bar-item:nth-child(3) .bar{background:var(--green)}
 
@@ -626,6 +633,62 @@
     }
 
     .hidden{display:none!important}
+
+
+    .phase-progress{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(7,minmax(86px,1fr));
+      gap:12px;
+      min-width:720px;
+    }
+    .phase-card{
+      border:1px solid var(--line);
+      background:#f8fafc;
+      border-radius:14px;
+      padding:10px;
+      min-height:76px;
+    }
+    .phase-card.current{
+      background:#eff6ff;
+      border-color:#bfdbfe;
+    }
+    .phase-card.planned{
+      background:#fffbeb;
+      border-color:#fde68a;
+    }
+    .phase-card.open{
+      background:#ffffff;
+      border-color:#e5eaf2;
+    }
+    .phase-card b{
+      display:block;
+      font-size:11px;
+      margin-bottom:8px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .phase-bar{
+      height:8px;
+      background:#e5eaf2;
+      border-radius:999px;
+      overflow:hidden;
+      margin-bottom:7px;
+    }
+    .phase-bar i{
+      display:block;
+      height:100%;
+      width:0%;
+      background:#2563eb;
+      border-radius:999px;
+    }
+    .phase-card.current .phase-bar i{background:#16a34a}
+    .phase-card.planned .phase-bar i{background:#d97706}
+    .phase-card span{
+      color:var(--muted);
+      font-size:11px;
+    }
 
     @media(max-width:1320px){
       .executive-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -1059,13 +1122,29 @@ function fmt(d){
 }
 
 function renderTimeline(dateInfo){
-  const labels=["Iniciação","Planejamento","Execução 1","Execução 2","Testes","Implantação","Encerramento"];
-  const ds = dateInfo.dates || [];
-  timeline.innerHTML = labels.map((l,i)=>{
-    const cls = i < 3 ? "done" : i === 3 ? "current" : "";
-    const dt = ds[i] ? fmt(ds[i]) : "--";
-    return `<div class="mile ${cls}"><b>${esc(l)}</b><span>${esc(dt)}</span><i></i></div>`;
-  }).join("");
+  const phases = [
+    {label:"Iniciação", date:"Em andamento", pct:15, cls:"current"},
+    {label:"Planejamento", date:"04/05/26 a 08/05/26", pct:0, cls:"planned"},
+    {label:"Execução 1", date:"A definir", pct:0, cls:"open"},
+    {label:"Execução 2", date:"A definir", pct:0, cls:"open"},
+    {label:"Testes", date:"A definir", pct:0, cls:"open"},
+    {label:"Implantação", date:"A definir", pct:0, cls:"open"},
+    {label:"Encerramento", date:"A definir", pct:0, cls:"open"}
+  ];
+  timeline.innerHTML = phases.map((p,i)=>{
+    const dotClass = p.cls === "current" ? "current" : "";
+    return `<div class="mile ${dotClass}"><b>${esc(p.label)}</b><span>${esc(p.date)}</span><i></i></div>`;
+  }).join("") + `
+    <div class="phase-progress">
+      ${phases.map(p=>`
+        <div class="phase-card ${p.cls}">
+          <b>${esc(p.label)}</b>
+          <div class="phase-bar"><i style="width:${p.pct}%"></i></div>
+          <span>${p.pct}% concluído</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderBars(rows){
@@ -1093,15 +1172,14 @@ function renderAll(){
   const doing = pend.filter(isDoing).length;
   const late = pend.filter(isLate).length;
   const open = Math.max(pend.length - done, 0);
-  const progress = pend.length ? Math.round((done/pend.length)*100) : 0;
+  const progress = 15;
 
   progressPct.textContent = progress + "%";
   gauge.style.setProperty("--progress", progress + "%");
 
   healthPill.className = "health-pill";
-  if(progress < 35){ healthPill.classList.add("bad"); healthPill.textContent = "Necessita acompanhamento"; }
-  else if(progress < 70){ healthPill.classList.add("warn"); healthPill.textContent = "Em atenção"; }
-  else { healthPill.textContent = "Dentro do previsto"; }
+  healthPill.classList.add("warn");
+  healthPill.textContent = "Projeto em iniciação";
 
   pendOpen.textContent = open;
   pendHigh.textContent = pend.filter(r=>classifyText(Object.values(r).join(" "))==="high").length;
@@ -1118,10 +1196,10 @@ function renderAll(){
   stakeMid.textContent = stakes.filter(r=>classifyText(Object.values(r).join(" "))==="mid").length;
   stakeLow.textContent = stakes.filter(r=>classifyText(Object.values(r).join(" "))==="low").length;
 
-  const dateInfo = extractDates([...pend,...riscos]);
-  timePct.textContent = dateInfo.pct + "%";
-  dateStart.textContent = fmt(dateInfo.start);
-  dateEnd.textContent = fmt(dateInfo.end);
+  const dateInfo = {pct:0, dates:[]};
+  timePct.textContent = "Em iniciação";
+  dateStart.textContent = "--";
+  dateEnd.textContent = "--";
   dateToday.textContent = new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});
 
   renderTimeline(dateInfo);
