@@ -234,8 +234,8 @@
 
     .executive-strip{
       display:grid;
-      grid-template-columns:1.2fr repeat(4,1fr);
-      gap:16px;
+      grid-template-columns:1.15fr repeat(4,1fr);
+      gap:12px;
       align-items:stretch;
     }
 
@@ -253,7 +253,7 @@
       grid-template-columns:108px 1fr;
       gap:18px;
       align-items:center;
-      min-height:160px;
+      min-height:132px;
     }
 
     .gauge{
@@ -309,7 +309,7 @@
 
     .kpi{
       padding:17px;
-      min-height:160px;
+      min-height:132px;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
@@ -368,6 +368,70 @@
     .mini-breakdown b{display:block;font-size:17px;line-height:1}
     .mini-breakdown span{display:block;color:var(--muted);font-size:10.5px;margin-top:5px;white-space:nowrap}
 
+
+    .executive-strip .card{
+      min-height:132px;
+    }
+    .summary-card{
+      padding:14px;
+      grid-template-columns:82px 1fr;
+      gap:14px;
+    }
+    .summary-card .gauge{
+      width:82px;
+      height:82px;
+    }
+    .summary-card .gauge:after{
+      inset:10px;
+    }
+    .summary-card .gauge b{
+      font-size:21px;
+    }
+    .summary-card h2{
+      font-size:15px;
+      margin-bottom:5px;
+    }
+    .summary-card p{
+      font-size:12px;
+      line-height:1.35;
+    }
+    .health-pill{
+      margin-top:8px;
+      padding:6px 9px;
+      font-size:11px;
+    }
+    .kpi{
+      padding:14px;
+    }
+    .kpi-icon{
+      width:32px;
+      height:32px;
+      border-radius:10px;
+      font-size:16px;
+    }
+    .kpi-value{
+      font-size:29px;
+      margin-top:10px;
+    }
+    #timePct{
+      font-size:22px;
+    }
+    .kpi-caption{
+      font-size:11px;
+      margin-top:4px;
+    }
+    .mini-breakdown{
+      padding-top:9px;
+      margin-top:9px;
+      gap:6px;
+    }
+    .mini-breakdown b{
+      font-size:14px;
+    }
+    .mini-breakdown span{
+      font-size:9.8px;
+    }
+
     .section-grid{
       display:grid;
       grid-template-columns:minmax(0,1.7fr) minmax(320px,.9fr) minmax(320px,.9fr);
@@ -407,7 +471,7 @@
     }
 
     .timeline-wrap{
-      min-height:222px;
+      min-height:180px;
       display:flex;
       flex-direction:column;
       justify-content:center;
@@ -417,10 +481,10 @@
     .timeline{
       position:relative;
       display:grid;
-      grid-template-columns:repeat(7,minmax(86px,1fr));
+      grid-template-columns:repeat(4,minmax(150px,1fr));
       gap:0;
-      min-width:720px;
-      padding:40px 4px 20px;
+      min-width:640px;
+      padding:28px 4px 16px;
     }
 
     .timeline:before{
@@ -428,7 +492,7 @@
       position:absolute;
       left:7%;
       right:7%;
-      top:86px;
+      top:70px;
       height:3px;
       background:#d9e3ef;
       border-radius:10px;
@@ -450,7 +514,7 @@
       display:block;
       color:var(--muted);
       font-size:11px;
-      margin-bottom:11px;
+      margin-bottom:8px;
     }
 
     .mile i{
@@ -470,7 +534,7 @@
     }
 
     .donut-area{
-      min-height:222px;
+      min-height:180px;
       display:flex;
       align-items:center;
       gap:18px;
@@ -638,16 +702,16 @@
     .phase-progress{
       margin-top:14px;
       display:grid;
-      grid-template-columns:repeat(7,minmax(86px,1fr));
+      grid-template-columns:repeat(4,minmax(150px,1fr));
       gap:12px;
-      min-width:720px;
+      min-width:640px;
     }
     .phase-card{
       border:1px solid var(--line);
       background:#f8fafc;
       border-radius:14px;
-      padding:10px;
-      min-height:76px;
+      padding:9px;
+      min-height:68px;
     }
     .phase-card.current{
       background:#eff6ff;
@@ -1125,13 +1189,10 @@ function renderTimeline(dateInfo){
   const phases = [
     {label:"Iniciação", date:"Em andamento", pct:15, cls:"current"},
     {label:"Planejamento", date:"04/05/26 a 08/05/26", pct:0, cls:"planned"},
-    {label:"Execução 1", date:"A definir", pct:0, cls:"open"},
-    {label:"Execução 2", date:"A definir", pct:0, cls:"open"},
-    {label:"Testes", date:"A definir", pct:0, cls:"open"},
-    {label:"Implantação", date:"A definir", pct:0, cls:"open"},
-    {label:"Encerramento", date:"A definir", pct:0, cls:"open"}
+    {label:"Execução / Monitoramento e Controle", date:"A definir após planejamento", pct:0, cls:"open"},
+    {label:"Encerramento", date:"A definir após execução", pct:0, cls:"open"}
   ];
-  timeline.innerHTML = phases.map((p,i)=>{
+  timeline.innerHTML = phases.map((p)=>{
     const dotClass = p.cls === "current" ? "current" : "";
     return `<div class="mile ${dotClass}"><b>${esc(p.label)}</b><span>${esc(p.date)}</span><i></i></div>`;
   }).join("") + `
