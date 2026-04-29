@@ -69,7 +69,7 @@
       width:46px;height:46px;border-radius:14px;
       display:grid;place-items:center;
       background:#eef2f7;
-      font-size:25px;
+      font-size:23px;
     }
 
     .brand strong{
@@ -166,7 +166,7 @@
     .topbar{
       background:white;
       border-bottom:1px solid var(--line);
-      padding:18px 28px;
+      padding:14px 24px;
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -178,12 +178,12 @@
 
     .title h1{
       margin:0;
-      font-size:25px;
+      font-size:23px;
       letter-spacing:-.04em;
     }
 
     .title p{
-      margin:5px 0 0;
+      margin:3px 0 0;
       color:var(--muted);
       font-size:13px;
     }
@@ -227,7 +227,7 @@
     }
 
     .content{
-      padding:24px 28px 28px;
+      padding:18px 24px 24px;
       max-width:1680px;
       margin:0 auto;
     }
@@ -430,6 +430,84 @@
     }
     .mini-breakdown span{
       font-size:9.8px;
+    }
+
+
+    /* Compact KPI row - executive single-line vision */
+    .executive-strip{
+      grid-template-columns: .95fr repeat(4, minmax(150px, 1fr));
+      gap:10px;
+    }
+    .executive-strip .card{
+      min-height:112px;
+      border-radius:14px;
+    }
+    .summary-card{
+      padding:12px;
+      grid-template-columns:68px 1fr;
+      gap:11px;
+    }
+    .summary-card .gauge{
+      width:68px;
+      height:68px;
+    }
+    .summary-card .gauge:after{
+      inset:9px;
+    }
+    .summary-card .gauge b{
+      font-size:18px;
+    }
+    .summary-card h2{
+      font-size:13px;
+      margin-bottom:3px;
+    }
+    .summary-card p{
+      display:none;
+    }
+    .health-pill{
+      margin-top:6px;
+      padding:5px 8px;
+      font-size:10px;
+    }
+    .kpi{
+      min-height:112px;
+      padding:12px 14px;
+    }
+    .kpi-title{
+      font-size:11px;
+    }
+    .kpi-icon{
+      width:28px;
+      height:28px;
+      border-radius:9px;
+      font-size:14px;
+    }
+    .kpi-value{
+      font-size:28px;
+      margin-top:6px;
+    }
+    #timePct{
+      font-size:19px;
+      letter-spacing:-.04em;
+    }
+    .kpi-caption{
+      font-size:10.5px;
+      margin-top:2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .mini-breakdown{
+      margin-top:7px;
+      padding-top:8px;
+      gap:4px;
+    }
+    .mini-breakdown b{
+      font-size:13px;
+    }
+    .mini-breakdown span{
+      font-size:9px;
+      margin-top:3px;
     }
 
     .section-grid{
@@ -754,7 +832,7 @@
       font-size:11px;
     }
 
-    @media(max-width:1320px){
+    @media(max-width:1100px){
       .executive-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
       .summary-card{grid-column:1/-1}
       .section-grid,.section-grid-bottom{grid-template-columns:1fr}
