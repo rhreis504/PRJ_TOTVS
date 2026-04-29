@@ -3,280 +3,688 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PRJ Rossi Supermercados | Cockpit PMO</title>
+  <title>Rossi Supermercados | Cockpit PMO</title>
   <style>
     :root{
-      --bg:#f3f6fb;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--card:#fff;
-      --nav:#0b1220;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--violet:#7c3aed;
-      --shadow:0 18px 45px rgba(15,23,42,.10);--radius:20px;
+      --bg:#061426;
+      --bg2:#081b31;
+      --panel:#0b2039;
+      --panel2:#102b4b;
+      --line:rgba(148,163,184,.22);
+      --text:#e5edf8;
+      --muted:#94a3b8;
+      --white:#ffffff;
+      --red:#ef4444;
+      --red2:#dc2626;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --blue:#60a5fa;
+      --cyan:#22d3ee;
+      --shadow:0 20px 60px rgba(0,0,0,.28);
+      --radius:16px;
     }
+
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Roboto,Arial,sans-serif}
-    .layout{display:grid;grid-template-columns:290px 1fr;min-height:100vh}
-    aside{background:linear-gradient(180deg,#0b1220,#111827);color:#fff;padding:26px 20px;position:sticky;top:0;height:100vh;overflow:auto}
-    .brand{display:flex;gap:12px;align-items:center;margin-bottom:26px}
-    .mark{width:44px;height:44px;border-radius:15px;background:linear-gradient(135deg,#38bdf8,#2563eb,#7c3aed)}
-    .brand h1{font-size:17px;margin:0;line-height:1.2}.brand p{font-size:12px;color:#cbd5e1;margin:4px 0 0}
-    nav a{display:block;color:#dbeafe;text-decoration:none;padding:12px 14px;border-radius:12px;margin:6px 0;font-size:14px}
-    nav a:hover,nav a.active{background:rgba(255,255,255,.1);color:#fff}
-    .note{margin-top:22px;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:14px;color:#cbd5e1;font-size:12px;line-height:1.45}
-    main{padding:28px;min-width:0}
-    .hero{background:linear-gradient(135deg,#fff,#f8fafc);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:26px;display:grid;grid-template-columns:1.4fr .9fr;gap:20px}
-    h2{font-size:31px;letter-spacing:-.035em;margin:0 0 8px}.hero p{margin:0;color:#475569;line-height:1.5}
-    .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.badge{padding:8px 11px;border-radius:999px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:800;font-size:12px}
-    .statusbox{background:#0f172a;color:#fff;border-radius:20px;padding:18px;display:flex;flex-direction:column;justify-content:space-between}
-    .statusbox small{color:#bfdbfe;line-height:1.45}
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-    button{border:0;background:var(--blue);color:#fff;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer}
-    button.dark{background:#0f172a}button.light{background:#e2e8f0;color:#0f172a}
-    section{margin-top:24px}.section-title{display:flex;justify-content:space-between;align-items:end;margin-bottom:14px;gap:16px}
-    h3{font-size:22px;margin:0;letter-spacing:-.02em}.section-title small{color:var(--muted)}
-    .grid{display:grid;gap:16px}.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,1fr)}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 10px 28px rgba(15,23,42,.06);padding:18px;min-width:0}
-    .kpi .label{font-size:11px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.05em}.kpi .value{font-size:31px;font-weight:900;margin-top:8px;letter-spacing:-.04em}.kpi .hint{font-size:12px;color:var(--muted);margin-top:6px}
-    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tab{background:#e2e8f0;color:#0f172a}.tab.active{background:#2563eb;color:#fff}
-    .chart{height:245px;display:flex;align-items:end;gap:10px;border-top:1px solid #f1f5f9;padding-top:12px;overflow:hidden}
-    .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0}.bar{width:100%;background:linear-gradient(180deg,#60a5fa,#2563eb);border-radius:10px 10px 4px 4px;min-height:6px}.bar-label{font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}.bar-value{font-weight:900;font-size:12px}
-    .donut-wrap{display:flex;align-items:center;gap:20px;min-height:245px}.donut{width:170px;height:170px;border-radius:50%;background:conic-gradient(#16a34a 0 25%,#d97706 25% 55%,#dc2626 55% 80%,#2563eb 80% 100%);position:relative;flex:0 0 auto}.donut:after{content:"";position:absolute;inset:28px;background:#fff;border-radius:50%}
-    .legend{display:grid;gap:9px;font-size:13px}.legend span{display:flex;gap:8px;align-items:center;color:#334155}.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-    .search{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:14px;margin-bottom:14px}
-    table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em}tbody tr:hover{background:#f8fafc}
-    .pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}.info{background:#dbeafe;color:#1e40af}
-    .timeline{position:relative;padding-left:18px}.timeline:before{content:"";position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:#dbeafe}.tl{position:relative;padding:0 0 16px 18px}.tl:before{content:"";position:absolute;left:-17px;top:3px;width:11px;height:11px;border-radius:50%;background:#2563eb;border:3px solid #dbeafe}.tl strong{display:block}.tl small{color:#64748b}
-    .alert{border:1px dashed #93c5fd;background:#eff6ff;color:#1e3a8a;border-radius:16px;padding:14px;font-size:13px;line-height:1.5}
-    .footer{font-size:12px;color:#64748b;text-align:center;margin:28px 0 4px}
-    @media(max-width:1100px){.layout{grid-template-columns:1fr}aside{position:relative;height:auto}.hero,.kpis,.two,.three{grid-template-columns:1fr}main{padding:18px}}
+    body{
+      margin:0;
+      font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;
+      background:radial-gradient(circle at top left,#14345a 0,#061426 34%,#04101f 100%);
+      color:var(--text);
+      overflow-x:hidden;
+    }
+
+    .app{
+      min-height:100vh;
+      display:grid;
+      grid-template-columns:220px 1fr;
+    }
+
+    aside{
+      background:linear-gradient(180deg,#07172a,#061426);
+      border-right:1px solid var(--line);
+      position:sticky;
+      top:0;
+      height:100vh;
+      overflow:auto;
+    }
+
+    .logo{
+      height:92px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:20px;
+      background:linear-gradient(135deg,#dc2626,#991b1b);
+      border-bottom:1px solid rgba(255,255,255,.14);
+    }
+
+    .logo .cart{
+      width:38px;height:38px;border-radius:10px;
+      display:grid;place-items:center;
+      background:rgba(255,255,255,.13);
+      font-size:24px;
+    }
+    .logo strong{font-size:30px;line-height:.85;letter-spacing:-.04em}
+    .logo span{display:block;font-size:11px;letter-spacing:.06em;font-weight:900;margin-top:4px}
+
+    nav{padding:16px 14px}
+    nav a{
+      display:flex;align-items:center;gap:12px;
+      color:#dbeafe;text-decoration:none;
+      padding:13px 14px;border-radius:10px;
+      margin:5px 0;font-size:13px;font-weight:800;
+    }
+    nav a.active, nav a:hover{
+      background:linear-gradient(135deg,#ef4444,#b91c1c);
+      color:white;
+      box-shadow:0 10px 26px rgba(220,38,38,.22);
+    }
+    .filters{
+      border-top:1px solid var(--line);
+      margin:18px 14px 0;
+      padding-top:14px;
+    }
+    .filters h4{margin:0 0 10px;color:#ef4444;font-size:13px}
+    select,input{
+      width:100%;
+      background:#10243f;
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:9px;
+      padding:10px;
+      margin-bottom:9px;
+      outline:none;
+    }
+    .sys{
+      margin:22px 16px;
+      font-size:12px;
+      color:#86efac;
+      display:flex;gap:8px;align-items:center;
+    }
+    .sys:before{content:"";width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green)}
+
+    main{min-width:0}
+    header{
+      height:92px;
+      display:grid;
+      grid-template-columns:1.4fr repeat(4,auto);
+      gap:26px;
+      align-items:center;
+      padding:18px 26px;
+      border-bottom:1px solid var(--line);
+      background:rgba(8,27,49,.76);
+      backdrop-filter:blur(8px);
+      position:sticky;
+      top:0;
+      z-index:5;
+    }
+    .title h1{margin:0;font-size:22px;letter-spacing:-.02em}
+    .title p{margin:6px 0 0;color:#b6c5d8;font-size:13px}
+    .headitem{display:flex;gap:10px;align-items:center;min-width:160px}
+    .headitem .ico{font-size:24px;color:#9fb7d7}
+    .headitem small{display:block;color:#9fb7d7;font-size:10px;font-weight:800;text-transform:uppercase}
+    .headitem strong{display:block;font-size:13px}
+    button{
+      border:1px solid var(--line);
+      background:#10243f;
+      color:var(--text);
+      padding:12px 14px;
+      border-radius:10px;
+      font-weight:900;
+      cursor:pointer;
+    }
+    button:hover{background:#17365e}
+    .content{padding:22px 26px 24px}
+
+    .kpis{
+      display:grid;
+      grid-template-columns:1.05fr repeat(4,1fr);
+      gap:14px;
+    }
+    .card{
+      background:linear-gradient(180deg,rgba(16,43,75,.84),rgba(7,23,42,.88));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      min-width:0;
+    }
+    .kpi{
+      padding:18px;
+      min-height:148px;
+      position:relative;
+      overflow:hidden;
+    }
+    .kpi h3,.panel h3{margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:.02em}
+    .kpi .big{font-size:42px;font-weight:900;letter-spacing:-.05em;text-align:center;margin:10px 0 4px}
+    .kpi .sub{text-align:center;color:#cbd5e1;font-size:13px}
+    .split{display:flex;justify-content:space-around;border-top:1px solid var(--line);margin-top:14px;padding-top:11px}
+    .split b{display:block;font-size:21px}.split span{font-size:11px;color:#cbd5e1}
+    .g{color:var(--green)}.y{color:var(--yellow)}.r{color:var(--red)}.b{color:var(--blue)}
+
+    .progress-card{display:grid;place-items:center}
+    .gauge{
+      width:122px;height:122px;border-radius:50%;
+      background:conic-gradient(var(--green) var(--progress,0%),#1d3555 0);
+      position:relative;
+      display:grid;place-items:center;
+    }
+    .gauge:before{content:"";position:absolute;inset:13px;border-radius:50%;background:#0b2039}
+    .gauge strong{position:relative;font-size:32px}
+    .okmsg{color:#86efac;font-size:12px;font-weight:800;text-align:center;margin-top:8px}
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.4fr .65fr .78fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    .grid2{
+      display:grid;
+      grid-template-columns:1.1fr .62fr 1fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    .panel{padding:16px}
+    .timeline{
+      min-height:188px;
+      display:flex;
+      align-items:center;
+      padding:22px 18px 4px;
+      overflow:hidden;
+    }
+    .line{
+      width:100%;
+      height:2px;
+      background:#55708f;
+      position:relative;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .milestone{
+      position:relative;
+      width:96px;
+      text-align:center;
+      transform:translateY(-28px);
+      flex:0 0 auto;
+    }
+    .milestone .dot{
+      width:20px;height:20px;border-radius:50%;
+      margin:8px auto 0;
+      border:2px solid #93c5fd;
+      background:#0b2039;
+    }
+    .milestone.done .dot{background:var(--green);border-color:var(--green)}
+    .milestone.current .dot{background:#0b2039;border:5px solid var(--red);box-shadow:0 0 0 5px rgba(239,68,68,.18)}
+    .milestone small{display:block;color:#dbeafe;font-size:11px;line-height:1.25}
+    .milestone b{display:block;font-size:11px;margin-bottom:2px}
+    .months{display:flex;justify-content:space-between;color:#cbd5e1;font-size:12px;margin-top:8px}
+
+    .donut-wrap{display:flex;align-items:center;gap:18px;min-height:190px}
+    .donut{
+      width:134px;height:134px;border-radius:50%;
+      background:conic-gradient(var(--green) 0 50%,var(--yellow) 50% 78%,var(--red) 78% 100%);
+      position:relative;flex:0 0 auto;
+    }
+    .donut:after{content:"";position:absolute;inset:26px;border-radius:50%;background:#0b2039}
+    .legend{display:grid;gap:10px;font-size:12px;min-width:150px}
+    .legend span{display:flex;align-items:center;gap:8px;color:#dbeafe}
+    .sw{width:11px;height:11px;border-radius:2px;display:inline-block}
+
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{border-bottom:1px solid rgba(148,163,184,.16);padding:9px 8px;text-align:left;vertical-align:top}
+    th{color:#cbd5e1;font-size:10px;text-transform:uppercase;letter-spacing:.04em;background:rgba(255,255,255,.025)}
+    td{color:#dbeafe}
+    .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;font-weight:900;font-size:11px}
+    .pill.alta,.pill.critico,.pill.atrasada,.pill.aberta{background:rgba(239,68,68,.16);color:#fca5a5}
+    .pill.media,.pill.andamento,.pill.pendente{background:rgba(250,204,21,.13);color:#fde047}
+    .pill.baixa,.pill.concluida,.pill.ativo{background:rgba(34,197,94,.14);color:#86efac}
+    .bars{height:184px;display:flex;align-items:end;gap:28px;padding:8px 20px 0;border-left:1px solid rgba(148,163,184,.18);border-bottom:1px solid rgba(148,163,184,.18)}
+    .barbox{flex:1;text-align:center}
+    .bar{height:40px;border-radius:4px 4px 0 0;background:var(--green);min-height:4px}
+    .barbox:nth-child(1) .bar{background:var(--red)}
+    .barbox:nth-child(2) .bar{background:var(--yellow)}
+    .barbox:nth-child(3) .bar{background:var(--green)}
+    .barbox b{display:block;margin-bottom:5px}
+    .barbox span{display:block;margin-top:8px;color:#cbd5e1;font-size:12px}
+    .footerbar{
+      margin-top:18px;
+      border-top:1px solid var(--line);
+      padding:16px 0 0;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      color:#cbd5e1;
+      font-size:13px;
+    }
+
+    .loading{
+      position:fixed;right:18px;bottom:18px;background:#0b2039;border:1px solid var(--line);
+      padding:12px 14px;border-radius:12px;color:#dbeafe;box-shadow:var(--shadow);font-size:12px;z-index:10;
+    }
+    .hide{display:none!important}
+    @media(max-width:1200px){
+      .app{grid-template-columns:1fr}aside{position:relative;height:auto}.logo{height:auto}nav{display:grid;grid-template-columns:repeat(2,1fr)}
+      header{position:relative;height:auto;grid-template-columns:1fr}.kpis,.grid,.grid2{grid-template-columns:1fr}
+    }
   </style>
 </head>
+
 <body>
-<div class="layout">
+<div class="app">
   <aside>
-    <div class="brand"><div class="mark"></div><div><h1>PRJ Rossi Supermercados</h1><p>Cockpit PMO</p></div></div>
+    <div class="logo">
+      <div class="cart">🛒</div>
+      <div><strong>Rossi</strong><span>SUPERMERCADOS</span></div>
+    </div>
+
     <nav>
-      <a class="active" href="#visao">Visão executiva</a>
-      <a href="#dashboards">Dashboards</a>
-      <a href="#riscos">Riscos</a>
-      <a href="#pendencias">Pendências</a>
-      <a href="#stakeholders">Stakeholders</a>
-      <a href="#dados">Base de dados</a>
+      <a class="active" href="#geral">🏠 VISÃO GERAL</a>
+      <a href="#cronograma">📅 CRONOGRAMA</a>
+      <a href="#pendencias">☑️ PENDÊNCIAS</a>
+      <a href="#riscos">⚠️ RISCOS</a>
+      <a href="#stakeholders">👥 STAKEHOLDERS</a>
+      <a href="#relatorios">📄 RELATÓRIOS</a>
     </nav>
-    <div class="note">Fonte: abas publicadas em CSV no Google Sheets. O painel é estático e pode ser publicado no GitHub Pages como <strong>index.html</strong>.</div>
+
+    <div class="filters">
+      <h4>FILTROS</h4>
+      <select id="filterStatus" onchange="renderAll()"><option value="">Todos os status</option></select>
+      <select id="filterResp" onchange="renderAll()"><option value="">Todos os responsáveis</option></select>
+      <input id="searchBox" oninput="renderAll()" placeholder="Pesquisar no projeto..." />
+      <button onclick="clearFilters()" style="width:100%;margin-top:4px">LIMPAR FILTROS</button>
+    </div>
+
+    <div class="sys">Sistema conectado</div>
   </aside>
 
   <main>
-    <div class="hero" id="visao">
-      <div>
-        <h2>Monitoramento e Controle do Projeto</h2>
-        <p>Visão consolidada de riscos, pendências e stakeholders do projeto Rossi Supermercados, com leitura automática das abas publicadas.</p>
-        <div class="badges"><span class="badge">Riscos</span><span class="badge">Pendências</span><span class="badge">Mapa de Stakeholders</span><span class="badge">PMO</span></div>
-        <div class="actions">
-          <button onclick="loadAll()">Atualizar dados</button>
-          <button class="dark" onclick="downloadSnapshot()">Exportar resumo JSON</button>
-          <button class="light" onclick="window.print()">Imprimir / PDF</button>
-        </div>
+    <header>
+      <div class="title">
+        <h1>COCKPIT DO PROJETO</h1>
+        <p>PMO · Monitoramento e Controle em Tempo Real</p>
       </div>
-      <div class="statusbox">
-        <div><strong>Status da integração</strong><br><small id="loadStatus">Aguardando carga inicial.</small></div>
-        <small id="lastUpdate">Última atualização: não carregada</small>
+      <div class="headitem"><div class="ico">👤</div><div><small>Projeto</small><strong>MIT013 · Projeto Estratégico</strong></div></div>
+      <div class="headitem"><div class="ico">⭐</div><div><small>Patrocinador</small><strong>Rossi Supermercados</strong></div></div>
+      <div class="headitem"><div class="ico">🧑‍💼</div><div><small>Gerente do Projeto</small><strong>Equipe PMO</strong></div></div>
+      <button onclick="window.print()">⬇ EXPORTAR RELATÓRIO</button>
+    </header>
+
+    <div class="content" id="geral">
+      <section class="kpis">
+        <div class="card kpi progress-card">
+          <h3>Progresso geral</h3>
+          <div class="gauge" id="gauge"><strong id="progressPct">0%</strong></div>
+          <div class="okmsg" id="projectHealth">Aguardando dados</div>
+        </div>
+
+        <div class="card kpi">
+          <h3>📋 Tarefas</h3>
+          <div class="big" id="taskTotal">0</div>
+          <div class="sub">Total de pendências</div>
+          <div class="split"><div><b class="g" id="taskDone">0</b><span>Concluídas</span></div><div><b class="y" id="taskDoing">0</b><span>Em andamento</span></div><div><b class="r" id="taskLate">0</b><span>Atrasadas</span></div></div>
+        </div>
+
+        <div class="card kpi">
+          <h3>☑️ Pendências</h3>
+          <div class="big" id="pendOpen">0</div>
+          <div class="sub">Pendências abertas</div>
+          <div class="split"><div><b class="r" id="pendHigh">0</b><span>Críticas</span></div><div><b class="y" id="pendMed">0</b><span>Médias</span></div><div><b class="g" id="pendLow">0</b><span>Baixas</span></div></div>
+        </div>
+
+        <div class="card kpi">
+          <h3>🛡️ Riscos</h3>
+          <div class="big" id="riskTotal">0</div>
+          <div class="sub">Riscos identificados</div>
+          <div class="split"><div><b class="r" id="riskHigh">0</b><span>Altos</span></div><div><b class="y" id="riskMed">0</b><span>Médios</span></div><div><b class="g" id="riskLow">0</b><span>Baixos</span></div></div>
+        </div>
+
+        <div class="card kpi">
+          <h3>🕒 Prazo</h3>
+          <div class="big" id="timePct">0%</div>
+          <div class="sub">Do prazo total estimado</div>
+          <div class="split"><div><b class="b" id="dateStart">--</b><span>Início</span></div><div><b class="b" id="dateEnd">--</b><span>Término</span></div></div>
+        </div>
+      </section>
+
+      <section class="grid" id="cronograma">
+        <div class="card panel">
+          <h3>Linha do tempo do projeto</h3>
+          <div class="timeline"><div class="line" id="timelineLine"></div></div>
+          <div class="months" id="timelineMonths"></div>
+        </div>
+
+        <div class="card panel">
+          <h3>Tarefas por status</h3>
+          <div class="donut-wrap"><div class="donut" id="taskDonut"></div><div class="legend" id="taskLegend"></div></div>
+        </div>
+
+        <div class="card panel">
+          <h3>Pendências por prioridade</h3>
+          <div class="donut-wrap"><div class="donut" id="priorityDonut"></div><div class="legend" id="priorityLegend"></div></div>
+        </div>
+      </section>
+
+      <section class="grid2">
+        <div class="card panel" id="pendencias">
+          <h3>Pendências recentes</h3>
+          <table id="pendTable"></table>
+        </div>
+
+        <div class="card panel" id="riscos">
+          <h3>Riscos por nível</h3>
+          <div class="bars" id="riskBars"></div>
+        </div>
+
+        <div class="card panel" id="stakeholders">
+          <h3>Stakeholders chave</h3>
+          <table id="stakeTable"></table>
+        </div>
+      </section>
+
+      <section class="card panel" id="relatorios" style="margin-top:14px">
+        <h3>Riscos recentes</h3>
+        <table id="riskTable"></table>
+      </section>
+
+      <div class="footerbar">
+        <div>🟢 Sistema conectado às abas publicadas do Google Sheets</div>
+        <div id="lastUpdate">Última atualização: --</div>
       </div>
     </div>
-
-    <section>
-      <div class="grid kpis">
-        <div class="card kpi"><div class="label">Riscos</div><div id="kpiRiscos" class="value">0</div><div class="hint">Registros na aba</div></div>
-        <div class="card kpi"><div class="label">Pendências</div><div id="kpiPendencias" class="value">0</div><div class="hint">Registros na aba</div></div>
-        <div class="card kpi"><div class="label">Stakeholders</div><div id="kpiStakeholders" class="value">0</div><div class="hint">Registros na aba</div></div>
-        <div class="card kpi"><div class="label">Críticos / alerta</div><div id="kpiCriticos" class="value">0</div><div class="hint">Por palavra-chave/status</div></div>
-        <div class="card kpi"><div class="label">Concluídos</div><div id="kpiConcluidos" class="value">0</div><div class="hint">Pendências finalizadas</div></div>
-        <div class="card kpi"><div class="label">Responsáveis</div><div id="kpiResponsaveis" class="value">0</div><div class="hint">Pessoas/áreas distintas</div></div>
-      </div>
-    </section>
-
-    <section id="dashboards">
-      <div class="section-title"><h3>Dashboards executivos</h3><small>Consolidação automática das três abas</small></div>
-      <div class="grid two">
-        <div class="card"><h4>Status geral</h4><div class="donut-wrap"><div id="donut" class="donut"></div><div id="statusLegend" class="legend"></div></div></div>
-        <div class="card"><h4>Volume por responsável / área</h4><div id="ownerChart" class="chart"></div></div>
-      </div>
-      <div class="grid two" style="margin-top:16px">
-        <div class="card"><h4>Riscos por classificação / categoria</h4><div id="riskChart" class="chart"></div></div>
-        <div class="card"><h4>Itens críticos destacados</h4><div id="criticalList" class="timeline"></div></div>
-      </div>
-    </section>
-
-    <section id="riscos">
-      <div class="section-title"><h3>Riscos</h3><small>Aba CSV: Riscos</small></div>
-      <div class="card"><input id="searchRiscos" class="search" placeholder="Pesquisar riscos..." oninput="renderTable('riscos')" /><div style="overflow:auto"><table id="tableRiscos"></table></div></div>
-    </section>
-
-    <section id="pendencias">
-      <div class="section-title"><h3>Pendências</h3><small>Aba CSV: Pendências</small></div>
-      <div class="card"><input id="searchPendencias" class="search" placeholder="Pesquisar pendências..." oninput="renderTable('pendencias')" /><div style="overflow:auto"><table id="tablePendencias"></table></div></div>
-    </section>
-
-    <section id="stakeholders">
-      <div class="section-title"><h3>Mapa de Stakeholders</h3><small>Aba CSV: Mapa de StakeHolders</small></div>
-      <div class="card"><input id="searchStakeholders" class="search" placeholder="Pesquisar stakeholders..." oninput="renderTable('stakeholders')" /><div style="overflow:auto"><table id="tableStakeholders"></table></div></div>
-    </section>
-
-    <section id="dados">
-      <div class="section-title"><h3>Diagnóstico da base</h3><small>Leitura das abas publicadas</small></div>
-      <div id="diagnostico" class="alert">Nenhuma carga realizada.</div>
-    </section>
-    <div class="footer">PRJ Rossi Supermercados | Cockpit PMO | MIT013</div>
   </main>
 </div>
 
+<div class="loading" id="loading">Carregando dados da planilha publicada...</div>
+
 <script>
 const SOURCES = {
-  riscos: {
-    label: "Riscos",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv"
-  },
-  pendencias: {
-    label: "Pendências",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv"
-  },
-  stakeholders: {
-    label: "Mapa de Stakeholders",
-    url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv"
-  }
+  riscos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv",
+  pendencias: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv",
+  stakeholders: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv"
 };
-let DATA = {riscos:{headers:[],rows:[],error:null},pendencias:{headers:[],rows:[],error:null},stakeholders:{headers:[],rows:[],error:null}};
 
-function norm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()}
-function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function parseCSV(text){
-  const rows=[]; let row=[], cur="", q=false;
-  for(let i=0;i<text.length;i++){const c=text[i], n=text[i+1];
-    if(c=='"' && q && n=='"'){cur+='"';i++}
-    else if(c=='"'){q=!q}
-    else if(c=="," && !q){row.push(cur);cur=""}
-    else if((c=="\n"||c=="\r")&&!q){if(cur!==""||row.length){row.push(cur);rows.push(row);row=[];cur=""} if(c=="\r"&&n=="\n")i++}
-    else cur+=c;
+let DB = {
+  riscos:{headers:[],rows:[]},
+  pendencias:{headers:[],rows:[]},
+  stakeholders:{headers:[],rows:[]}
+};
+
+function norm(s){
+  return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+}
+function esc(s){
+  return String(s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+function csvParse(text){
+  const rows=[]; let row=[], cur="", quote=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if(c=='"' && quote && n=='"'){cur+='"';i++;}
+    else if(c=='"'){quote=!quote;}
+    else if(c=="," && !quote){row.push(cur);cur="";}
+    else if((c=="\n" || c=="\r") && !quote){
+      if(cur!=="" || row.length){row.push(cur);rows.push(row);row=[];cur="";}
+      if(c=="\r" && n=="\n") i++;
+    } else cur+=c;
   }
-  if(cur!==""||row.length){row.push(cur);rows.push(row)}
+  if(cur!=="" || row.length){row.push(cur);rows.push(row);}
   return rows.filter(r=>r.some(v=>String(v).trim()!=""));
 }
-function toObjects(matrix){
+function matrixToObjects(matrix){
   if(!matrix.length) return {headers:[],rows:[]};
-  let headerIndex = matrix.findIndex(r => r.filter(c => String(c).trim()).length >= 2);
-  if(headerIndex < 0) headerIndex = 0;
-  const headers = matrix[headerIndex].map((h,i)=>String(h||`Coluna ${i+1}`).trim() || `Coluna ${i+1}`);
-  const rows = matrix.slice(headerIndex+1).map(r=>{
-    const o={}; headers.forEach((h,i)=>o[h]=String(r[i]||"").trim()); return o;
+  let hi = matrix.findIndex(r => r.filter(c=>String(c).trim()).length >= 2);
+  if(hi < 0) hi = 0;
+  const headers = matrix[hi].map((h,i)=>String(h||`Coluna ${i+1}`).trim() || `Coluna ${i+1}`);
+  const rows = matrix.slice(hi+1).map(r=>{
+    const obj={}; headers.forEach((h,i)=>obj[h]=String(r[i]||"").trim()); return obj;
   }).filter(o=>Object.values(o).some(Boolean));
   return {headers,rows};
 }
-function findCol(headers,cands){
-  const ns=headers.map(h=>norm(h));
-  for(const c of cands){const nc=norm(c); const i=ns.findIndex(h=>h==nc||h.includes(nc)||nc.includes(h)); if(i>=0)return headers[i]}
+function col(headers, names){
+  const hs=headers.map(h=>norm(h));
+  for(const n of names){
+    const nn=norm(n);
+    const i=hs.findIndex(h=>h===nn || h.includes(nn) || nn.includes(h));
+    if(i>=0) return headers[i];
+  }
   return null;
 }
-function classify(v,row){
-  const s=norm(v||Object.values(row||{}).join(" "));
-  if(/concl|final|feito|resol|encerr|ok|validado|aprovado/.test(s)) return "Concluído";
-  if(/crit|alto|alta|risco alto|bloque|imped|atras|problema|vermelho/.test(s)) return "Crítico";
-  if(/andamento|exec|tratativa|curso|iniciado/.test(s)) return "Em andamento";
-  if(/pend|abert|aguard|valid|analise|aten/.test(s)) return "Pendente";
-  return "Sem status";
+function value(row, headers, names){
+  const c=col(headers,names);
+  return c ? row[c] : "";
+}
+function classifyStatus(text){
+  const s=norm(text);
+  if(/concl|final|feito|resol|encerr|ok|validado|aprovado|baixo|baixa|ativo/.test(s)) return "baixo";
+  if(/andamento|exec|curso|tratativa|medio|media|médio|média|pend|aguard|aten/.test(s)) return "medio";
+  if(/crit|alto|alta|atras|bloque|imped|problema|abert|vermelho/.test(s)) return "alto";
+  return "medio";
+}
+function isDone(row){
+  const s=norm(Object.values(row).join(" "));
+  return /concl|final|feito|resol|encerr|ok|validado|aprovado/.test(s);
+}
+function isDoing(row){
+  const s=norm(Object.values(row).join(" "));
+  return /andamento|exec|curso|tratativa|iniciado/.test(s);
+}
+function isLate(row){
+  const s=norm(Object.values(row).join(" "));
+  return /atras|vencid|bloque|imped|crit|problema/.test(s);
+}
+function isHigh(row){ return classifyStatus(Object.values(row).join(" "))==="alto"; }
+function isLow(row){ return classifyStatus(Object.values(row).join(" "))==="baixo"; }
+function isMedium(row){ return classifyStatus(Object.values(row).join(" "))==="medio"; }
+
+async function loadCSV(key){
+  const url = SOURCES[key] + "&cacheBust=" + Date.now();
+  const res = await fetch(url, {cache:"no-store"});
+  if(!res.ok) throw new Error(key + ": HTTP " + res.status);
+  const text = await res.text();
+  DB[key] = matrixToObjects(csvParse(text));
+}
+async function loadAll(){
+  try{
+    loading.classList.remove("hide");
+    await Promise.all(Object.keys(SOURCES).map(loadCSV));
+    buildFilters();
+    renderAll();
+    loading.classList.add("hide");
+  }catch(e){
+    loading.textContent = "Erro ao carregar dados. Verifique se as abas seguem publicadas em CSV.";
+    console.error(e);
+  }
+}
+
+function filteredRows(key){
+  const q=norm(document.getElementById("searchBox").value);
+  const fStatus=document.getElementById("filterStatus").value;
+  const fResp=document.getElementById("filterResp").value;
+  const d=DB[key];
+  return d.rows.filter(r=>{
+    const all=Object.values(r).join(" ");
+    const cls=classifyStatus(all);
+    const resp=value(r,d.headers,["responsável","responsavel","owner","dono","área","area","stakeholder","nome"]);
+    return (!q || norm(all).includes(q)) && (!fStatus || cls===fStatus) && (!fResp || resp===fResp);
+  });
+}
+
+function buildFilters(){
+  const respSet=new Set();
+  const statusSet=new Set(["alto","medio","baixo"]);
+  Object.keys(DB).forEach(k=>{
+    const d=DB[k];
+    d.rows.forEach(r=>{
+      const resp=value(r,d.headers,["responsável","responsavel","owner","dono","área","area","stakeholder","nome"]);
+      if(resp) respSet.add(resp);
+    });
+  });
+  filterStatus.innerHTML = '<option value="">Todos os status</option>' + [...statusSet].map(s=>`<option value="${s}">${s==="alto"?"Crítico/Alto":s==="medio"?"Médio/Em andamento":"Baixo/Concluído"}</option>`).join("");
+  filterResp.innerHTML = '<option value="">Todos os responsáveis</option>' + [...respSet].sort().map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
+}
+
+function countBy(rows, fn){
+  const m={}; rows.forEach(r=>{const k=fn(r)||"Não informado"; m[k]=(m[k]||0)+1;});
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+}
+function setDonut(id, legendId, items){
+  const colors=["#22c55e","#facc15","#ef4444","#60a5fa","#a78bfa"];
+  const total=items.reduce((a,b)=>a+b[1],0)||1;
+  let start=0;
+  const parts=items.map(([k,v],i)=>{
+    const end=start+(v/total)*100;
+    const p=`${colors[i%colors.length]} ${start}% ${end}%`;
+    start=end;
+    return p;
+  });
+  document.getElementById(id).style.background=`conic-gradient(${parts.join(",")})`;
+  document.getElementById(legendId).innerHTML=items.map(([k,v],i)=>`
+    <span><i class="sw" style="background:${colors[i%colors.length]}"></i>${esc(k)} <b>${v}</b></span>
+  `).join("") || "<span>Sem dados</span>";
+}
+function table(elId, headers, rows, fields, limit=6){
+  const thead = fields.map(f=>`<th>${esc(f.label)}</th>`).join("");
+  const body = rows.slice(0,limit).map(r=>`<tr>${fields.map(f=>{
+    const v=f.get(r)||"";
+    if(f.pill) return `<td><span class="pill ${f.pill(v,r)}">${esc(v||"—")}</span></td>`;
+    return `<td>${esc(v)}</td>`;
+  }).join("")}</tr>`).join("");
+  document.getElementById(elId).innerHTML=`<thead><tr>${thead}</tr></thead><tbody>${body || `<tr><td colspan="${fields.length}">Sem registros para exibir.</td></tr>`}</tbody>`;
+}
+
+function renderAll(){
+  const pend=filteredRows("pendencias");
+  const riscos=filteredRows("riscos");
+  const stakes=filteredRows("stakeholders");
+
+  const done=pend.filter(isDone).length;
+  const doing=pend.filter(isDoing).length;
+  const late=pend.filter(isLate).length;
+  const open=Math.max(pend.length-done,0);
+  const progress = pend.length ? Math.round((done/pend.length)*100) : 0;
+
+  progressPct.textContent = progress + "%";
+  gauge.style.setProperty("--progress", progress + "%");
+  projectHealth.textContent = progress >= 70 ? "Dentro do previsto" : progress >= 40 ? "Em atenção" : "Necessita acompanhamento";
+
+  taskTotal.textContent = pend.length;
+  taskDone.textContent = done;
+  taskDoing.textContent = doing;
+  taskLate.textContent = late;
+  pendOpen.textContent = open;
+
+  pendHigh.textContent = pend.filter(isHigh).length;
+  pendMed.textContent = pend.filter(isMedium).length;
+  pendLow.textContent = pend.filter(isLow).length;
+
+  riskTotal.textContent = riscos.length;
+  riskHigh.textContent = riscos.filter(isHigh).length;
+  riskMed.textContent = riscos.filter(isMedium).length;
+  riskLow.textContent = riscos.filter(isLow).length;
+
+  const dates = extractDates([...pend,...riscos]);
+  dateStart.textContent = dates.start || "--";
+  dateEnd.textContent = dates.end || "--";
+  timePct.textContent = dates.pct + "%";
+
+  setDonut("taskDonut","taskLegend",[
+    ["Concluídas",done],
+    ["Em andamento",doing || Math.max(open-late,0)],
+    ["Atrasadas",late]
+  ]);
+  setDonut("priorityDonut","priorityLegend",[
+    ["Baixas",pend.filter(isLow).length],
+    ["Médias",pend.filter(isMedium).length],
+    ["Críticas",pend.filter(isHigh).length]
+  ]);
+
+  renderTimeline(dates);
+  renderRiskBars(riscos);
+
+  const ph=DB.pendencias.headers;
+  table("pendTable",ph,pend,[
+    {label:"ID",get:r=>value(r,ph,["id","código","codigo"]) || "—"},
+    {label:"Pendência",get:r=>value(r,ph,["pendência","pendencia","descrição","descricao","atividade","assunto"]) || Object.values(r)[0]},
+    {label:"Prioridade",get:r=>value(r,ph,["prioridade","criticidade","classificação","classificacao","status"]) || classifyLabel(r), pill:(v,r)=>pillClass(v||classifyLabel(r))},
+    {label:"Responsável",get:r=>value(r,ph,["responsável","responsavel","owner","dono","área","area"])},
+    {label:"Prazo",get:r=>value(r,ph,["prazo","data","vencimento","fim"])},
+    {label:"Status",get:r=>value(r,ph,["status","situação","situacao","andamento"]) || classifyLabel(r), pill:(v)=>pillClass(v)}
+  ],7);
+
+  const sh=DB.stakeholders.headers;
+  table("stakeTable",sh,stakes,[
+    {label:"Stakeholder",get:r=>value(r,sh,["stakeholder","nome","área","area"]) || Object.values(r)[0]},
+    {label:"Função",get:r=>value(r,sh,["função","funcao","papel","cargo","perfil"])},
+    {label:"Influência",get:r=>value(r,sh,["influência","influencia","poder","impacto"]) || classifyLabel(r), pill:v=>pillClass(v)},
+    {label:"Interesse",get:r=>value(r,sh,["interesse","engajamento"])},
+    {label:"Status",get:r=>value(r,sh,["status","situação","situacao"]) || "Ativo", pill:v=>pillClass(v)}
+  ],7);
+
+  const rh=DB.riscos.headers;
+  table("riskTable",rh,riscos,[
+    {label:"Risco",get:r=>value(r,rh,["risco","descrição","descricao","evento","ameaça","ameaca"]) || Object.values(r)[0]},
+    {label:"Nível",get:r=>value(r,rh,["nível","nivel","criticidade","classificação","classificacao","impacto"]) || classifyLabel(r), pill:v=>pillClass(v)},
+    {label:"Responsável",get:r=>value(r,rh,["responsável","responsavel","owner","dono","área","area"])},
+    {label:"Plano / Mitigação",get:r=>value(r,rh,["mitigação","mitigacao","plano","ação","acao","tratativa"])},
+    {label:"Status",get:r=>value(r,rh,["status","situação","situacao","andamento"]) || classifyLabel(r), pill:v=>pillClass(v)}
+  ],6);
+
+  lastUpdate.textContent = "Última atualização: " + new Date().toLocaleString("pt-BR");
+}
+
+function classifyLabel(row){
+  const c=classifyStatus(Object.values(row).join(" "));
+  return c==="alto"?"Alta":c==="medio"?"Média":"Baixa";
 }
 function pillClass(v){
   const s=norm(v);
-  if(/concl|final|feito|ok|validado|aprovado/.test(s)) return "ok";
-  if(/crit|alto|risco|bloque|imped|atras|problema|vermelho/.test(s)) return "bad";
-  if(/andamento|curso|exec|tratativa/.test(s)) return "info";
-  return "warn";
+  if(/alto|alta|crit|atras|abert|bloque|imped|problema/.test(s)) return "alta aberta critico atrasada";
+  if(/medio|médio|media|média|andamento|pend|aguard/.test(s)) return "media andamento pendente";
+  return "baixa concluida ativo";
 }
-async function loadOne(key){
-  const res = await fetch(SOURCES[key].url + "&cacheBust=" + Date.now(), {cache:"no-store"});
-  if(!res.ok) throw new Error("HTTP " + res.status);
-  const text = await res.text();
-  const obj = toObjects(parseCSV(text));
-  DATA[key] = {...obj,error:null};
+function extractDates(rows){
+  const values=[];
+  rows.forEach(r=>Object.values(r).forEach(v=>{
+    const s=String(v||"");
+    const m=s.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+    if(m){
+      let y=Number(m[3]); if(y<100)y+=2000;
+      const d=new Date(y,Number(m[2])-1,Number(m[1]));
+      if(!isNaN(d)) values.push(d);
+    }
+  }));
+  if(values.length<2) return {start:"--",end:"--",pct:0,dates:[]};
+  values.sort((a,b)=>a-b);
+  const start=values[0], end=values[values.length-1], now=new Date();
+  const pct=Math.max(0,Math.min(100,Math.round(((now-start)/(end-start))*100)));
+  return {start:fmt(start),end:fmt(end),pct,dates:values};
 }
-async function loadAll(){
-  loadStatus.textContent = "Carregando abas publicadas...";
-  const keys = Object.keys(SOURCES);
-  const results = await Promise.allSettled(keys.map(k=>loadOne(k)));
-  results.forEach((r,i)=>{ if(r.status==="rejected") DATA[keys[i]].error = r.reason.message; });
+function fmt(d){return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"});}
+function renderTimeline(dates){
+  const labels=["Iniciação","Planejamento","Execução 1","Execução 2","Testes","Implantação","Encerramento"];
+  const ds = dates.dates && dates.dates.length ? dates.dates : [];
+  timelineLine.innerHTML = labels.map((l,i)=>{
+    const cls=i<3?"done":i===3?"current":"";
+    const dt=ds[i] ? fmt(ds[i]).slice(0,5) : "--";
+    return `<div class="milestone ${cls}"><small><b>${l}</b>${dt}</small><div class="dot"></div></div>`;
+  }).join("");
+  timelineMonths.innerHTML = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET"].map(m=>`<span>${m}/25</span>`).join("");
+}
+function renderRiskBars(rows){
+  const high=rows.filter(isHigh).length, med=rows.filter(isMedium).length, low=rows.filter(isLow).length;
+  const max=Math.max(1,high,med,low);
+  riskBars.innerHTML=[
+    ["Alto",high],["Médio",med],["Baixo",low]
+  ].map(([k,v])=>`<div class="barbox"><b>${v}</b><div class="bar" style="height:${Math.max(6,(v/max)*132)}px"></div><span>${k}</span></div>`).join("");
+}
+function clearFilters(){
+  filterStatus.value="";
+  filterResp.value="";
+  searchBox.value="";
   renderAll();
 }
-function allRows(){return Object.entries(DATA).flatMap(([k,d])=>d.rows.map(r=>({...r,__aba:SOURCES[k].label,__key:k})))}
-function renderAll(){
-  const pend = DATA.pendencias.rows, riscos = DATA.riscos.rows, st = DATA.stakeholders.rows;
-  kpiRiscos.textContent = riscos.length; kpiPendencias.textContent = pend.length; kpiStakeholders.textContent = st.length;
-  const all = allRows();
-  const statusColPend = findCol(DATA.pendencias.headers,["status","situação","situacao","andamento"]);
-  const done = pend.filter(r=>classify(statusColPend ? r[statusColPend] : "",r)==="Concluído").length;
-  const crit = all.filter(r=>/crit|risco alto|bloque|imped|atras|problema|vermelho/i.test(Object.values(r).join(" "))).length;
-  kpiConcluidos.textContent = done; kpiCriticos.textContent = crit;
-  const ownerCols = [findCol(DATA.riscos.headers,["responsável","responsavel","owner","dono","area","área"]),findCol(DATA.pendencias.headers,["responsável","responsavel","owner","dono","area","área"]),findCol(DATA.stakeholders.headers,["nome","stakeholder","responsável","responsavel","área","area"])];
-  const owners = new Set();
-  Object.entries(DATA).forEach(([k,d],idx)=>d.rows.forEach(r=>{const c=ownerCols[idx]; if(c && r[c]) owners.add(r[c])}));
-  kpiResponsaveis.textContent = owners.size;
-
-  renderStatusDonut(all);
-  renderOwners(all);
-  renderRisksChart();
-  renderCritical(all);
-  renderTable("riscos"); renderTable("pendencias"); renderTable("stakeholders");
-  diagnostico.innerHTML = Object.entries(DATA).map(([k,d])=>`<strong>${SOURCES[k].label}</strong>: ${d.rows.length} registros, ${d.headers.length} colunas${d.error ? " — erro: "+esc(d.error) : ""}`).join("<br>");
-  loadStatus.textContent = "Carga concluída.";
-  lastUpdate.textContent = "Última atualização: " + new Date().toLocaleString("pt-BR");
-}
-function countBy(arr, fn){
-  const m={}; arr.forEach(x=>{const k=fn(x)||"Não informado"; m[k]=(m[k]||0)+1}); return Object.entries(m).sort((a,b)=>b[1]-a[1]);
-}
-function renderStatusDonut(rows){
-  const counts = countBy(rows, r=>{
-    const d = DATA[r.__key]; const c=findCol(d.headers,["status","situação","situacao","andamento","classificação","classificacao","criticidade"]);
-    return classify(c ? r[c] : "", r);
-  });
-  const colors=["#16a34a","#d97706","#dc2626","#2563eb","#7c3aed","#0891b2"];
-  const total=counts.reduce((a,b)=>a+b[1],0)||1; let start=0;
-  donut.style.background="conic-gradient("+counts.map(([k,v],i)=>{const end=start+(v/total)*100;const p=`${colors[i%colors.length]} ${start}% ${end}%`;start=end;return p}).join(",")+")";
-  statusLegend.innerHTML = counts.map(([k,v],i)=>`<span><i class="dot" style="background:${colors[i%colors.length]}"></i>${esc(k)}: <strong>${v}</strong></span>`).join("") || "Sem dados";
-}
-function renderBars(id, data){
-  const el=document.getElementById(id), max=Math.max(1,...data.map(x=>x[1]));
-  el.innerHTML = data.slice(0,9).map(([k,v])=>`<div class="bar-wrap"><div class="bar-value">${v}</div><div class="bar" style="height:${Math.max(8,(v/max)*200)}px"></div><div class="bar-label" title="${esc(k)}">${esc(k)}</div></div>`).join("") || "<p style='color:#64748b'>Sem dados.</p>";
-}
-function renderOwners(rows){
-  renderBars("ownerChart", countBy(rows, r=>{
-    const d=DATA[r.__key]; const c=findCol(d.headers,["responsável","responsavel","owner","dono","area","área","nome","stakeholder"]);
-    return c ? r[c] : "";
-  }));
-}
-function renderRisksChart(){
-  const c = findCol(DATA.riscos.headers,["classificação","classificacao","criticidade","categoria","tipo","impacto","probabilidade","status"]);
-  renderBars("riskChart", countBy(DATA.riscos.rows, r=> c ? r[c] : "Não informado"));
-}
-function renderCritical(rows){
-  const crit = rows.filter(r=>/crit|risco alto|bloque|imped|atras|problema|vermelho/i.test(Object.values(r).join(" "))).slice(0,10);
-  criticalList.innerHTML = crit.map(r=>{
-    const d=DATA[r.__key]; const desc=findCol(d.headers,["descrição","descricao","risco","pendência","pendencia","atividade","assunto","nome"]);
-    const owner=findCol(d.headers,["responsável","responsavel","owner","dono","area","área"]);
-    return `<div class="tl"><strong>${esc(desc ? r[desc] : Object.values(r).find(Boolean))}</strong><small>${esc(r.__aba)}${owner && r[owner] ? " · "+esc(r[owner]) : ""}</small></div>`;
-  }).join("") || "<p style='color:#64748b'>Nenhum item crítico encontrado por palavra-chave.</p>";
-}
-function renderTable(key){
-  const d=DATA[key], table=document.getElementById("table"+(key==="riscos"?"Riscos":key==="pendencias"?"Pendencias":"Stakeholders"));
-  const input=document.getElementById("search"+(key==="riscos"?"Riscos":key==="pendencias"?"Pendencias":"Stakeholders"));
-  const q=norm(input.value);
-  const rows = q ? d.rows.filter(r=>norm(Object.values(r).join(" ")).includes(q)) : d.rows;
-  const heads=d.headers.slice(0,12);
-  table.innerHTML = `<thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,400).map(r=>`<tr>${heads.map(h=>{
-    const v=r[h]||""; const hn=norm(h);
-    if(/status|situacao|situação|criticidade|classificacao|classificação/.test(hn)) return `<td><span class="pill ${pillClass(v)}">${esc(v||"—")}</span></td>`;
-    return `<td>${esc(v)}</td>`;
-  }).join("")}</tr>`).join("")}</tbody>`;
-}
-function downloadSnapshot(){
-  const blob = new Blob([JSON.stringify(DATA,null,2)], {type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="cockpit-rossi-snapshot.json"; a.click(); URL.revokeObjectURL(a.href);
-}
-window.addEventListener("DOMContentLoaded", loadAll);
+window.addEventListener("DOMContentLoaded",loadAll);
 </script>
 </body>
 </html>
