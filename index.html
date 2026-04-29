@@ -832,6 +832,48 @@
       font-size:11px;
     }
 
+
+    /* Timeline full-width row; charts below */
+    .section-grid{
+      grid-template-columns:1fr;
+      gap:14px;
+    }
+    .section-grid .panel:first-child{
+      grid-column:1 / -1;
+    }
+    .section-grid .panel:first-child .timeline-wrap{
+      overflow:visible;
+      min-height:170px;
+    }
+    .section-grid .panel:first-child .timeline{
+      min-width:0;
+      width:100%;
+      grid-template-columns:repeat(4,1fr);
+      padding:24px 4px 12px;
+    }
+    .section-grid .panel:first-child .phase-progress{
+      min-width:0;
+      width:100%;
+      grid-template-columns:repeat(4,1fr);
+      gap:14px;
+    }
+    .section-grid .card:nth-child(2),
+    .section-grid .card:nth-child(3){
+      width:100%;
+    }
+    .section-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+    }
+    .section-grid .card:first-child{
+      grid-column:1 / -1;
+    }
+    @media(max-width:1100px){
+      .section-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
     @media(max-width:1100px){
       .executive-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
       .summary-card{grid-column:1/-1}
@@ -977,7 +1019,7 @@
         <div class="card panel">
           <div class="panel-title">
             <h3>Linha do tempo do projeto</h3>
-            <small>Marcos principais</small>
+            <small>Fases executivas do projeto</small>
           </div>
           <div class="timeline-wrap">
             <div class="timeline" id="timeline"></div>
