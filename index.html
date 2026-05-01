@@ -1097,9 +1097,9 @@
 
 <script>
 const DEFAULT_SOURCES = {
-  riscos: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv", startCell:"", endCell:""},
-  pendencias: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv", startCell:"", endCell:""},
-  stakeholders: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv", startCell:"", endCell:""}
+  riscos: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv", interval:"", firstRowHeader:false},
+  pendencias: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv", interval:"", firstRowHeader:false},
+  stakeholders: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv", interval:"", firstRowHeader:false}
 };
 
 let SOURCES = loadStoredSources();
@@ -1119,11 +1119,14 @@ const GID_DATASET_MAP = Object.fromEntries(
 
 
 function normalizeSourceConfig(value){
-  if(typeof value === "string") return {url:value,startCell:"",endCell:""};
+  if(typeof value === "string") return {url:value,interval:"",firstRowHeader:false};
+  const startCell = String(value?.startCell || "").trim().toUpperCase();
+  const endCell = String(value?.endCell || "").trim().toUpperCase();
+  const interval = String(value?.interval || "").trim().toUpperCase() || [startCell, endCell].filter(Boolean).join(":");
   return {
     url: String(value?.url || "").trim(),
-    startCell: String(value?.startCell || "").trim().toUpperCase(),
-    endCell: String(value?.endCell || "").trim().toUpperCase()
+    interval,
+    firstRowHeader: Boolean(value?.firstRowHeader)
   };
 }
 
@@ -1197,8 +1200,9 @@ function parseCellRef(ref){
 }
 
 function applyCellRange(matrix, cfg){
-  const start = parseCellRef(cfg?.startCell);
-  const end = parseCellRef(cfg?.endCell);
+  const [startRef="", endRef=""] = String(cfg?.interval || "").toUpperCase().split(":");
+  const start = parseCellRef(startRef);
+  const end = parseCellRef(endRef);
 
   if(!start && !end) return matrix;
 
@@ -1321,9 +1325,10 @@ async function loadCSV(key){
   const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
   if(!res.ok) throw new Error(key + ": HTTP " + res.status);
   const txt = await res.text();
-  const hasRange = Boolean(parseCellRef(cfg.startCell) || parseCellRef(cfg.endCell));
+  const [startRef="", endRef=""] = String(cfg.interval || "").split(":");
+  const hasRange = Boolean(parseCellRef(startRef) || parseCellRef(endRef));
   const matrix = applyCellRange(parseCSV(txt), cfg);
-  DB[key] = matrixToObjects(matrix, hasRange);
+  DB[key] = matrixToObjects(matrix, cfg.firstRowHeader || hasRange);
 }
 async function loadDataset(datasetType, sourceEntries){
   const mergedRows = [];
@@ -1333,9 +1338,10 @@ async function loadDataset(datasetType, sourceEntries){
     const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
     if(!res.ok) throw new Error(datasetType + ": HTTP " + res.status);
     const txt = await res.text();
-    const hasRange = Boolean(parseCellRef(cfg.startCell) || parseCellRef(cfg.endCell));
+    const [startRef="", endRef=""] = String(cfg.interval || "").split(":");
+    const hasRange = Boolean(parseCellRef(startRef) || parseCellRef(endRef));
     const matrix = applyCellRange(parseCSV(txt), cfg);
-    const parsed = matrixToObjects(matrix, hasRange);
+    const parsed = matrixToObjects(matrix, cfg.firstRowHeader || hasRange);
     if(parsed.headers.length > mergedHeaders.length) mergedHeaders = parsed.headers;
     mergedRows.push(...parsed.rows);
   }
@@ -1622,8 +1628,11 @@ function renderConfigLinks(){
     </div>
     <div class="config-link-row" style="grid-template-columns:140px 1fr 1fr;">
       <span style="font-size:12px;color:#475569;font-weight:700;">Intervalo de células</span>
-      <input data-field="startCell" value="${esc(cfg.startCell)}" placeholder="Início (ex.: A5)" />
-      <input data-field="endCell" value="${esc(cfg.endCell)}" placeholder="Fim (ex.: Q120)" />
+      <input data-field="interval" value="${esc(cfg.interval)}" placeholder="Ex.: B5:R28" />
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;font-weight:700;">
+        <input data-field="firstRowHeader" type="checkbox" ${cfg.firstRowHeader ? "checked" : ""} style="width:16px;height:16px;margin:0;" />
+        Primeira linha é cabeçalho
+      </label>
     </div>
     <a href="${esc(cfg.url)}" target="_blank" rel="noopener noreferrer">${esc(cfg.url)}</a>
   </li>`;
@@ -1642,7 +1651,7 @@ function authenticateConfig(){
 }
 
 function addSourceLink(){
-  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = {url:"",startCell:"",endCell:""};
+  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = {url:"",interval:"",firstRowHeader:false};
   renderConfigLinks();
 }
 
@@ -1658,10 +1667,10 @@ function collectConfigForm(){
   for(const item of items){
     const key = item.querySelector('[data-field="key"]').value.trim();
     const url = item.querySelector('[data-field="url"]').value.trim();
-    const startCell = item.querySelector('[data-field="startCell"]').value.trim().toUpperCase();
-    const endCell = item.querySelector('[data-field="endCell"]').value.trim().toUpperCase();
+    const interval = item.querySelector('[data-field="interval"]').value.trim().toUpperCase();
+    const firstRowHeader = item.querySelector('[data-field="firstRowHeader"]').checked;
     if(!key || !url) continue;
-    next[key] = {url,startCell,endCell};
+    next[key] = {url,interval,firstRowHeader};
   }
   return next;
 }
