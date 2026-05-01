@@ -1187,7 +1187,7 @@ function parseCSV(text){
     } else cur+=c;
   }
   if(cur!==""||row.length){row.push(cur);rows.push(row);}
-  return rows.filter(r=>r.some(v=>String(v).trim()!=""));
+  return rows;
 }
 
 
