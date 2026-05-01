@@ -539,22 +539,20 @@
       font-size:12px;
     }
 
-    .timeline-wrap{
-      min-height:290px;
-    }
+    .timeline-wrap{min-height:190px;}
 
     .timeline{
       position:relative;
       min-width:740px;
-      padding:18px 0 0;
+      padding:8px 0 0;
     }
 
     .timeline-track{
       position:absolute;
-      top:66px;
-      left:5%;
-      right:5%;
-      height:3px;
+      top:33px;
+      left:6%;
+      right:6%;
+      height:2px;
       background:#d9e3ef;
       border-radius:999px;
       z-index:0;
@@ -564,7 +562,7 @@
       position:relative;
       z-index:1;
       display:grid;
-      grid-template-columns:repeat(6,minmax(120px,1fr));
+      grid-template-columns:repeat(6,minmax(110px,1fr));
       gap:12px;
     }
 
@@ -574,11 +572,11 @@
     }
 
     .phase-ring{
-      width:98px;
-      height:98px;
+      width:54px;
+      height:54px;
       margin:0 auto;
       border-radius:50%;
-      border:2px solid #b9cbe0;
+      border:1.5px solid #b9cbe0;
       background:#fff;
       display:grid;
       place-items:center;
@@ -586,17 +584,17 @@
 
     .phase-item[data-state="current"] .phase-ring{
       border-color:#31b76c;
-      box-shadow:0 0 0 8px rgba(49,183,108,.22);
+      box-shadow:0 0 0 5px rgba(49,183,108,.16);
     }
 
-    .phase-icon-glyph{font-size:40px;line-height:1;filter:saturate(.55);}
+    .phase-icon-glyph{font-size:22px;line-height:1;filter:saturate(.55);}
 
     .phase-dot{
-      width:14px;
-      height:14px;
+      width:8px;
+      height:8px;
       border-radius:50%;
-      margin:12px auto 10px;
-      border:2px solid #c7d5e7;
+      margin:8px auto 8px;
+      border:1.5px solid #c7d5e7;
       background:#eef3fa;
     }
 
@@ -605,36 +603,36 @@
       background:#27a35f;
     }
 
-    .phase-number{display:block;font-size:28px;font-weight:800;color:#1f2a3c;line-height:1;}
-    .phase-title{display:block;font-size:28px;font-weight:800;color:#1f2a3c;line-height:1.12;margin-top:4px;}
-    .phase-sub{display:block;font-size:14px;color:#6b7f97;margin-top:4px;}
+    .phase-number{display:block;font-size:14px;font-weight:800;color:#1f2a3c;line-height:1;}
+    .phase-title{display:block;font-size:15px;font-weight:700;color:#1f2a3c;line-height:1.2;margin-top:4px;}
+    .phase-sub{display:block;font-size:12px;color:#6b7f97;margin-top:2px;}
 
     .phase-item[data-state="future"] .phase-number,
     .phase-item[data-state="future"] .phase-title{color:#1f2a3c;}
 
     .phase-badge{
       display:none;
-      margin:10px auto 0;
+      margin:8px auto 0;
       width:max-content;
-      padding:7px 12px;
+      padding:4px 10px;
       border-radius:999px;
       background:#e7f7ed;
       color:#1f9d58;
-      font-size:13px;
-      font-weight:800;
+      font-size:11px;
+      font-weight:700;
     }
 
     .phase-item[data-state="current"] .phase-badge{display:inline-flex;align-items:center;gap:6px;}
 
     .timeline-legend{
-      margin-top:18px;
+      margin-top:12px;
       border-top:1px solid #e8edf4;
-      padding-top:14px;
+      padding-top:10px;
       display:flex;
-      gap:28px;
+      gap:18px;
       flex-wrap:wrap;
       color:#6b7f97;
-      font-size:13px;
+      font-size:12px;
     }
 
     .timeline-legend-item{display:flex;align-items:center;gap:8px;}
@@ -998,7 +996,7 @@
         <div class="card panel">
           <div class="panel-title">
             <h3>Linha do tempo do projeto</h3>
-            <small>Fases executivas do projeto</small>
+            <small>Visão simplificada das fases</small>
           </div>
           <div class="timeline-wrap">
             <div class="timeline" id="timeline"></div>
@@ -1350,13 +1348,13 @@ function renderTimeline(dateInfo){
           <span class="phase-number">${p.number}</span>
           <span class="phase-title">${esc(p.title)}</span>
           <span class="phase-sub">${esc(p.status)}</span>
-          <span class="phase-badge">• Em andamento</span>
+          <span class="phase-badge">Ativa</span>
         </article>
       `).join("")}
     </div>
     <div class="timeline-legend">
-      <div class="timeline-legend-item"><i class="timeline-legend-dot current"></i><span><b>Fase atual</b> • Em andamento</span></div>
-      <div class="timeline-legend-item"><i class="timeline-legend-dot"></i><span><b>Próximas fases</b> • Aguardando definição</span></div>
+      <div class="timeline-legend-item"><i class="timeline-legend-dot current"></i><span><b>Fase atual</b></span></div>
+      <div class="timeline-legend-item"><i class="timeline-legend-dot"></i><span><b>Próximas fases</b></span></div>
     </div>
   `;
 }
