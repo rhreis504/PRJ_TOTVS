@@ -1543,7 +1543,6 @@ function clearFilters(){
 
 
 
-const MASTER_USER = "admin";
 const MASTER_PASS = "Totvs@2026!";
 
 function openConfigModal(){
@@ -1574,7 +1573,7 @@ function renderConfigLinks(){
 }
 
 function authenticateConfig(){
-  if(configUser.value.trim() === MASTER_USER && configPass.value === MASTER_PASS){
+  if(configUser.value.trim() && configPass.value === MASTER_PASS){
     configLoginArea.classList.add("hidden");
     configLinksArea.classList.remove("hidden");
     renderConfigLinks();
