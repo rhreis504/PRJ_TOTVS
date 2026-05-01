@@ -871,7 +871,15 @@
     .modal{position:fixed;inset:0;background:rgba(2,6,23,.55);display:grid;place-items:center;z-index:120;}
     .modal-box{width:min(640px,92vw);background:#fff;border-radius:16px;padding:18px;border:1px solid var(--line);box-shadow:var(--shadow);}
     #configLinks{margin:0;padding-left:18px;display:grid;gap:8px;}
-    #configLinks a{color:#1d4ed8;word-break:break-all;}
+    #configLinks{list-style:none;padding:0;}
+    .config-link-item{display:grid;gap:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;}
+    .config-link-row{display:grid;grid-template-columns:140px 1fr auto;gap:8px;align-items:center;}
+    .config-link-item input{color:#172033;background:#fff;border:1px solid #cbd5e1;padding:8px 10px;border-radius:8px;}
+    .config-link-item a{color:#1d4ed8;word-break:break-all;font-size:12px;}
+    .config-actions{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap;}
+    .config-actions-left{display:flex;gap:8px;flex-wrap:wrap;}
+    .danger{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+    .danger:hover{background:#fecaca;}
 
 
     @media(max-width:1100px){
@@ -1102,6 +1110,14 @@
     <div id="configLinksArea" class="hidden">
       <p style="font-size:13px;color:#475569">Links das abas (MIT013 · Monitoramento e Controle):</p>
       <ul id="configLinks"></ul>
+      <div class="config-actions">
+        <div class="config-actions-left">
+          <button class="secondary" onclick="addSourceLink()">+ Incluir link</button>
+          <button class="secondary" onclick="saveSourceLinks()">Salvar</button>
+          <button class="secondary" onclick="resetSourceLinks()">Restaurar padrão</button>
+        </div>
+        <small id="configStatus" style="color:#0f766e"></small>
+      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="secondary" onclick="closeConfigModal()">Fechar</button></div>
   </div>
@@ -1110,11 +1126,13 @@
 <div class="loading" id="loading">Carregando dados da planilha publicada...</div>
 
 <script>
-const SOURCES = {
+const DEFAULT_SOURCES = {
   riscos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv",
   pendencias: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv",
   stakeholders: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv"
 };
+
+let SOURCES = loadStoredSources();
 
 let DB = {
   riscos:{headers:[],rows:[]},
@@ -1122,6 +1140,24 @@ let DB = {
   stakeholders:{headers:[],rows:[]}
 };
 
+
+function loadStoredSources(){
+  try{
+    const raw = localStorage.getItem("mit013_sources");
+    if(!raw) return {...DEFAULT_SOURCES};
+    const parsed = JSON.parse(raw);
+    if(!parsed || typeof parsed !== "object") return {...DEFAULT_SOURCES};
+    return Object.keys(parsed).length ? parsed : {...DEFAULT_SOURCES};
+  }catch{ return {...DEFAULT_SOURCES}; }
+}
+
+function persistSources(){
+  localStorage.setItem("mit013_sources", JSON.stringify(SOURCES));
+}
+
+function getDataset(key){
+  return DB[key] || {headers:[],rows:[]};
+}
 const COLORS = ["#16a34a","#d97706","#dc2626","#2563eb","#7c3aed"];
 
 function norm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();}
@@ -1230,7 +1266,7 @@ function filteredRows(key){
   const q=norm(searchBox.value);
   const status=filterStatus.value;
   const owner=filterOwner.value;
-  const d=DB[key];
+  const d=getDataset(key);
 
   return d.rows.filter(r=>{
     const text=Object.values(r).join(" ");
@@ -1415,7 +1451,7 @@ function renderAll(){
 
   renderBars(riscos);
 
-  const ph = DB.pendencias.headers;
+  const ph = getDataset("pendencias").headers;
   renderTable("pendTable", pend, ph, [
     {label:"ID",get:r=>val(r,ph,["id","código","codigo"]) || "—"},
     {label:"Pendência",get:r=>val(r,ph,["pendência","pendencia","descrição","descricao","atividade","assunto"]) || Object.values(r)[0]},
@@ -1425,7 +1461,7 @@ function renderAll(){
     {label:"Status",get:r=>val(r,ph,["status","situação","situacao","andamento"]) || "Em atenção", pill:(v)=>labelClass(v)}
   ], 7);
 
-  const rh = DB.riscos.headers;
+  const rh = getDataset("riscos").headers;
   renderTable("riskTable", riscos, rh, [
     {label:"Risco",get:r=>val(r,rh,["risco","descrição","descricao","evento","ameaça","ameaca"]) || Object.values(r)[0]},
     {label:"Nível",get:r=>val(r,rh,["nível","nivel","criticidade","classificação","classificacao","impacto"]) || labelTextByClass(classifyText(Object.values(r).join(" "))), pill:(v)=>labelClass(v)},
@@ -1434,7 +1470,7 @@ function renderAll(){
     {label:"Status",get:r=>val(r,rh,["status","situação","situacao","andamento"]) || "Em atenção", pill:(v)=>labelClass(v)}
   ], 6);
 
-  const sh = DB.stakeholders.headers;
+  const sh = getDataset("stakeholders").headers;
   renderTable("stakeTable", stakes, sh, [
     {label:"Stakeholder",get:r=>val(r,sh,["stakeholder","nome","área","area"]) || Object.values(r)[0]},
     {label:"Função",get:r=>val(r,sh,["função","funcao","papel","cargo","perfil"])},
@@ -1464,19 +1500,76 @@ const MASTER_PASS = "TotvsAdmin@2026!";
 function openConfigModal(){
   configModal.classList.remove("hidden");
   configError.textContent = "";
+  configStatus.textContent = "";
 }
 function closeConfigModal(){
   configModal.classList.add("hidden");
 }
+function renderConfigLinks(){
+  configLinks.innerHTML = Object.entries(SOURCES).map(([k,v])=>`<li class="config-link-item">
+    <div class="config-link-row">
+      <input data-field="key" data-old-key="${esc(k)}" value="${esc(k)}" placeholder="Nome da aba" />
+      <input data-field="url" data-old-key="${esc(k)}" value="${esc(v)}" placeholder="URL CSV publicada" />
+      <button class="danger" onclick="removeSourceLink('${esc(k)}')">Excluir</button>
+    </div>
+    <a href="${esc(v)}" target="_blank" rel="noopener noreferrer">${esc(v)}</a>
+  </li>`).join("");
+}
+
 function authenticateConfig(){
   if(configUser.value.trim() === MASTER_USER && configPass.value === MASTER_PASS){
     configLoginArea.classList.add("hidden");
     configLinksArea.classList.remove("hidden");
-    configLinks.innerHTML = Object.entries(SOURCES).map(([k,v])=>`<li><b>${esc(k)}</b>: <a href="${v}" target="_blank" rel="noopener noreferrer">${v}</a></li>`).join("");
+    renderConfigLinks();
     configError.textContent = "";
     return;
   }
   configError.textContent = "Usuário ou senha inválidos.";
+}
+
+function addSourceLink(){
+  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = "";
+  renderConfigLinks();
+}
+
+function removeSourceLink(key){
+  delete SOURCES[key];
+  if(!Object.keys(SOURCES).length) SOURCES = {...DEFAULT_SOURCES};
+  renderConfigLinks();
+}
+
+function collectConfigForm(){
+  const items = [...configLinks.querySelectorAll('.config-link-item')];
+  const next = {};
+  for(const item of items){
+    const key = item.querySelector('[data-field="key"]').value.trim();
+    const url = item.querySelector('[data-field="url"]').value.trim();
+    if(!key || !url) continue;
+    next[key] = url;
+  }
+  return next;
+}
+
+async function saveSourceLinks(){
+  const next = collectConfigForm();
+  if(!Object.keys(next).length){
+    configStatus.textContent = "Adicione ao menos um link válido.";
+    return;
+  }
+  SOURCES = next;
+  persistSources();
+  configStatus.textContent = "Links salvos. Atualizando dados...";
+  await loadAll();
+  renderConfigLinks();
+  configStatus.textContent = "Links salvos com sucesso.";
+}
+
+async function resetSourceLinks(){
+  SOURCES = {...DEFAULT_SOURCES};
+  persistSources();
+  await loadAll();
+  renderConfigLinks();
+  configStatus.textContent = "Links padrão restaurados.";
 }
 
 document.addEventListener("click",(e)=>{
