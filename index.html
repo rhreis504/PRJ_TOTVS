@@ -540,7 +540,7 @@
     }
 
     .timeline-wrap{
-      min-height:180px;
+      min-height:250px;
       display:flex;
       flex-direction:column;
       justify-content:center;
@@ -553,24 +553,22 @@
       grid-template-columns:repeat(6,minmax(120px,1fr));
       gap:0;
       min-width:640px;
-      padding:28px 4px 16px;
+      padding:16px 4px 0;
     }
 
-    .timeline:before{
-      content:"";
-      position:absolute;
-      left:7%;
-      right:7%;
-      top:70px;
-      height:3px;
-      background:#d9e3ef;
-      border-radius:10px;
-    }
+    .timeline-icons{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:0;min-width:640px;margin-bottom:8px;}
+    .phase-icon{width:92px;height:92px;border-radius:50%;border:2px solid #c8d6e7;margin:0 auto;display:grid;place-items:center;color:#94a3b8;font-size:38px;background:#fff;}
+    .phase-icon.current{border-color:#16a34a;color:#16a34a;box-shadow:0 0 0 6px rgba(22,163,74,.15)}
+
+    .timeline-line{position:relative;height:24px;margin:0 7%;}
+    .timeline-line:before{content:"";position:absolute;left:0;right:0;top:10px;height:3px;background:#d9e3ef;border-radius:10px;}
+    .timeline-line:after{content:"";position:absolute;left:0;top:10px;width:10%;height:3px;background:#16a34a;border-radius:10px;}
 
     .mile{
       position:relative;
       text-align:center;
       z-index:1;
+      padding-top:0;
     }
 
     .mile b{
@@ -769,7 +767,7 @@
 
 
     .phase-progress{
-      margin-top:14px;
+      margin-top:16px;
       display:grid;
       grid-template-columns:repeat(6,minmax(120px,1fr));
       gap:12px;
@@ -1359,17 +1357,27 @@ function fmt(d){
 
 function renderTimeline(dateInfo){
   const phases = [
-    {label:"Iniciação", date:"Em andamento", pct:null, cls:"current blink"},
-    {label:"Planejamento", date:"Aguardando definição", pct:null, cls:"open"},
-    {label:"Execução", date:"Aguardando definição", pct:null, cls:"open"},
-    {label:"Monitoramento", date:"Aguardando definição", pct:null, cls:"open"},
-    {label:"Controle", date:"Aguardando definição", pct:null, cls:"open"},
-    {label:"Encerramento", date:"Aguardando definição", pct:null, cls:"open"}
+    {label:"Iniciação", icon:"🚀", date:"Em andamento", cls:"current blink"},
+    {label:"Planejamento", icon:"📅", date:"Aguardando definição", cls:"open"},
+    {label:"Execução", icon:"⚙️", date:"Aguardando definição", cls:"open"},
+    {label:"Monitoramento", icon:"👁️", date:"Aguardando definição", cls:"open"},
+    {label:"Controle", icon:"🛡️", date:"Aguardando definição", cls:"open"},
+    {label:"Encerramento", icon:"🏁", date:"Aguardando definição", cls:"open"}
   ];
-  timeline.innerHTML = phases.map((p)=>{
-    const dotClass = p.cls === "current" ? "current" : "";
-    return `<div class="mile ${dotClass}"><b>${esc(p.label)}</b><span>${esc(p.date)}</span><i></i></div>`;
-  }).join("") + `
+
+  timeline.innerHTML = `
+    <div class="timeline-icons">
+      ${phases.map(p=>`<div class="phase-icon ${p.cls.includes("current")?"current":""} ${p.cls.includes("blink")?"blink":""}">${p.icon}</div>`).join("")}
+    </div>
+    <div class="timeline-line"></div>
+    ${phases.map((p,idx)=>`
+      <div class="mile ${p.cls.includes("current")?"current":""} ${p.cls.includes("blink")?"blink":""}">
+        <b>${String(idx+1).padStart(2,"0")}</b>
+        <span style="margin-bottom:2px;color:${p.cls.includes("current")?"#16a34a":"#0f172a"};font-weight:${p.cls.includes("current")?"800":"700"}">${esc(p.label)}</span>
+        <small style="display:block;color:#64748b;font-size:12px">${esc(p.date)}</small>
+        ${p.cls.includes("current")?'<div class="pill low" style="margin:8px auto 0;width:max-content;background:#ecfdf3;color:#16a34a">● Em andamento</div>':''}
+      </div>
+    `).join("")}
     <div class="phase-progress">
       ${phases.map(p=>`
         <div class="phase-card ${p.cls}">
