@@ -899,7 +899,6 @@
       <select id="filterOwner" onchange="renderAll()">
         <option value="">Todos os responsáveis</option>
       </select>
-      <input id="searchBox" oninput="renderAll()" placeholder="Pesquisar no projeto" />
       <button class="secondary" onclick="clearFilters()" style="width:100%;box-shadow:none;color:#dbe7f7;background:rgba(255,255,255,.08)">Limpar filtros</button>
     </div>
 
@@ -1209,8 +1208,14 @@ function labelTextByClass(c){
   return c==="high" ? "Alta" : c==="low" ? "Baixa" : "Média";
 }
 
+function buildSourceURL(url){
+  const parsed = new URL(url, window.location.href);
+  parsed.searchParams.set("cacheBust", Date.now().toString());
+  return parsed.toString();
+}
+
 async function loadCSV(key){
-  const res = await fetch(SOURCES[key] + "&cacheBust=" + Date.now(), {cache:"no-store"});
+  const res = await fetch(buildSourceURL(SOURCES[key]), {cache:"no-store"});
   if(!res.ok) throw new Error(key + ": HTTP " + res.status);
   const txt = await res.text();
   DB[key] = matrixToObjects(parseCSV(txt));
@@ -1234,7 +1239,7 @@ function allRows(){
 }
 
 function filteredRows(key){
-  const q=norm(searchBox.value);
+  const q="";
   const status=filterStatus.value;
   const owner=filterOwner.value;
   const d=getDataset(key);
@@ -1465,13 +1470,12 @@ function renderAll(){
 function clearFilters(){
   filterStatus.value = "";
   filterOwner.value = "";
-  searchBox.value = "";
   renderAll();
 }
 
 
 
-const MASTER_USER = "rhrreis@gmail.com";
+const MASTER_USER = "admin";
 const MASTER_PASS = "TotvsAdmin@2026!";
 
 function openConfigModal(){
