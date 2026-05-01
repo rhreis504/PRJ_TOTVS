@@ -1177,6 +1177,36 @@ function val(row,headers,names){
   return c ? row[c] : "";
 }
 
+
+function pendenciaCriticidade(row, headers){
+  return val(row, headers, ["criticidade","prioridade","classificação","classificacao"]);
+}
+
+function stakeholderInfluencia(row, headers){
+  return val(row, headers, ["influência","influencia","tipo de influência","tipo de influencia","poder","impacto"]);
+}
+
+function isRiscoValido(row, headers){
+  const required = [
+    ["data"],
+    ["área","area"],
+    ["responsável","responsavel"],
+    ["situação","situacao","status"],
+    ["probabilidade"],
+    ["risco","descrição","descricao","evento","ameaça","ameaca"]
+  ];
+  const preenchidos = required.filter(names => !!val(row, headers, names)).length;
+  return preenchidos >= 4;
+}
+
+function influenciaClasse(text){
+  const s = norm(text);
+  if(/decisor|alta/.test(s)) return "high";
+  if(/apoiador|media|m[eé]dia/.test(s)) return "mid";
+  if(/indicador|baixa/.test(s)) return "low";
+  return labelClass(text);
+}
+
 function classifyText(text){
   const s=norm(text);
   if(/alto|alta|crit|crít|vermelho|bloque|imped|atras|vencid|problema|abert/.test(s)) return "high";
@@ -1382,7 +1412,8 @@ function renderBars(rows){
 
 function renderAll(){
   const pend = filteredRows("pendencias");
-  const riscos = filteredRows("riscos");
+  const rhAll = getDataset("riscos").headers;
+  const riscos = filteredRows("riscos").filter(r => isRiscoValido(r, rhAll));
   const stakes = filteredRows("stakeholders");
 
   const done = pend.filter(isDone).length;
@@ -1396,20 +1427,26 @@ function renderAll(){
   healthPill.classList.add("warn");
   healthPill.textContent = "Projeto em iniciação";
 
+  const ph = getDataset("pendencias").headers;
+  const pendLowCount = pend.filter(r=>/baixa/.test(norm(pendenciaCriticidade(r, ph)))).length;
+  const pendMidCount = pend.filter(r=>/media|m[eé]dia/.test(norm(pendenciaCriticidade(r, ph)))).length;
+  const pendHighCount = pend.filter(r=>/alta|crit/.test(norm(pendenciaCriticidade(r, ph)))).length;
+
   pendOpen.textContent = open;
-  pendHigh.textContent = pend.filter(r=>classifyText(Object.values(r).join(" "))==="high").length;
-  pendMid.textContent = pend.filter(r=>classifyText(Object.values(r).join(" "))==="mid").length;
-  pendLow.textContent = pend.filter(r=>classifyText(Object.values(r).join(" "))==="low").length;
+  pendHigh.textContent = pendHighCount;
+  pendMid.textContent = pendMidCount;
+  pendLow.textContent = pendLowCount;
 
   riskTotal.textContent = riscos.length;
   riskHigh.textContent = riscos.filter(r=>classifyText(Object.values(r).join(" "))==="high").length;
   riskMid.textContent = riscos.filter(r=>classifyText(Object.values(r).join(" "))==="mid").length;
   riskLow.textContent = riscos.filter(r=>classifyText(Object.values(r).join(" "))==="low").length;
 
+  const sh = getDataset("stakeholders").headers;
   stakeTotal.textContent = stakes.length;
-  stakeHigh.textContent = stakes.filter(r=>classifyText(Object.values(r).join(" "))==="high").length;
-  stakeMid.textContent = stakes.filter(r=>classifyText(Object.values(r).join(" "))==="mid").length;
-  stakeLow.textContent = stakes.filter(r=>classifyText(Object.values(r).join(" "))==="low").length;
+  stakeHigh.textContent = stakes.filter(r=>influenciaClasse(stakeholderInfluencia(r, sh))==="high").length;
+  stakeMid.textContent = stakes.filter(r=>influenciaClasse(stakeholderInfluencia(r, sh))==="mid").length;
+  stakeLow.textContent = stakes.filter(r=>influenciaClasse(stakeholderInfluencia(r, sh))==="low").length;
 
   const dateInfo = {pct:0, dates:[]};
   timePct.textContent = "Em iniciação";
@@ -1426,21 +1463,20 @@ function renderAll(){
   ]);
 
   setDonut("priorityDonut","priorityLegend",[
-    {label:"Baixas",value:pend.filter(r=>classifyText(Object.values(r).join(" "))==="low").length,color:"#16a34a"},
-    {label:"Médias",value:pend.filter(r=>classifyText(Object.values(r).join(" "))==="mid").length,color:"#d97706"},
-    {label:"Críticas",value:pend.filter(r=>classifyText(Object.values(r).join(" "))==="high").length,color:"#dc2626"}
+    {label:"Baixas",value:pendLowCount,color:"#16a34a"},
+    {label:"Médias",value:pendMidCount,color:"#d97706"},
+    {label:"Críticas",value:pendHighCount,color:"#dc2626"}
   ]);
 
   renderBars(riscos);
 
-  const ph = getDataset("pendencias").headers;
   renderTable("pendTable", pend, ph, [
     {label:"ID",get:r=>val(r,ph,["id","código","codigo"]) || "—"},
     {label:"Pendência",get:r=>val(r,ph,["pendência","pendencia","descrição","descricao","atividade","assunto"]) || Object.values(r)[0]},
     {label:"Prioridade",get:r=>val(r,ph,["prioridade","criticidade","classificação","classificacao","status"]) || labelTextByClass(classifyText(Object.values(r).join(" "))), pill:(v)=>labelClass(v)},
     {label:"Responsável",get:r=>val(r,ph,["responsável","responsavel","owner","dono","área","area"])},
     {label:"Prazo",get:r=>val(r,ph,["prazo","data","vencimento","fim"])},
-    {label:"Status",get:r=>val(r,ph,["status","situação","situacao","andamento"]) || "Em atenção", pill:(v)=>labelClass(v)}
+    {label:"Status",get:r=>val(r,ph,["status","situação","situacao","andamento"]) || "Sob controle", pill:(v)=>labelClass(v)}
   ], 7);
 
   const rh = getDataset("riscos").headers;
@@ -1452,11 +1488,10 @@ function renderAll(){
     {label:"Status",get:r=>val(r,rh,["status","situação","situacao","andamento"]) || "Em atenção", pill:(v)=>labelClass(v)}
   ], 6);
 
-  const sh = getDataset("stakeholders").headers;
   renderTable("stakeTable", stakes, sh, [
     {label:"Stakeholder",get:r=>val(r,sh,["stakeholder","nome","área","area"]) || Object.values(r)[0]},
     {label:"Função",get:r=>val(r,sh,["função","funcao","papel","cargo","perfil"])},
-    {label:"Influência",get:r=>val(r,sh,["influência","influencia","poder","impacto"]) || labelTextByClass(classifyText(Object.values(r).join(" "))), pill:(v)=>labelClass(v)},
+    {label:"Influência",get:r=>stakeholderInfluencia(r,sh) || "—", pill:(v)=>influenciaClasse(v)},
     {label:"Interesse",get:r=>val(r,sh,["interesse","engajamento"])},
     {label:"Status",get:r=>val(r,sh,["status","situação","situacao"]) || "Ativo", pill:(v)=>labelClass(v)}
   ], 7);
