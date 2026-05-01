@@ -65,33 +65,18 @@
       border-bottom:1px solid var(--line);
     }
 
-    .brand-icon-slot{
-      width:56px;
-      height:56px;
-      border-radius:16px;
-      border:1px dashed #94a3b8;
-      background:#f8fafc;
-      display:grid;
-      place-items:center;
+    .brand-icon{
+      width:46px;height:46px;border-radius:14px;
+      display:grid;place-items:center;
+      background:#eef2f7;
       overflow:hidden;
-      flex-shrink:0;
-      position:relative;
     }
 
-    .brand-icon-slot img{
+    .brand-icon img{
       width:100%;
       height:100%;
       object-fit:cover;
       display:block;
-    }
-
-    .brand-icon-placeholder{
-      font-size:9px;
-      line-height:1.25;
-      text-align:center;
-      color:#64748b;
-      font-weight:700;
-      padding:6px;
     }
 
     .brand strong{
@@ -921,11 +906,7 @@
 <div class="app">
   <aside>
     <div class="brand">
-      <div class="brand-icon-slot">
-        <!-- Troque o src abaixo pelo ícone oficial do cliente -->
-        <img src="" alt="Ícone do cliente" hidden />
-        <span class="brand-icon-placeholder">ÍCONE<br>CLIENTE</span>
-      </div>
+      <div class="brand-icon"><img src="assets/images/logo-rossi.png" alt="Logo Rossi Supermercados" /></div>
       <div>
         <strong>Rossi</strong>
         <span>SUPERMERCADOS</span>
