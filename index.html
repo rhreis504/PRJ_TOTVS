@@ -1097,9 +1097,9 @@
 
 <script>
 const DEFAULT_SOURCES = {
-  riscos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv",
-  pendencias: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv",
-  stakeholders: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv"
+  riscos: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv", startCell:"", endCell:""},
+  pendencias: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv", startCell:"", endCell:""},
+  stakeholders: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv", startCell:"", endCell:""}
 };
 
 let SOURCES = loadStoredSources();
@@ -1111,14 +1111,25 @@ let DB = {
 };
 
 
+function normalizeSourceConfig(value){
+  if(typeof value === "string") return {url:value,startCell:"",endCell:""};
+  return {
+    url: String(value?.url || "").trim(),
+    startCell: String(value?.startCell || "").trim().toUpperCase(),
+    endCell: String(value?.endCell || "").trim().toUpperCase()
+  };
+}
+
 function loadStoredSources(){
   try{
     const raw = localStorage.getItem("mit013_sources");
-    if(!raw) return {...DEFAULT_SOURCES};
+    if(!raw) return structuredClone(DEFAULT_SOURCES);
     const parsed = JSON.parse(raw);
-    if(!parsed || typeof parsed !== "object") return {...DEFAULT_SOURCES};
-    return Object.keys(parsed).length ? parsed : {...DEFAULT_SOURCES};
-  }catch{ return {...DEFAULT_SOURCES}; }
+    if(!parsed || typeof parsed !== "object") return structuredClone(DEFAULT_SOURCES);
+    const next = {};
+    Object.entries(parsed).forEach(([k,v])=> next[k] = normalizeSourceConfig(v));
+    return Object.keys(next).length ? next : structuredClone(DEFAULT_SOURCES);
+  }catch{ return structuredClone(DEFAULT_SOURCES); }
 }
 
 function persistSources(){
@@ -1147,6 +1158,26 @@ function parseCSV(text){
   }
   if(cur!==""||row.length){row.push(cur);rows.push(row);}
   return rows.filter(r=>r.some(v=>String(v).trim()!=""));
+}
+
+
+function parseCellRef(ref){
+  const m = String(ref||"").trim().toUpperCase().match(/^([A-Z]+)(\d+)$/);
+  if(!m) return null;
+  let col=0;
+  for(const ch of m[1]) col = col*26 + (ch.charCodeAt(0)-64);
+  return {row:Number(m[2]),col};
+}
+
+function applyCellRange(matrix, cfg){
+  const start = parseCellRef(cfg?.startCell);
+  const end = parseCellRef(cfg?.endCell);
+  if(!start || !end) return matrix;
+  const rowStart = Math.min(start.row, end.row) - 1;
+  const rowEnd = Math.max(start.row, end.row) - 1;
+  const colStart = Math.min(start.col, end.col) - 1;
+  const colEnd = Math.max(start.col, end.col) - 1;
+  return matrix.slice(rowStart, rowEnd + 1).map(r => r.slice(colStart, colEnd + 1));
 }
 
 function matrixToObjects(matrix){
@@ -1245,10 +1276,12 @@ function buildSourceURL(url){
 }
 
 async function loadCSV(key){
-  const res = await fetch(buildSourceURL(SOURCES[key]), {cache:"no-store"});
+  const cfg = normalizeSourceConfig(SOURCES[key]);
+  const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
   if(!res.ok) throw new Error(key + ": HTTP " + res.status);
   const txt = await res.text();
-  DB[key] = matrixToObjects(parseCSV(txt));
+  const matrix = applyCellRange(parseCSV(txt), cfg);
+  DB[key] = matrixToObjects(matrix);
 }
 
 async function loadAll(){
@@ -1522,14 +1555,22 @@ function closeConfigModal(){
   configModal.classList.add("hidden");
 }
 function renderConfigLinks(){
-  configLinks.innerHTML = Object.entries(SOURCES).map(([k,v])=>`<li class="config-link-item">
+  configLinks.innerHTML = Object.entries(SOURCES).map(([k,source])=>{
+    const cfg = normalizeSourceConfig(source);
+    return `<li class="config-link-item">
     <div class="config-link-row">
-      <input data-field="key" data-old-key="${esc(k)}" value="${esc(k)}" placeholder="Nome da aba" />
-      <input data-field="url" data-old-key="${esc(k)}" value="${esc(v)}" placeholder="URL CSV publicada" />
+      <input data-field="key" value="${esc(k)}" placeholder="Nome da aba" />
+      <input data-field="url" value="${esc(cfg.url)}" placeholder="URL CSV publicada" />
       <button class="danger" onclick="removeSourceLink('${esc(k)}')">Excluir</button>
     </div>
-    <a href="${esc(v)}" target="_blank" rel="noopener noreferrer">${esc(v)}</a>
-  </li>`).join("");
+    <div class="config-link-row" style="grid-template-columns:140px 1fr 1fr;">
+      <span style="font-size:12px;color:#475569;font-weight:700;">Intervalo de células</span>
+      <input data-field="startCell" value="${esc(cfg.startCell)}" placeholder="Início (ex.: A5)" />
+      <input data-field="endCell" value="${esc(cfg.endCell)}" placeholder="Fim (ex.: Q120)" />
+    </div>
+    <a href="${esc(cfg.url)}" target="_blank" rel="noopener noreferrer">${esc(cfg.url)}</a>
+  </li>`;
+  }).join("");
 }
 
 function authenticateConfig(){
@@ -1544,13 +1585,13 @@ function authenticateConfig(){
 }
 
 function addSourceLink(){
-  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = "";
+  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = {url:"",startCell:"",endCell:""};
   renderConfigLinks();
 }
 
 function removeSourceLink(key){
   delete SOURCES[key];
-  if(!Object.keys(SOURCES).length) SOURCES = {...DEFAULT_SOURCES};
+  if(!Object.keys(SOURCES).length) SOURCES = structuredClone(DEFAULT_SOURCES);
   renderConfigLinks();
 }
 
@@ -1560,8 +1601,10 @@ function collectConfigForm(){
   for(const item of items){
     const key = item.querySelector('[data-field="key"]').value.trim();
     const url = item.querySelector('[data-field="url"]').value.trim();
+    const startCell = item.querySelector('[data-field="startCell"]').value.trim().toUpperCase();
+    const endCell = item.querySelector('[data-field="endCell"]').value.trim().toUpperCase();
     if(!key || !url) continue;
-    next[key] = url;
+    next[key] = {url,startCell,endCell};
   }
   return next;
 }
@@ -1581,7 +1624,7 @@ async function saveSourceLinks(){
 }
 
 async function resetSourceLinks(){
-  SOURCES = {...DEFAULT_SOURCES};
+  SOURCES = structuredClone(DEFAULT_SOURCES);
   persistSources();
   await loadAll();
   renderConfigLinks();
