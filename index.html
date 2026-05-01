@@ -69,7 +69,14 @@
       width:46px;height:46px;border-radius:14px;
       display:grid;place-items:center;
       background:#eef2f7;
-      font-size:23px;
+      overflow:hidden;
+    }
+
+    .brand-icon img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
     }
 
     .brand strong{
@@ -899,7 +906,7 @@
 <div class="app">
   <aside>
     <div class="brand">
-      <div class="brand-icon">🛒</div>
+      <div class="brand-icon"><img src="assets/images/logo-rossi.png" alt="Logo Rossi Supermercados" /></div>
       <div>
         <strong>Rossi</strong>
         <span>SUPERMERCADOS</span>
