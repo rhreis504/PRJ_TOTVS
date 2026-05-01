@@ -1210,15 +1210,26 @@ function applyCellRange(matrix, cfg){
   const matrixMaxCol = matrix.reduce((max,row)=>Math.max(max,row.length),0);
 
   const rowStart = Math.max(0, ((start?.row || end?.row || 1) - 1));
-  const rowEnd = Math.min(matrixMaxRow - 1, ((end?.row || start?.row || matrixMaxRow) - 1));
   const colStart = Math.max(0, ((start?.col || end?.col || 1) - 1));
   const colEnd = Math.min(Math.max(matrixMaxCol - 1, 0), ((end?.col || start?.col || matrixMaxCol) - 1));
+  const rowEndRef = (end?.row || start?.row || matrixMaxRow) - 1;
+  const rowEnd = Math.min(matrixMaxRow - 1, Math.max(rowEndRef, detectLastRowWithData(matrix, rowStart, colStart, colEnd)));
 
   if(rowEnd < rowStart || colEnd < colStart) return [];
 
   return matrix
     .slice(rowStart, rowEnd + 1)
     .map(r => r.slice(colStart, colEnd + 1));
+}
+
+function detectLastRowWithData(matrix, rowStart, colStart, colEnd){
+  for(let rowIndex = matrix.length - 1; rowIndex >= rowStart; rowIndex--){
+    const row = matrix[rowIndex] || [];
+    for(let colIndex = colStart; colIndex <= colEnd; colIndex++){
+      if(String(row[colIndex] || "").trim()) return rowIndex;
+    }
+  }
+  return rowStart;
 }
 
 function matrixToObjects(matrix, forceFirstRowHeader=false){
