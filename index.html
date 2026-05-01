@@ -1172,17 +1172,27 @@ function parseCellRef(ref){
 function applyCellRange(matrix, cfg){
   const start = parseCellRef(cfg?.startCell);
   const end = parseCellRef(cfg?.endCell);
-  if(!start || !end) return matrix;
-  const rowStart = Math.min(start.row, end.row) - 1;
-  const rowEnd = Math.max(start.row, end.row) - 1;
-  const colStart = Math.min(start.col, end.col) - 1;
-  const colEnd = Math.max(start.col, end.col) - 1;
-  return matrix.slice(rowStart, rowEnd + 1).map(r => r.slice(colStart, colEnd + 1));
+
+  if(!start && !end) return matrix;
+
+  const matrixMaxRow = matrix.length;
+  const matrixMaxCol = matrix.reduce((max,row)=>Math.max(max,row.length),0);
+
+  const rowStart = Math.max(0, ((start?.row || end?.row || 1) - 1));
+  const rowEnd = Math.min(matrixMaxRow - 1, ((end?.row || start?.row || matrixMaxRow) - 1));
+  const colStart = Math.max(0, ((start?.col || end?.col || 1) - 1));
+  const colEnd = Math.min(Math.max(matrixMaxCol - 1, 0), ((end?.col || start?.col || matrixMaxCol) - 1));
+
+  if(rowEnd < rowStart || colEnd < colStart) return [];
+
+  return matrix
+    .slice(rowStart, rowEnd + 1)
+    .map(r => r.slice(colStart, colEnd + 1));
 }
 
-function matrixToObjects(matrix){
+function matrixToObjects(matrix, forceFirstRowHeader=false){
   if(!matrix.length) return {headers:[],rows:[]};
-  let headerIndex = matrix.findIndex(r => r.filter(c=>String(c).trim()).length >= 2);
+  let headerIndex = forceFirstRowHeader ? 0 : matrix.findIndex(r => r.filter(c=>String(c).trim()).length >= 2);
   if(headerIndex < 0) headerIndex = 0;
   const headers = matrix[headerIndex].map((h,i)=>String(h||`Coluna ${i+1}`).trim() || `Coluna ${i+1}`);
   const rows = matrix.slice(headerIndex+1).map(r=>{
@@ -1280,8 +1290,9 @@ async function loadCSV(key){
   const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
   if(!res.ok) throw new Error(key + ": HTTP " + res.status);
   const txt = await res.text();
+  const hasRange = Boolean(parseCellRef(cfg.startCell) || parseCellRef(cfg.endCell));
   const matrix = applyCellRange(parseCSV(txt), cfg);
-  DB[key] = matrixToObjects(matrix);
+  DB[key] = matrixToObjects(matrix, hasRange);
 }
 
 async function loadAll(){
@@ -1542,7 +1553,6 @@ function clearFilters(){
 
 
 
-const MASTER_USER = "admin";
 const MASTER_PASS = "Totvs@2026!";
 
 function openConfigModal(){
@@ -1573,7 +1583,7 @@ function renderConfigLinks(){
 }
 
 function authenticateConfig(){
-  if(configUser.value.trim().toLowerCase() === MASTER_USER && configPass.value === MASTER_PASS){
+  if(configUser.value.trim() && configPass.value === MASTER_PASS){
     configLoginArea.classList.add("hidden");
     configLinksArea.classList.remove("hidden");
     renderConfigLinks();
