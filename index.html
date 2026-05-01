@@ -1109,6 +1109,13 @@ let DB = {
   pendencias:{headers:[],rows:[]},
   stakeholders:{headers:[],rows:[]}
 };
+const BASE_DATASETS = ["riscos","pendencias","stakeholders"];
+const GID_DATASET_MAP = Object.fromEntries(
+  Object.entries(DEFAULT_SOURCES).map(([dataset,cfg])=>{
+    const gid = new URL(cfg.url).searchParams.get("gid");
+    return [gid, dataset];
+  }).filter(([gid])=>Boolean(gid))
+);
 
 
 function normalizeSourceConfig(value){
@@ -1138,6 +1145,26 @@ function persistSources(){
 
 function getDataset(key){
   return DB[key] || {headers:[],rows:[]};
+}
+function detectDatasetType(key, cfg){
+  const text = norm(`${key} ${cfg?.url || ""}`);
+  if(/pend/.test(text)) return "pendencias";
+  if(/risc/.test(text)) return "riscos";
+  if(/stake|interessad/.test(text)) return "stakeholders";
+  try{
+    const gid = new URL(cfg?.url || "", window.location.href).searchParams.get("gid");
+    if(gid && GID_DATASET_MAP[gid]) return GID_DATASET_MAP[gid];
+  }catch{}
+  return null;
+}
+function getSourceEntriesByDataset(){
+  const grouped = {riscos:[],pendencias:[],stakeholders:[]};
+  Object.entries(SOURCES).forEach(([key,rawCfg])=>{
+    const cfg = normalizeSourceConfig(rawCfg);
+    const datasetType = detectDatasetType(key, cfg);
+    if(datasetType) grouped[datasetType].push({key,cfg});
+  });
+  return grouped;
 }
 const COLORS = ["#16a34a","#d97706","#dc2626","#2563eb","#7c3aed"];
 
@@ -1226,6 +1253,9 @@ function pendenciaCriticidade(row, headers){
 function stakeholderInfluencia(row, headers){
   return val(row, headers, ["influência","influencia","tipo de influência","tipo de influencia","poder","impacto"]);
 }
+function riscoCriticidade(row, headers){
+  return val(row, headers, ["criticidade","nível","nivel","classificação","classificacao","prioridade","probabilidade x impacto","probabilidade"]);
+}
 
 function isRiscoValido(row, headers){
   const required = [
@@ -1269,6 +1299,7 @@ function isLate(row){
 }
 
 function labelClass(text){
+  if(/crit/.test(norm(text))) return "high";
   const c=classifyText(text);
   if(c==="high") return "high";
   if(c==="low") return "low";
@@ -1294,11 +1325,28 @@ async function loadCSV(key){
   const matrix = applyCellRange(parseCSV(txt), cfg);
   DB[key] = matrixToObjects(matrix, hasRange);
 }
+async function loadDataset(datasetType, sourceEntries){
+  const mergedRows = [];
+  let mergedHeaders = [];
+  for(const entry of sourceEntries){
+    const {cfg} = entry;
+    const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
+    if(!res.ok) throw new Error(datasetType + ": HTTP " + res.status);
+    const txt = await res.text();
+    const hasRange = Boolean(parseCellRef(cfg.startCell) || parseCellRef(cfg.endCell));
+    const matrix = applyCellRange(parseCSV(txt), cfg);
+    const parsed = matrixToObjects(matrix, hasRange);
+    if(parsed.headers.length > mergedHeaders.length) mergedHeaders = parsed.headers;
+    mergedRows.push(...parsed.rows);
+  }
+  DB[datasetType] = {headers:mergedHeaders,rows:mergedRows};
+}
 
 async function loadAll(){
   loading.classList.remove("hidden");
   try{
-    await Promise.all(Object.keys(SOURCES).map(loadCSV));
+    const grouped = getSourceEntriesByDataset();
+    await Promise.all(BASE_DATASETS.map(datasetType=>loadDataset(datasetType, grouped[datasetType])));
     buildFilters();
     renderAll();
     loading.classList.add("hidden");
@@ -1481,9 +1529,10 @@ function renderAll(){
   pendLow.textContent = pendLowCount;
 
   riskTotal.textContent = riscos.length;
-  riskHigh.textContent = riscos.filter(r=>classifyText(Object.values(r).join(" "))==="high").length;
-  riskMid.textContent = riscos.filter(r=>classifyText(Object.values(r).join(" "))==="mid").length;
-  riskLow.textContent = riscos.filter(r=>classifyText(Object.values(r).join(" "))==="low").length;
+  const rh = getDataset("riscos").headers;
+  riskHigh.textContent = riscos.filter(r=>/alta|crit/.test(norm(riscoCriticidade(r, rh)))).length;
+  riskMid.textContent = riscos.filter(r=>/media|m[eé]dia/.test(norm(riscoCriticidade(r, rh)))).length;
+  riskLow.textContent = riscos.filter(r=>/baixa/.test(norm(riscoCriticidade(r, rh)))).length;
 
   const sh = getDataset("stakeholders").headers;
   stakeTotal.textContent = stakes.length;
@@ -1522,7 +1571,6 @@ function renderAll(){
     {label:"Status",get:r=>val(r,ph,["status","situação","situacao","andamento"]) || "Sob controle", pill:(v)=>labelClass(v)}
   ], 7);
 
-  const rh = getDataset("riscos").headers;
   renderTable("riskTable", riscos, rh, [
     {label:"Risco",get:r=>val(r,rh,["risco","descrição","descricao","evento","ameaça","ameaca"]) || Object.values(r)[0]},
     {label:"Nível",get:r=>val(r,rh,["nível","nivel","criticidade","classificação","classificacao","impacto"]) || labelTextByClass(classifyText(Object.values(r).join(" "))), pill:(v)=>labelClass(v)},
