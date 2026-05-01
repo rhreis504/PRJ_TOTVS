@@ -550,7 +550,7 @@
     .timeline{
       position:relative;
       display:grid;
-      grid-template-columns:repeat(4,minmax(150px,1fr));
+      grid-template-columns:repeat(6,minmax(120px,1fr));
       gap:0;
       min-width:640px;
       padding:28px 4px 16px;
@@ -771,7 +771,7 @@
     .phase-progress{
       margin-top:14px;
       display:grid;
-      grid-template-columns:repeat(4,minmax(150px,1fr));
+      grid-template-columns:repeat(6,minmax(120px,1fr));
       gap:12px;
       min-width:640px;
     }
@@ -839,13 +839,13 @@
     .section-grid .panel:first-child .timeline{
       min-width:0;
       width:100%;
-      grid-template-columns:repeat(4,1fr);
+      grid-template-columns:repeat(6,1fr);
       padding:24px 4px 12px;
     }
     .section-grid .panel:first-child .phase-progress{
       min-width:0;
       width:100%;
-      grid-template-columns:repeat(4,1fr);
+      grid-template-columns:repeat(6,1fr);
       gap:14px;
     }
     .section-grid .card:nth-child(2),
@@ -864,6 +864,15 @@
         grid-template-columns:1fr;
       }
     }
+    .blink{animation:blinkPulse 1.2s infinite;}
+    @keyframes blinkPulse{0%,100%{opacity:1}50%{opacity:.35}}
+    .mile.blink b,.mile.blink span{animation:blinkPulse 1.2s infinite;}
+    .mile.blink i{border-color:#1e293b;box-shadow:0 0 0 6px rgba(30,41,59,.18);animation:blinkPulse 1.2s infinite;}
+    .modal{position:fixed;inset:0;background:rgba(2,6,23,.55);display:grid;place-items:center;z-index:120;}
+    .modal-box{width:min(640px,92vw);background:#fff;border-radius:16px;padding:18px;border:1px solid var(--line);box-shadow:var(--shadow);}
+    #configLinks{margin:0;padding-left:18px;display:grid;gap:8px;}
+    #configLinks a{color:#1d4ed8;word-break:break-all;}
+
 
     @media(max-width:1100px){
       .executive-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -900,6 +909,7 @@
       <a href="#pendencias">☑️ Pendências</a>
       <a href="#riscos">⚠️ Riscos</a>
       <a href="#stakeholders">👥 Stakeholders</a>
+      <a href="#" id="configNavLink">⚙️ Configurações</a>
     </nav>
 
     <div class="filters">
@@ -933,6 +943,7 @@
           <div>Patrocinador<b>Rossi Supermercados</b></div>
           <div>PMO<b>Equipe PMO</b></div>
         </div>
+        <button class="secondary" onclick="openConfigModal()">Configurações</button>
         <button class="secondary" onclick="loadAll()">Atualizar dados</button>
         <button onclick="window.print()">Exportar relatório</button>
       </div>
@@ -941,7 +952,7 @@
     <div class="content">
       <section class="executive-strip" id="visao">
         <div class="card summary-card">
-          <div class="gauge" id="gauge"><b id="progressPct">0%</b></div>
+          <div class="gauge" id="gauge"><b id="progressPct">Status</b></div>
           <div>
             <h2>Saúde geral do projeto</h2>
             <p>Indicador calculado com base no percentual de pendências concluídas em relação ao volume total publicado na base.</p>
@@ -1076,6 +1087,24 @@
       </div>
     </div>
   </main>
+</div>
+
+
+<div class="modal hidden" id="configModal">
+  <div class="modal-box">
+    <div class="panel-title"><h3>Configurações</h3><small>Acesso restrito</small></div>
+    <div id="configLoginArea">
+      <input id="configUser" placeholder="Usuário" style="color:#172033;background:#fff;border:1px solid #d1d5db"/>
+      <input id="configPass" type="password" placeholder="Senha" style="color:#172033;background:#fff;border:1px solid #d1d5db"/>
+      <button onclick="authenticateConfig()">Entrar</button>
+      <p id="configError" style="color:#b91c1c;font-size:12px"></p>
+    </div>
+    <div id="configLinksArea" class="hidden">
+      <p style="font-size:13px;color:#475569">Links das abas (MIT013 · Monitoramento e Controle):</p>
+      <ul id="configLinks"></ul>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="secondary" onclick="closeConfigModal()">Fechar</button></div>
+  </div>
 </div>
 
 <div class="loading" id="loading">Carregando dados da planilha publicada...</div>
@@ -1294,10 +1323,12 @@ function fmt(d){
 
 function renderTimeline(dateInfo){
   const phases = [
-    {label:"Iniciação", date:"Em andamento", pct:15, cls:"current"},
-    {label:"Planejamento", date:"04/05/26 a 08/05/26", pct:0, cls:"planned"},
-    {label:"Execução / Monitoramento e Controle", date:"A definir após planejamento", pct:0, cls:"open"},
-    {label:"Encerramento", date:"A definir após execução", pct:0, cls:"open"}
+    {label:"Iniciação", date:"Em andamento", pct:null, cls:"current blink"},
+    {label:"Planejamento", date:"Aguardando definição", pct:null, cls:"open"},
+    {label:"Execução", date:"Aguardando definição", pct:null, cls:"open"},
+    {label:"Monitoramento", date:"Aguardando definição", pct:null, cls:"open"},
+    {label:"Controle", date:"Aguardando definição", pct:null, cls:"open"},
+    {label:"Encerramento", date:"Aguardando definição", pct:null, cls:"open"}
   ];
   timeline.innerHTML = phases.map((p)=>{
     const dotClass = p.cls === "current" ? "current" : "";
@@ -1307,8 +1338,8 @@ function renderTimeline(dateInfo){
       ${phases.map(p=>`
         <div class="phase-card ${p.cls}">
           <b>${esc(p.label)}</b>
-          <div class="phase-bar"><i style="width:${p.pct}%"></i></div>
-          <span>${p.pct}% concluído</span>
+          <div class="phase-bar"><i style="width:${p.cls.includes("current") ? 100 : 0}%"></i></div>
+          <span>${p.cls.includes("current") ? "Em andamento" : "Aguardando definição"}</span>
         </div>
       `).join("")}
     </div>
@@ -1340,10 +1371,8 @@ function renderAll(){
   const doing = pend.filter(isDoing).length;
   const late = pend.filter(isLate).length;
   const open = Math.max(pend.length - done, 0);
-  const progress = 15;
-
-  progressPct.textContent = progress + "%";
-  gauge.style.setProperty("--progress", progress + "%");
+  progressPct.textContent = "Status";
+  gauge.style.setProperty("--progress", "100%");
 
   healthPill.className = "health-pill";
   healthPill.classList.add("warn");
@@ -1426,6 +1455,34 @@ function clearFilters(){
   searchBox.value = "";
   renderAll();
 }
+
+
+
+const MASTER_USER = "rhrreis@gmail.com";
+const MASTER_PASS = "TotvsAdmin@2026!";
+
+function openConfigModal(){
+  configModal.classList.remove("hidden");
+  configError.textContent = "";
+}
+function closeConfigModal(){
+  configModal.classList.add("hidden");
+}
+function authenticateConfig(){
+  if(configUser.value.trim() === MASTER_USER && configPass.value === MASTER_PASS){
+    configLoginArea.classList.add("hidden");
+    configLinksArea.classList.remove("hidden");
+    configLinks.innerHTML = Object.entries(SOURCES).map(([k,v])=>`<li><b>${esc(k)}</b>: <a href="${v}" target="_blank" rel="noopener noreferrer">${v}</a></li>`).join("");
+    configError.textContent = "";
+    return;
+  }
+  configError.textContent = "Usuário ou senha inválidos.";
+}
+
+document.addEventListener("click",(e)=>{
+  if(e.target.id === "configNavLink"){ e.preventDefault(); openConfigModal(); }
+  if(e.target.id === "configModal"){ closeConfigModal(); }
+});
 
 window.addEventListener("DOMContentLoaded", loadAll);
 </script>
