@@ -942,7 +942,7 @@
           <div>
             <div class="kpi-head"><div class="kpi-title">Pendências</div><div class="kpi-icon">☑️</div></div>
             <div class="kpi-value" id="pendOpen">0</div>
-            <div class="kpi-caption">Pendências abertas</div>
+            <div class="kpi-caption">Pendências cadastradas</div>
           </div>
           <div class="mini-breakdown">
             <div><b class="danger" id="pendHigh">0</b><span>Críticas</span></div>
@@ -1456,14 +1456,13 @@ function renderBars(rows){
 
 function renderAll(){
   const pend = filteredRows("pendencias");
-  const rhAll = getDataset("riscos").headers;
-  const riscos = filteredRows("riscos").filter(r => isRiscoValido(r, rhAll));
+  const riscos = filteredRows("riscos");
   const stakes = filteredRows("stakeholders");
 
   const done = pend.filter(isDone).length;
   const doing = pend.filter(isDoing).length;
   const late = pend.filter(isLate).length;
-  const open = Math.max(pend.length - done, 0);
+  const open = pend.length;
   progressPct.textContent = "Status";
   gauge.style.setProperty("--progress", "100%");
 
