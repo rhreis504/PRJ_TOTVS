@@ -391,9 +391,24 @@
         const REQUIRED_URL_KEYS = ['urlGeral','urlPendencias','urlRiscos','urlGaps','urlAtividades'];
         const data = { projectInfo:{}, health:{dimensions:[]}, evolution:[], tripleConstraint:{prazo:{},custo:{},escopo:{},qualidade:{}}, alerts:[], activities:{past:[],present:[],future:[]}, issues:[], risks:[], gaps:[], decisions:[], milestones:[], goliveCriteria:[] };
         function syncUrlsFromCockpitConfig(){ try{ const raw=localStorage.getItem('totvs_cockpit_config'); if(!raw) return; const cfg=JSON.parse(raw); const src=cfg?.sources||{}; const getVal=(k,fallback='')=>src[k]?.url||fallback; if(getVal('stakeholders')) localStorage.setItem('urlGeral',getVal('stakeholders')); if(getVal('pendencias')) localStorage.setItem('urlPendencias',getVal('pendencias')); if(getVal('riscos')) localStorage.setItem('urlRiscos',getVal('riscos')); if(getVal('gaps')) localStorage.setItem('urlGaps',getVal('gaps')); if(getVal('pendencias')) localStorage.setItem('urlAtividades',localStorage.getItem('urlAtividades')||getVal('pendencias')); }catch(e){ console.warn('Não foi possível sincronizar URLs da tela de configurações.',e); } }
-        document.addEventListener('DOMContentLoaded',()=>{ syncUrlsFromCockpitConfig(); openConfigModal(); closeConfigModal(); if(REQUIRED_URL_KEYS.every(k=>localStorage.getItem(k))){reloadFromConfiguredSources();}});
-?
-/).filter(Boolean); if(!lines.length) return []; const headers=lines[0].split(',').map(h=>h.trim()); return lines.slice(1).map(line=>{const cols=line.split(','); const o={}; headers.forEach((h,i)=>o[h]= (cols[i]||'').trim()); return o;}); };
+        document.addEventListener('DOMContentLoaded',()=>{
+            syncUrlsFromCockpitConfig();
+            if(REQUIRED_URL_KEYS.every(k=>localStorage.getItem(k))){
+                reloadFromConfiguredSources();
+            }
+        });
+
+        const parseCSV = (csv)=>{
+            const lines = csv.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+            if(!lines.length) return [];
+            const headers=lines[0].split(',').map(h=>h.trim());
+            return lines.slice(1).map(line=>{
+                const cols=line.split(',');
+                const o={};
+                headers.forEach((h,i)=>o[h]=(cols[i]||'').trim());
+                return o;
+            });
+        };
         const clearContainers = () => ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria'].forEach(id=>document.getElementById(id).innerHTML='');
         const getRAGColors=(s)=>({'Saudável':'bg-green-100 text-green-800 border-green-200','green':'bg-green-500','Atenção Leve':'bg-blue-100 text-blue-800 border-blue-200','blue':'bg-blue-500','Atenção Moderada':'bg-orange-100 text-orange-800 border-orange-200','Atenção':'bg-orange-100 text-orange-800 border-orange-200','orange':'bg-orange-500','Crítico':'bg-red-100 text-red-800 border-red-200','red':'bg-red-500','Atrasado':'bg-red-100 text-red-800','Vencido':'bg-red-100 text-red-800','Concluído':'bg-green-100 text-green-800','Em andamento':'bg-blue-100 text-blue-800','Não iniciado':'bg-gray-100 text-gray-800','Bloqueado':'bg-red-100 text-red-800 text-red-800','Agendado':'bg-slate-100 text-slate-700','No Prazo':'bg-green-100 text-green-800'})[s]||'bg-slate-100 text-slate-800 border-slate-200';
         function openConfigModal(){document.getElementById('config-modal').classList.remove('hidden');document.getElementById('url-geral').value=localStorage.getItem('urlGeral')||'';document.getElementById('url-pendencias').value=localStorage.getItem('urlPendencias')||'';document.getElementById('url-riscos').value=localStorage.getItem('urlRiscos')||'';document.getElementById('url-gaps').value=localStorage.getItem('urlGaps')||'';document.getElementById('url-atividades').value=localStorage.getItem('urlAtividades')||'';}
@@ -412,7 +427,6 @@
         function renderTables(){document.getElementById('count-issues').innerText=`${data.issues.length} Críticas`;const tI=document.getElementById('table-issues');data.issues.forEach(i=>tI.innerHTML+=`<tr><td class="p-2">${i.id}</td><td class="p-2">${i.desc}</td><td class="p-2">${i.resp}</td><td class="p-2">${i.due}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${i.status}</span></td></tr>`);document.getElementById('count-risks').innerText=`${data.risks.length} Ações Requeridas`;const tR=document.getElementById('table-risks');data.risks.forEach(r=>tR.innerHTML+=`<tr><td class="p-2">${r.id} - ${r.desc}</td><td class="p-2">${r.exp}</td><td class="p-2">${r.action}</td></tr>`);const tG=document.getElementById('table-gaps');data.gaps.forEach(g=>tG.innerHTML+=`<tr><td class="p-2">${g.id} - ${g.desc}</td><td class="p-2">${g.impact}</td><td class="p-2">${g.est}</td><td class="p-2">${g.action}</td></tr>`);}
         function renderMilestones(){}
         function saveAndLoadData(){ localStorage.setItem('urlGeral',document.getElementById('url-geral').value);localStorage.setItem('urlPendencias',document.getElementById('url-pendencias').value);localStorage.setItem('urlRiscos',document.getElementById('url-riscos').value);localStorage.setItem('urlGaps',document.getElementById('url-gaps').value);localStorage.setItem('urlAtividades',document.getElementById('url-atividades').value); closeConfigModal(); reloadFromConfiguredSources(); }
-        document.addEventListener('DOMContentLoaded',()=>{ openConfigModal(); closeConfigModal(); if(REQUIRED_URL_KEYS.every(k=>localStorage.getItem(k))){reloadFromConfiguredSources();}});
     </script>
 </body>
 </html>
