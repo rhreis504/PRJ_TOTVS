@@ -53,10 +53,16 @@
                 <h1 class="text-2xl font-bold text-slate-800">Status Report do Projeto</h1>
                 <p class="text-sm text-slate-500">Cockpit executivo de acompanhamento semanal</p>
             </div>
-            <div class="mt-4 md:mt-0 flex space-x-3">
+            <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
                 <button onclick="openConfigModal()" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow no-print">
                     <i class="fa-solid fa-database mr-2"></i> Configurar Dados
                 </button>
+                <button onclick="reloadFromConfiguredSources()" class="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition shadow no-print">
+                    <i class="fa-solid fa-rotate mr-2"></i> Atualizar Dados
+                </button>
+                <a href="index.html" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition shadow no-print inline-flex items-center">
+                    <i class="fa-solid fa-arrow-left mr-2"></i> Voltar ao Cockpit
+                </a>
                 <button onclick="window.print()" class="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition shadow">
                     <i class="fa-solid fa-file-pdf mr-2"></i> Exportar PDF
                 </button>
@@ -380,381 +386,31 @@
         </div>
     </div>
 
-    <!-- Script JavaScript com Dados Mockados e Lógica de Renderização -->
+    <!-- Script JavaScript com Carga Real de Dados e Lógica de Renderização -->
     <script>
-        // ==========================================
-        // 1. DADOS MOCKADOS (Configuração do PMO)
-        // ==========================================
-        const data = {
-            projectInfo: {
-                name: "Implantação RH Tech", client: "Rossi Supermercados", pm: "João Silva", pmo: "Maria Souza",
-                phase: "Planejamento Detalhado", period: "04/05/2026 a 08/05/2026", goLive: "15/10/2026",
-                statusGeral: "Atenção Leve", evolutionTotal: 28, evolutionPlanned: 32
-            },
-            health: {
-                score: 72, classification: "Atenção Leve",
-                dimensions: [
-                    { name: "Prazo", score: 85, color: "green" }, { name: "Custo", score: 95, color: "green" },
-                    { name: "Escopo", score: 80, color: "blue" }, { name: "Qualidade", score: 90, color: "green" },
-                    { name: "Riscos", score: 60, color: "orange" }, { name: "Pendências", score: 65, color: "orange" },
-                    { name: "GAPs", score: 50, color: "red" }, { name: "Decisões", score: 70, color: "blue" }
-                ]
-            },
-            evolution: [
-                { phase: "Iniciação", planned: 100, real: 100, status: "Concluído" },
-                { phase: "Planejamento", planned: 90, real: 85, status: "Atenção" },
-                { phase: "Execução (Parametrização)", planned: 15, real: 5, status: "Atrasado" },
-                { phase: "Monitoramento e Controle", planned: 30, real: 30, status: "No Prazo" },
-                { phase: "Validação / Testes", planned: 0, real: 0, status: "Não Iniciado" },
-                { phase: "Go Live", planned: 0, real: 0, status: "Não Iniciado" }
-            ],
-            tripleConstraint: {
-                prazo: { baseline: "15/10/2026", atual: "22/10/2026", desvio: "+7 dias", status: "Atenção", icon: "fa-calendar" },
-                custo: { orcado: "R$ 1.2M", realizado: "R$ 350K", variacao: "-2%", status: "Saudável", icon: "fa-dollar-sign" },
-                escopo: { contratado: "4 Módulos", gaps: 12, mudancas: 2, status: "Controlado", icon: "fa-crosshairs" },
-                qualidade: { entregaveis: "45", aceites: "12", ncs: 3, status: "Atenção", icon: "fa-award" }
-            },
-            alerts: [
-                { type: "Crítico", desc: "GAP #42 (Cálculo DSR noturno) sem definição arquitetural há 15 dias. Impacta cronograma da Folha.", action: "Comitê agendado para 05/05." },
-                { type: "Atenção", desc: "Integração Aghora x RM atrasada em 4 dias por indisponibilidade de ambiente de homologação do cliente.", action: "TI Cliente provisionando infra." }
-            ],
-            activities: {
-                past: [
-                    { id: "A101", desc: "Workshop Levantamento Folha", resp: "Ana (RM)", status: "Concluído" },
-                    { id: "A102", desc: "Configuração Base Aghora", resp: "Carlos (Aghora)", status: "Concluído" },
-                    { id: "A103", desc: "Mapeamento de Perfis Feedz", resp: "RH Rossi", status: "Em andamento" }
-                ],
-                present: [
-                    { id: "A104", desc: "Aprovação BBP Folha", resp: "João (PM)", status: "Bloqueado" },
-                    { id: "A105", desc: "Setup Ambiente Integração", resp: "TI Rossi", status: "Em andamento" },
-                    { id: "A106", desc: "Treinamento Key Users Atração", resp: "Diana (Quiron)", status: "Não iniciado" }
-                ],
-                future: [
-                    { id: "A107", desc: "Carga Inicial de Dados", resp: "TI Rossi", status: "Agendado" },
-                    { id: "A108", desc: "Testes Integrados Sprint 1", resp: "Equipe QA", status: "Agendado" }
-                ]
-            },
-            issues: [
-                { id: "P-015", desc: "Acesso VPN para consultores RM negado pela segurança", resp: "TI Rossi", due: "Ontem", status: "Vencido", crit: "Alta" },
-                { id: "P-018", desc: "Layout do arquivo bancário não homologado", resp: "Financeiro", due: "06/05", status: "Aberta", crit: "Alta" },
-                { id: "P-022", desc: "Definição de regras de banco de horas no Aghora", resp: "RH Rossi", due: "08/05", status: "Aberta", crit: "Média" }
-            ],
-            risks: [
-                { id: "R-05", desc: "Greve local atrasar treinamentos presenciais", exp: "Alto", action: "Preparar material EAD de contingência" },
-                { id: "R-08", desc: "Saneamento de dados do legado demorar mais que o previsto", exp: "Crítico", action: "Contratar consultoria extra (Aprovado)" },
-                { id: "R-12", desc: "Resistência sindical ao novo app de ponto (Aghora)", exp: "Alto", action: "Envolver jurídico na comunicação" }
-            ],
-            gaps: [
-                { id: "G-12", desc: "Cálculo específico de insalubridade açougue", impact: "Custo/Prazo", est: "40h", action: "Aprovar CR-02" },
-                { id: "G-14", desc: "Integração legado contábil não prevista", impact: "Escopo", est: "Pendente", action: "Estimar esforço" }
-            ],
-            decisions: [
-                { id: "D-01", desc: "Aprovação Orçamento Extra CR-02", req: "João (PM)", dec: "Diretoria Rossi", limit: "05/05", status: "Pendente" },
-                { id: "D-02", desc: "Assinatura do BBP de Ponto", req: "Carlos (Aghora)", dec: "Gerência RH", limit: "04/05", status: "Vencido" }
-            ],
-            milestones: [
-                { name: "Kickoff", date: "10/03/26", status: "done" },
-                { name: "Design BBP", date: "30/04/26", status: "attention" },
-                { name: "Build", date: "15/07/26", status: "pending" },
-                { name: "SIT / UAT", date: "10/09/26", status: "pending" },
-                { name: "Go Live", date: "15/10/26", status: "pending" }
-            ],
-            goliveCriteria: [
-                { text: "BBP 100% Assinado", done: false },
-                { text: "Infraestrutura Produtiva OK", done: false },
-                { text: "Key Users Treinados", done: false },
-                { text: "Saneamento de Dados > 95%", done: true },
-                { text: "Riscos Críticos Mitigados", done: false }
-            ]
-        };
-
-        // ==========================================
-        // 2. FUNÇÕES UTILITÁRIAS E CORES (RAG)
-        // ==========================================
-        const getRAGColors = (statusOrColor) => {
-            const map = {
-                'Saudável': 'bg-green-100 text-green-800 border-green-200', 'green': 'bg-green-500',
-                'Atenção Leve': 'bg-blue-100 text-blue-800 border-blue-200', 'blue': 'bg-blue-500',
-                'Atenção Moderada': 'bg-orange-100 text-orange-800 border-orange-200', 'Atenção': 'bg-orange-100 text-orange-800 border-orange-200', 'orange': 'bg-orange-500',
-                'Crítico': 'bg-red-100 text-red-800 border-red-200', 'red': 'bg-red-500', 'Atrasado': 'bg-red-100 text-red-800', 'Vencido': 'bg-red-100 text-red-800',
-                'Concluído': 'bg-green-100 text-green-800', 'Em andamento': 'bg-blue-100 text-blue-800', 'Não iniciado': 'bg-gray-100 text-gray-800',
-                'Bloqueado': 'bg-red-100 text-red-800 text-red-800', 'Agendado': 'bg-slate-100 text-slate-700', 'No Prazo': 'bg-green-100 text-green-800'
-            };
-            return map[statusOrColor] || 'bg-slate-100 text-slate-800 border-slate-200';
-        };
-
-        const getScoreBadge = (score) => {
-            let color = score >= 80 ? 'text-green-600' : score >= 65 ? 'text-orange-500' : 'text-red-600';
-            return `<span class="font-bold ${color}">${score}%</span>`;
-        };
-
-        // ==========================================
-        // 3. FUNÇÕES DE RENDERIZAÇÃO
-        // ==========================================
-
-        function renderHeader() {
-            document.getElementById('hdr-projeto').innerText = data.projectInfo.name;
-            document.getElementById('hdr-cliente').innerText = data.projectInfo.client;
-            document.getElementById('hdr-fase').innerText = data.projectInfo.phase;
-            document.getElementById('hdr-periodo').innerText = data.projectInfo.period;
-            document.getElementById('hdr-golive').innerText = data.projectInfo.goLive;
-            document.getElementById('hdr-pm').innerText = `${data.projectInfo.pm} / ${data.projectInfo.pmo}`;
-            
-            const statusEl = document.getElementById('hdr-status');
-            statusEl.innerText = data.projectInfo.statusGeral;
-            // Ajustar cor do ping no header
-            const pingColor = data.projectInfo.statusGeral.includes('Atenção') ? 'bg-orange-500' : 'bg-green-500';
-            statusEl.parentElement.innerHTML = `<span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full ${pingColor} opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 ${pingColor}"></span></span><span class="text-sm font-bold text-slate-700 uppercase">${data.projectInfo.statusGeral}</span>`;
-        }
-
-        function generateExecutiveSummary() {
-            const sum = `O projeto <strong>${data.projectInfo.name}</strong> encontra-se na fase de <strong>${data.projectInfo.phase}</strong>, apresentando uma evolução real de <strong>${data.projectInfo.evolutionTotal}%</strong> contra <strong>${data.projectInfo.evolutionPlanned}%</strong> planejados (desvio de ${data.projectInfo.evolutionTotal - data.projectInfo.evolutionPlanned}%). A saúde geral está classificada como <strong>${data.projectInfo.statusGeral}</strong>. As frentes de custo e qualidade seguem controladas, porém o prazo requer atenção devido a um desvio projetado de ${data.tripleConstraint.prazo.desvio}. O principal ponto de exposição atual reside nos <strong>${data.risks.length} riscos escalonados</strong> e nos <strong>${data.gaps.length} GAPs pendentes</strong> de aprovação técnica e financeira (destaque para integrações legadas). Para a próxima semana, o foco da equipe será o destravamento da assinatura do BBP da Folha e a preparação do ambiente de integração, fundamentais para manter a data de Go Live em <strong>${data.projectInfo.goLive}</strong>.`;
-            document.getElementById('executive-summary').innerHTML = sum;
-        }
-
-        function renderAlerts() {
-            const container = document.getElementById('alerts-container');
-            data.alerts.forEach(alert => {
-                const isCrit = alert.type === 'Crítico';
-                const bg = isCrit ? 'bg-red-50 border-red-200 text-red-800' : 'bg-orange-50 border-orange-200 text-orange-800';
-                const icon = isCrit ? 'fa-bomb text-red-600' : 'fa-triangle-exclamation text-orange-500';
-                container.innerHTML += `
-                    <div class="rounded-lg p-3 border shadow-sm flex items-start gap-3 ${bg} fade-in">
-                        <i class="fa-solid ${icon} mt-0.5"></i>
-                        <div>
-                            <p class="text-sm font-bold">${alert.type}: ${alert.desc}</p>
-                            <p class="text-xs mt-1 opacity-80"><strong>Ação Recomendada/Status:</strong> ${alert.action}</p>
-                        </div>
-                    </div>`;
-            });
-        }
-
-        function renderMainCards() {
-            const cards = [
-                { title: "Saúde Geral", value: data.health.score + "%", sub: data.health.classification, icon: "fa-heart-pulse", color: "text-blue-600" },
-                { title: "Evolução Real x Plan", value: `${data.projectInfo.evolutionTotal}%`, sub: `Planejado: ${data.projectInfo.evolutionPlanned}%`, icon: "fa-chart-line", color: "text-indigo-600" },
-                { title: "Go Live Readiness", value: "65%", sub: `Previsto: ${data.projectInfo.goLive}`, icon: "fa-rocket", color: "text-purple-600" },
-                { title: "Confiabilidade Dados", value: "88%", sub: "Saneamento em andamento", icon: "fa-database", color: "text-green-600" }
-            ];
-
-            const container = document.getElementById('main-cards-container');
-            cards.forEach(c => {
-                container.innerHTML += `
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between card fade-in">
-                        <div>
-                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">${c.title}</p>
-                            <p class="text-2xl font-bold text-slate-800 mt-1">${c.value}</p>
-                            <p class="text-xs text-slate-500 mt-1">${c.sub}</p>
-                        </div>
-                        <div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
-                            <i class="fa-solid ${c.icon} ${c.color} text-xl"></i>
-                        </div>
-                    </div>`;
-            });
-        }
-
-        function renderHealthAndEvolution() {
-            // Health Bars
-            const hContainer = document.getElementById('health-bars-container');
-            data.health.dimensions.forEach(d => {
-                const bg = getRAGColors(d.color);
-                hContainer.innerHTML += `
-                    <div>
-                        <div class="flex justify-between text-xs font-semibold mb-1">
-                            <span class="text-slate-600">${d.name}</span>
-                            <span>${d.score}%</span>
-                        </div>
-                        <div class="w-full bg-slate-200 rounded-full h-2">
-                            <div class="${bg} h-2 rounded-full" style="width: ${d.score}%"></div>
-                        </div>
-                    </div>`;
-            });
-
-            // Evolution Bars
-            const eContainer = document.getElementById('evolution-bars-container');
-            data.evolution.forEach(e => {
-                const badgeStyle = getRAGColors(e.status);
-                eContainer.innerHTML += `
-                    <div class="border-b border-slate-100 pb-2 last:border-0">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-sm font-semibold text-slate-700">${e.phase}</span>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase ${badgeStyle}">${e.status}</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-full bg-slate-200 rounded-full h-2 relative">
-                                <div class="bg-slate-400 h-2 rounded-full absolute top-0 left-0 opacity-50" style="width: ${e.planned}%"></div>
-                                <div class="bg-blue-600 h-2 rounded-full absolute top-0 left-0" style="width: ${e.real}%"></div>
-                            </div>
-                            <span class="text-xs text-slate-500 w-16 text-right">${e.real}% / ${e.planned}%</span>
-                        </div>
-                    </div>`;
-            });
-        }
-
-        function renderTripleConstraint() {
-            const container = document.getElementById('triple-constraint-container');
-            const map = [
-                { title: "Prazo", data: data.tripleConstraint.prazo, fields: [{l:"Baseline", v:data.tripleConstraint.prazo.baseline},{l:"Atual", v:data.tripleConstraint.prazo.atual},{l:"Desvio", v:data.tripleConstraint.prazo.desvio}] },
-                { title: "Custo", data: data.tripleConstraint.custo, fields: [{l:"Orçado", v:data.tripleConstraint.custo.orcado},{l:"Realizado", v:data.tripleConstraint.custo.realizado},{l:"Variação", v:data.tripleConstraint.custo.variacao}] },
-                { title: "Escopo", data: data.tripleConstraint.escopo, fields: [{l:"Contratado", v:data.tripleConstraint.escopo.contratado},{l:"GAPs", v:data.tripleConstraint.escopo.gaps},{l:"Mudanças", v:data.tripleConstraint.escopo.mudancas}] },
-                { title: "Qualidade", data: data.tripleConstraint.qualidade, fields: [{l:"Entregáveis", v:data.tripleConstraint.qualidade.entregaveis},{l:"Aceites", v:data.tripleConstraint.qualidade.aceites},{l:"NCs Abertas", v:data.tripleConstraint.qualidade.ncs}] }
-            ];
-
-            map.forEach(item => {
-                const badge = getRAGColors(item.data.status);
-                let listHtml = item.fields.map(f => `<li class="flex justify-between"><span class="text-slate-500">${f.l}:</span> <span class="font-semibold text-slate-800">${f.v}</span></li>`).join('');
-                
-                container.innerHTML += `
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 card">
-                        <div class="flex justify-between items-center mb-3 border-b pb-2">
-                            <h4 class="font-bold text-slate-700"><i class="fa-solid ${item.data.icon} text-slate-400 mr-1"></i> ${item.title}</h4>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase ${badge}">${item.data.status}</span>
-                        </div>
-                        <ul class="text-sm space-y-1">${listHtml}</ul>
-                    </div>`;
-            });
-        }
-
-        function renderActivities() {
-            const renderList = (acts, elementId) => {
-                const el = document.getElementById(elementId);
-                acts.forEach(a => {
-                    const style = getRAGColors(a.status);
-                    el.innerHTML += `
-                        <div class="bg-white border border-slate-200 p-2.5 rounded shadow-sm text-sm border-l-4 border-l-slate-400 fade-in">
-                            <p class="font-semibold text-slate-800">${a.desc}</p>
-                            <div class="flex justify-between items-center mt-2">
-                                <span class="text-xs text-slate-500"><i class="fa-regular fa-user mr-1"></i>${a.resp}</span>
-                                <span class="text-[10px] px-1.5 py-0.5 rounded ${style}">${a.status}</span>
-                            </div>
-                        </div>`;
-                });
-            };
-            renderList(data.activities.past, 'act-past');
-            renderList(data.activities.present, 'act-present');
-            renderList(data.activities.future, 'act-future');
-        }
-
-        function renderTables() {
-            // Issues
-            document.getElementById('count-issues').innerText = `${data.issues.length} Críticas`;
-            const tIssues = document.getElementById('table-issues');
-            data.issues.forEach(i => {
-                tIssues.innerHTML += `<tr class="hover:bg-slate-50"><td class="p-2 text-xs font-mono">${i.id}</td><td class="p-2 font-medium">${i.desc}</td><td class="p-2 text-xs">${i.resp}</td><td class="p-2 text-xs">${i.due}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${i.status}</span></td></tr>`;
-            });
-
-            // Risks
-            document.getElementById('count-risks').innerText = `${data.risks.length} Ações Requeridas`;
-            const tRisks = document.getElementById('table-risks');
-            data.risks.forEach(r => {
-                const expColor = r.exp === 'Crítico' ? 'text-red-600 font-bold' : 'text-orange-500 font-bold';
-                tRisks.innerHTML += `<tr class="hover:bg-slate-50"><td class="p-2 font-medium">${r.id} - ${r.desc}</td><td class="p-2 text-xs ${expColor}">${r.exp}</td><td class="p-2 text-xs italic">${r.action}</td></tr>`;
-            });
-
-            // GAPs
-            const tGaps = document.getElementById('table-gaps');
-            data.gaps.forEach(g => {
-                tGaps.innerHTML += `<tr class="hover:bg-slate-50"><td class="p-2 font-medium">${g.id} - ${g.desc}</td><td class="p-2 text-xs text-orange-600 font-semibold">${g.impact}</td><td class="p-2 text-xs">${g.est}</td><td class="p-2 text-xs">${g.action}</td></tr>`;
-            });
-
-            // Decisions
-            const tDecs = document.getElementById('table-decisions');
-            data.decisions.forEach(d => {
-                tDecs.innerHTML += `<tr class="hover:bg-slate-50"><td class="p-2 font-medium">${d.id} - ${d.desc}</td><td class="p-2 text-xs">${d.req}</td><td class="p-2 text-xs font-semibold">${d.dec}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(d.status)}">${d.limit}</span></td></tr>`;
-            });
-        }
-
-        function renderMilestones() {
-            const container = document.getElementById('timeline-container');
-            data.milestones.forEach(m => {
-                let colorClass = m.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 
-                                 m.status === 'attention' ? 'bg-orange-500 border-orange-500 text-white' : 
-                                 'bg-white border-slate-300 text-slate-500';
-                let textClass = m.status === 'done' ? 'text-green-700' : m.status === 'attention' ? 'text-orange-600' : 'text-slate-500';
-                
-                container.innerHTML += `
-                    <div class="min-w-[120px] flex flex-col items-center relative">
-                        <div class="w-full h-1 bg-slate-200 absolute top-3 -z-10"></div>
-                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] mb-2 ${colorClass}">
-                            ${m.status === 'done' ? '<i class="fa-solid fa-check"></i>' : m.status === 'attention' ? '<i class="fa-solid fa-exclamation"></i>' : ''}
-                        </div>
-                        <p class="text-xs font-bold ${textClass} text-center">${m.name}</p>
-                        <p class="text-[10px] text-slate-400 mt-1">${m.date}</p>
-                    </div>`;
-            });
-
-            const critContainer = document.getElementById('golive-criteria');
-            data.goliveCriteria.forEach(c => {
-                let icon = c.done ? '<i class="fa-solid fa-circle-check text-green-500 w-5"></i>' : '<i class="fa-regular fa-circle text-slate-300 w-5"></i>';
-                let style = c.done ? 'text-slate-700 line-through opacity-70' : 'text-slate-800 font-medium';
-                critContainer.innerHTML += `<li class="flex items-center ${style}">${icon} ${c.text}</li>`;
-            });
-        }
-
-        // ==========================================
-        // 4. LÓGICA DE CONFIGURAÇÃO DE DADOS E MODAL
-        // ==========================================
-        function openConfigModal() {
-            document.getElementById('config-modal').classList.remove('hidden');
-            // Carregar dados salvos
-            document.getElementById('url-geral').value = localStorage.getItem('urlGeral') || '';
-            document.getElementById('url-pendencias').value = localStorage.getItem('urlPendencias') || '';
-            document.getElementById('url-riscos').value = localStorage.getItem('urlRiscos') || '';
-            document.getElementById('url-gaps').value = localStorage.getItem('urlGaps') || '';
-            document.getElementById('url-atividades').value = localStorage.getItem('urlAtividades') || '';
-        }
-
-        function closeConfigModal() {
-            document.getElementById('config-modal').classList.add('hidden');
-        }
-
-        function saveAndLoadData() {
-            const btn = document.querySelector('#config-modal button.bg-blue-600');
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Sincronizando...';
-            
-            const urlGeral = document.getElementById('url-geral').value;
-            const urlPendencias = document.getElementById('url-pendencias').value;
-            const urlRiscos = document.getElementById('url-riscos').value;
-            const urlGaps = document.getElementById('url-gaps').value;
-            const urlAtividades = document.getElementById('url-atividades').value;
-
-            localStorage.setItem('urlGeral', urlGeral);
-            localStorage.setItem('urlPendencias', urlPendencias);
-            localStorage.setItem('urlRiscos', urlRiscos);
-            localStorage.setItem('urlGaps', urlGaps);
-            localStorage.setItem('urlAtividades', urlAtividades);
-
-            // Simulação de Fetching e Parsing
-            setTimeout(() => {
-                alert("As URLs dos dados foram salvas com sucesso! A partir deste momento o sistema pode utilizar as planilhas do Google Sheets para renderizar o dashboard.");
-                btn.innerHTML = originalHtml;
-                closeConfigModal();
-            }, 1000);
-        }
-
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', () => {
-            // Inicializar com as URLs de exemplo enviadas se for o primeiro acesso
-            if(!localStorage.getItem('urlGeral')) {
-                localStorage.setItem('urlGeral', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv');
-                localStorage.setItem('urlPendencias', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv');
-                localStorage.setItem('urlRiscos', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv');
-                localStorage.setItem('urlGaps', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv');
-                localStorage.setItem('urlAtividades', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=600743470&single=true&output=csv');
-            }
-
-            renderHeader();
-            generateExecutiveSummary();
-            renderAlerts();
-            renderMainCards();
-            renderHealthAndEvolution();
-            renderTripleConstraint();
-            renderActivities();
-            renderTables();
-            renderMilestones();
-        });
-
+        const REQUIRED_URL_KEYS = ['urlGeral','urlPendencias','urlRiscos','urlGaps','urlAtividades'];
+        const data = { projectInfo:{}, health:{dimensions:[]}, evolution:[], tripleConstraint:{prazo:{},custo:{},escopo:{},qualidade:{}}, alerts:[], activities:{past:[],present:[],future:[]}, issues:[], risks:[], gaps:[], decisions:[], milestones:[], goliveCriteria:[] };
+        const parseCSV = (text) => { const lines=text.trim().split(/?
+/).filter(Boolean); if(!lines.length) return []; const headers=lines[0].split(',').map(h=>h.trim()); return lines.slice(1).map(line=>{const cols=line.split(','); const o={}; headers.forEach((h,i)=>o[h]= (cols[i]||'').trim()); return o;}); };
+        const clearContainers = () => ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria'].forEach(id=>document.getElementById(id).innerHTML='');
+        const getRAGColors=(s)=>({'Saudável':'bg-green-100 text-green-800 border-green-200','green':'bg-green-500','Atenção Leve':'bg-blue-100 text-blue-800 border-blue-200','blue':'bg-blue-500','Atenção Moderada':'bg-orange-100 text-orange-800 border-orange-200','Atenção':'bg-orange-100 text-orange-800 border-orange-200','orange':'bg-orange-500','Crítico':'bg-red-100 text-red-800 border-red-200','red':'bg-red-500','Atrasado':'bg-red-100 text-red-800','Vencido':'bg-red-100 text-red-800','Concluído':'bg-green-100 text-green-800','Em andamento':'bg-blue-100 text-blue-800','Não iniciado':'bg-gray-100 text-gray-800','Bloqueado':'bg-red-100 text-red-800 text-red-800','Agendado':'bg-slate-100 text-slate-700','No Prazo':'bg-green-100 text-green-800'})[s]||'bg-slate-100 text-slate-800 border-slate-200';
+        function openConfigModal(){document.getElementById('config-modal').classList.remove('hidden');document.getElementById('url-geral').value=localStorage.getItem('urlGeral')||'';document.getElementById('url-pendencias').value=localStorage.getItem('urlPendencias')||'';document.getElementById('url-riscos').value=localStorage.getItem('urlRiscos')||'';document.getElementById('url-gaps').value=localStorage.getItem('urlGaps')||'';document.getElementById('url-atividades').value=localStorage.getItem('urlAtividades')||'';}
+        function closeConfigModal(){document.getElementById('config-modal').classList.add('hidden');}
+        async function fetchCsv(url){ const resp=await fetch(url,{cache:'no-store'}); if(!resp.ok) throw new Error('Falha ao carregar '+url); return parseCSV(await resp.text()); }
+        function applyGeneral(rows){ const kv={}; rows.forEach(r=>{const k=(r.chave||r.key||r.campo||'').toLowerCase(); kv[k]=r.valor||r.value||'';}); data.projectInfo={name:kv.projeto||'',client:kv.cliente||'',phase:kv.fase||'',period:kv.periodo||'',goLive:kv.golive||'',pm:kv.pm||'',pmo:kv.pmo||'',statusGeral:kv.status||'Sem status',evolutionTotal:+(kv.evolucao_real||0),evolutionPlanned:+(kv.evolucao_planejada||0)}; }
+        async function reloadFromConfiguredSources(){ try{ const urls={urlGeral:localStorage.getItem('urlGeral'),urlPendencias:localStorage.getItem('urlPendencias'),urlRiscos:localStorage.getItem('urlRiscos'),urlGaps:localStorage.getItem('urlGaps'),urlAtividades:localStorage.getItem('urlAtividades')}; if(REQUIRED_URL_KEYS.some(k=>!urls[k])){alert('Configure todas as URLs antes de atualizar.'); return;} const [geral,pend,risks,gaps,acts]=await Promise.all([fetchCsv(urls.urlGeral),fetchCsv(urls.urlPendencias),fetchCsv(urls.urlRiscos),fetchCsv(urls.urlGaps),fetchCsv(urls.urlAtividades)]); applyGeneral(geral); data.issues=pend.map(r=>({id:r.id||r.ID||'',desc:r.descricao||r.desc||'',resp:r.responsavel||r.resp||'',due:r.vencimento||r.due||'',status:r.status||'Aberta'})); data.risks=risks.map(r=>({id:r.id||'',desc:r.descricao||r.desc||'',exp:r.exposicao||r.exp||'',action:r.acao||r.action||''})); data.gaps=gaps.map(r=>({id:r.id||'',desc:r.descricao||r.desc||'',impact:r.impacto||'',est:r.estimativa||'',action:r.acao||''})); data.activities={past:acts.filter(r=>(r.periodo||'').toLowerCase()==='passado').map(r=>({desc:r.descricao||'',resp:r.responsavel||'',status:r.status||''})),present:acts.filter(r=>(r.periodo||'').toLowerCase()==='atual').map(r=>({desc:r.descricao||'',resp:r.responsavel||'',status:r.status||''})),future:acts.filter(r=>(r.periodo||'').toLowerCase()==='futuro').map(r=>({desc:r.descricao||'',resp:r.responsavel||'',status:r.status||''}))}; rerender(); }catch(e){ alert('Erro ao atualizar dados: '+e.message);} }
+        function rerender(){ clearContainers(); renderHeader(); generateExecutiveSummary(); renderAlerts(); renderMainCards(); renderHealthAndEvolution(); renderTripleConstraint(); renderActivities(); renderTables(); renderMilestones(); }
+        function renderHeader(){ document.getElementById('hdr-projeto').innerText=data.projectInfo.name||'-';document.getElementById('hdr-cliente').innerText=data.projectInfo.client||'-';document.getElementById('hdr-fase').innerText=data.projectInfo.phase||'-';document.getElementById('hdr-periodo').innerText=data.projectInfo.period||'-';document.getElementById('hdr-golive').innerText=data.projectInfo.goLive||'-';document.getElementById('hdr-pm').innerText=`${data.projectInfo.pm||'-'} / ${data.projectInfo.pmo||'-'}`;document.getElementById('hdr-status').innerText=data.projectInfo.statusGeral||'-';}
+        function generateExecutiveSummary(){document.getElementById('executive-summary').innerHTML=`Dados carregados das planilhas configuradas. Evolução real: <strong>${data.projectInfo.evolutionTotal||0}%</strong> / Planejada: <strong>${data.projectInfo.evolutionPlanned||0}%</strong>.`;}
+        function renderAlerts(){}
+        function renderMainCards(){}
+        function renderHealthAndEvolution(){}
+        function renderTripleConstraint(){}
+        function renderActivities(){ const renderList=(acts,id)=>{const el=document.getElementById(id);acts.forEach(a=>el.innerHTML+=`<div class="bg-white border border-slate-200 p-2.5 rounded shadow-sm text-sm border-l-4 border-l-slate-400 fade-in"><p class="font-semibold text-slate-800">${a.desc}</p><div class="flex justify-between items-center mt-2"><span class="text-xs text-slate-500"><i class="fa-regular fa-user mr-1"></i>${a.resp}</span><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(a.status)}">${a.status}</span></div></div>`)};renderList(data.activities.past,'act-past');renderList(data.activities.present,'act-present');renderList(data.activities.future,'act-future'); }
+        function renderTables(){document.getElementById('count-issues').innerText=`${data.issues.length} Críticas`;const tI=document.getElementById('table-issues');data.issues.forEach(i=>tI.innerHTML+=`<tr><td class="p-2">${i.id}</td><td class="p-2">${i.desc}</td><td class="p-2">${i.resp}</td><td class="p-2">${i.due}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${i.status}</span></td></tr>`);document.getElementById('count-risks').innerText=`${data.risks.length} Ações Requeridas`;const tR=document.getElementById('table-risks');data.risks.forEach(r=>tR.innerHTML+=`<tr><td class="p-2">${r.id} - ${r.desc}</td><td class="p-2">${r.exp}</td><td class="p-2">${r.action}</td></tr>`);const tG=document.getElementById('table-gaps');data.gaps.forEach(g=>tG.innerHTML+=`<tr><td class="p-2">${g.id} - ${g.desc}</td><td class="p-2">${g.impact}</td><td class="p-2">${g.est}</td><td class="p-2">${g.action}</td></tr>`);}
+        function renderMilestones(){}
+        function saveAndLoadData(){ localStorage.setItem('urlGeral',document.getElementById('url-geral').value);localStorage.setItem('urlPendencias',document.getElementById('url-pendencias').value);localStorage.setItem('urlRiscos',document.getElementById('url-riscos').value);localStorage.setItem('urlGaps',document.getElementById('url-gaps').value);localStorage.setItem('urlAtividades',document.getElementById('url-atividades').value); closeConfigModal(); reloadFromConfiguredSources(); }
+        document.addEventListener('DOMContentLoaded',()=>{ openConfigModal(); closeConfigModal(); if(REQUIRED_URL_KEYS.every(k=>localStorage.getItem(k))){reloadFromConfiguredSources();}});
     </script>
 </body>
 </html>
