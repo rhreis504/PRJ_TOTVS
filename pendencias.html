@@ -1,1 +1,410 @@
 
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  RefreshCw, 
+  AlertCircle, 
+  Search, 
+  Filter, 
+  LayoutDashboard,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  ListTodo,
+  TrendingUp
+} from 'lucide-react';
+
+// Função aprimorada para fazer o parse do CSV e converter para array de objetos
+function parseCSVToObjects(text) {
+  const rows = [];
+  let currentRow = [];
+  let currentCell = '';
+  let insideQuotes = false;
+
+  // Quebra os caracteres considerando aspas (padrão CSV)
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '"' && text[i + 1] === '"') {
+      currentCell += '"';
+      i++;
+    } else if (char === '"') {
+      insideQuotes = !insideQuotes;
+    } else if (char === ',' && !insideQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+    } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      currentRow.push(currentCell.trim());
+      rows.push(currentRow);
+      currentRow = [];
+      currentCell = '';
+    } else {
+      currentCell += char;
+    }
+  }
+  if (currentCell || text[text.length - 1] === ',') {
+    currentRow.push(currentCell.trim());
+  }
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
+
+  // Remove linhas totalmente vazias
+  const cleanedRows = rows.filter(row => row.some(cell => cell !== ''));
+  
+  if (cleanedRows.length === 0) return [];
+
+  const headers = cleanedRows[0];
+  const data = [];
+
+  // Mapeia as linhas subsequentes para objetos baseados nos headers
+  for (let i = 1; i < cleanedRows.length; i++) {
+    const row = cleanedRows[i];
+    const obj = {};
+    headers.forEach((header, index) => {
+      obj[header] = row[index] || '';
+    });
+    data.push(obj);
+  }
+
+  return { headers, data };
+}
+
+const FALLBACK_CSV = `ID,Área,Categoria,Etapa do Projeto,Sprint,Atividade,Descrição,Responsável,Criticidade,Responsável Cliente,Data Identificação,Data Planejada,Dias para Concluir,Condição Pendência,Data Conclusão,% Conclusão,Status
+1,Governança,Planejamento,Iniciação,Recebimento de documentos TOTVS,Receber materiais iniciais do projeto enviados pela TOTVS,Fabio Daumichen,Baixa,,28/04/2026,28/04/2026,,Dentro do Prazo,,100%,Concluída
+2,Governança,Planejamento,Iniciação,Consolidação de informações do projeto,Levantamento de escopo soluções contatos e propostas,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
+3,Governança,Planejamento,Iniciação,Mapeamento de stakeholders,Identificação de contatos TOTVS e Rossi,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
+4,Técnico,Planejamento,Iniciação,Identificação de dependências,Levantamento de dependências entre soluções,Regis Reis,Crítica,,28/04/2026,30/04/2026,,Dentro do Prazo,,50%,Em execução
+5,Governança,Planejamento,Iniciação,Definição da estratégia de comunicação,Criação da abordagem para alinhamento,Regis Reis,Média,,28/04/2026,08/05/2026,,Dentro do Prazo,,0%,Pendente`;
+
+export default function PendenciasDashboard() {
+  const [dataset, setDataset] = useState({ headers: [], data: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Estados dos Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [criticidadeFilter, setCriticidadeFilter] = useState('');
+  const [responsavelFilter, setResponsavelFilter] = useState('');
+
+  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv";
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(CSV_URL);
+      if (!response.ok) throw new Error("Falha na comunicação com o Google Sheets.");
+      
+      const csvText = await response.text();
+      const parsed = parseCSVToObjects(csvText);
+      
+      setDataset(parsed);
+      setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    } catch (err) {
+      console.error("Erro no fetch, usando fallback:", err);
+      setError("Bloqueio de rede identificado (CORS). Carregando base de segurança.");
+      const parsedFallback = parseCSVToObjects(FALLBACK_CSV);
+      setDataset(parsedFallback);
+      setLastUpdated("Offline (Fallback)");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Extração de valores únicos para os dropdowns de filtro
+  const uniqueValues = useMemo(() => {
+    const data = dataset.data;
+    return {
+      status: [...new Set(data.map(item => item['Status']))].filter(Boolean),
+      criticidade: [...new Set(data.map(item => item['Criticidade']))].filter(Boolean),
+      responsaveis: [...new Set(data.map(item => item['Responsável']))].filter(Boolean),
+    };
+  }, [dataset]);
+
+  // Aplicação dos Filtros
+  const filteredData = useMemo(() => {
+    return dataset.data.filter(row => {
+      // Filtro de Texto (Global Search)
+      const matchesSearch = Object.values(row).some(val => 
+        val.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      
+      // Filtros exatos
+      const matchesStatus = statusFilter === '' || row['Status'] === statusFilter;
+      const matchesCriticidade = criticidadeFilter === '' || row['Criticidade'] === criticidadeFilter;
+      const matchesResponsavel = responsavelFilter === '' || row['Responsável'] === responsavelFilter;
+
+      return matchesSearch && matchesStatus && matchesCriticidade && matchesResponsavel;
+    });
+  }, [dataset, searchTerm, statusFilter, criticidadeFilter, responsavelFilter]);
+
+  // Cálculo dos KPIs
+  const kpis = useMemo(() => {
+    const total = filteredData.length;
+    const concluidas = filteredData.filter(d => d['Status']?.toLowerCase().includes('concluída')).length;
+    const emExecucao = filteredData.filter(d => d['Status']?.toLowerCase().includes('em execução')).length;
+    const pendentes = filteredData.filter(d => d['Status']?.toLowerCase().includes('pendente')).length;
+    const criticas = filteredData.filter(d => d['Criticidade']?.toLowerCase().includes('crítica')).length;
+    
+    return { total, concluidas, emExecucao, pendentes, criticas };
+  }, [filteredData]);
+
+  // Renderizadores Visuais Customizados (UX Specialist Level)
+  const renderStatusBadge = (status) => {
+    if (!status) return <span className="text-slate-400">-</span>;
+    const s = status.toLowerCase();
+    if (s.includes('concluída')) {
+      return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200"><CheckCircle2 size={12} /> {status}</span>;
+    }
+    if (s.includes('em execução')) {
+      return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"><TrendingUp size={12} /> {status}</span>;
+    }
+    if (s.includes('pendente')) {
+      return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"><Clock size={12} /> {status}</span>;
+    }
+    return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{status}</span>;
+  };
+
+  const renderCriticidadeBadge = (criticidade) => {
+    if (!criticidade) return <span className="text-slate-400">-</span>;
+    const c = criticidade.toLowerCase();
+    if (c.includes('baixa')) return <span className="text-slate-500 font-medium">{criticidade}</span>;
+    if (c.includes('média')) return <span className="text-amber-600 font-medium">{criticidade}</span>;
+    if (c.includes('alta')) return <span className="text-orange-600 font-semibold">{criticidade}</span>;
+    if (c.includes('crítica')) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200"><AlertTriangle size={12} /> {criticidade}</span>;
+    return <span>{criticidade}</span>;
+  };
+
+  const renderProgressBar = (valueStr) => {
+    if (!valueStr) return <span className="text-slate-400">-</span>;
+    const numValue = parseInt(valueStr.replace('%', ''));
+    if (isNaN(numValue)) return <span>{valueStr}</span>;
+    
+    let colorClass = 'bg-blue-500';
+    if (numValue === 100) colorClass = 'bg-emerald-500';
+    else if (numValue === 0) colorClass = 'bg-slate-300';
+    else if (numValue > 0 && numValue < 50) colorClass = 'bg-amber-500';
+
+    return (
+      <div className="w-full max-w-[120px]">
+        <div className="flex justify-between items-center mb-1 text-xs">
+          <span className="font-medium text-slate-700">{valueStr}</span>
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-1.5">
+          <div className={`${colorClass} h-1.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(100, Math.max(0, numValue))}%` }}></div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-800 flex flex-col">
+      
+      {/* Top Navbar */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-indigo-600 p-2 rounded-lg shadow-sm">
+            <LayoutDashboard size={20} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800 leading-tight">Painel de Pendências</h1>
+            <p className="text-xs text-slate-500">Gestão e acompanhamento do projeto</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4 text-sm w-full sm:w-auto">
+          {error && (
+            <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-md font-medium text-xs">
+              <AlertCircle size={14} /> <span className="hidden md:inline">{error}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-medium ml-auto sm:ml-0">
+            <span>Sincronizado:</span>
+            <span className="bg-slate-100 px-2 py-1 rounded text-slate-700">{lastUpdated || 'Carregando...'}</span>
+          </div>
+          <button 
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50 font-medium"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin text-indigo-600" : "text-slate-400"} />
+            <span className="hidden sm:inline">Sincronizar Dados</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto flex flex-col gap-6">
+        
+        {/* KPI Cards Section */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-indigo-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg"><ListTodo size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Total Mapeado</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.total}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-emerald-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><CheckCircle2 size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Concluídas</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.concluidas}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-blue-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><TrendingUp size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Em Execução</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.emExecucao}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-amber-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg"><Clock size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Pendentes</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.pendentes}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-rose-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-lg"><AlertTriangle size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Críticas</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.criticas}</h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters Toolbar */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col lg:flex-row items-center justify-between gap-4">
+          <div className="relative w-full lg:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Buscar em qualquer campo..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
+            />
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
+              <Filter size={16} /> Filtros:
+            </div>
+            
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 outline-none"
+            >
+              <option value="">Todos os Status</option>
+              {uniqueValues.status.map(val => <option key={val} value={val}>{val}</option>)}
+            </select>
+
+            <select 
+              value={criticidadeFilter} 
+              onChange={(e) => setCriticidadeFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 outline-none"
+            >
+              <option value="">Qualquer Criticidade</option>
+              {uniqueValues.criticidade.map(val => <option key={val} value={val}>{val}</option>)}
+            </select>
+
+            <select 
+              value={responsavelFilter} 
+              onChange={(e) => setResponsavelFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 outline-none max-w-[200px] truncate"
+            >
+              <option value="">Todos os Responsáveis</option>
+              {uniqueValues.responsaveis.map(val => <option key={val} value={val}>{val}</option>)}
+            </select>
+            
+            {/* Botão limpar filtros (aparece se houver algum filtro ativo) */}
+            {(searchTerm || statusFilter || criticidadeFilter || responsavelFilter) && (
+              <button 
+                onClick={() => { setSearchTerm(''); setStatusFilter(''); setCriticidadeFilter(''); setResponsavelFilter(''); }}
+                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium px-2 py-1 hover:bg-indigo-50 rounded transition-colors"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+          <div className="overflow-x-auto flex-1">
+            {loading && dataset.data.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
+                <RefreshCw size={32} className="animate-spin text-indigo-400" />
+                <p>Processando base de dados...</p>
+              </div>
+            ) : filteredData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
+                <Search size={32} className="text-slate-300 mb-2" />
+                <p className="font-medium text-slate-700">Nenhum resultado encontrado.</p>
+                <p className="text-sm">Tente ajustar seus filtros de busca.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
+                <thead>
+                  <tr>
+                    {dataset.headers.map((header, index) => (
+                      <th 
+                        key={index} 
+                        className="bg-slate-50 border-y border-slate-200 px-4 py-3 text-xs uppercase tracking-wider font-semibold text-slate-600 sticky top-0 z-10 shadow-sm"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredData.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="hover:bg-indigo-50/30 transition-colors group">
+                      {dataset.headers.map((header, colIndex) => {
+                        const cellValue = row[header];
+                        
+                        // Aplicando renderizadores customizados
+                        let content = cellValue;
+                        if (header === 'Status') content = renderStatusBadge(cellValue);
+                        else if (header === 'Criticidade') content = renderCriticidadeBadge(cellValue);
+                        else if (header === '% Conclusão') content = renderProgressBar(cellValue);
+                        
+                        // Estilização específica de tipografia para certas colunas
+                        let cellClass = "px-4 py-3 text-sm text-slate-700 max-w-[250px] truncate group-hover:text-slate-900";
+                        if (header === 'ID') cellClass += " font-semibold text-slate-500";
+                        if (header === 'Atividade' || header === 'Descrição') cellClass += " whitespace-normal min-w-[250px]";
+
+                        return (
+                          <td key={colIndex} className={cellClass} title={typeof content === 'string' ? content : ''}>
+                            {content}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          
+          {/* Table Footer / Pagination Info */}
+          <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-between text-sm text-slate-500">
+            <p>
+              Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros 
+              {filteredData.length !== dataset.data.length && ` (filtrados de ${dataset.data.length} totais)`}
+            </p>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  );
+}
