@@ -187,6 +187,14 @@
       justify-content:flex-end;
     }
 
+    .refresh-status{
+      width:100%;
+      text-align:right;
+      font-size:12px;
+      color:var(--muted);
+      margin-top:-2px;
+    }
+
     .meta{
       display:flex;
       gap:16px;
@@ -924,6 +932,10 @@
         <button class="secondary" onclick="openConfigModal()">Configurações</button>
         <button class="secondary" onclick="loadAll()">Atualizar dados</button>
         <button onclick="window.print()">Exportar relatório</button>
+        <div class="refresh-status">
+          <span id="autoRefreshInfo">Atualização automática: desativada</span> ·
+          <span id="lastUpdateTop">Última atualização: --</span>
+        </div>
       </div>
     </div>
 
@@ -1079,6 +1091,10 @@
     </div>
     <div id="configLinksArea" class="hidden">
       <p style="font-size:13px;color:#475569">Links das abas (MIT013 · Monitoramento e Controle):</p>
+      <div class="config-link-row" style="grid-template-columns:220px 1fr; margin-bottom:12px;">
+        <span style="font-size:12px;color:#475569;font-weight:700;">Atualização automática (min)</span>
+        <input id="autoRefreshMinutes" type="number" min="0" step="1" placeholder="Ex.: 5 (0 desativa)" style="color:#172033;background:#fff;border:1px solid #d1d5db"/>
+      </div>
       <ul id="configLinks"></ul>
       <div class="config-actions">
         <div class="config-actions-left">
@@ -1109,6 +1125,8 @@ let DB = {
   pendencias:{headers:[],rows:[]},
   stakeholders:{headers:[],rows:[]}
 };
+const AUTO_REFRESH_KEY = "mit013_auto_refresh_minutes";
+let autoRefreshTimer = null;
 const BASE_DATASETS = ["riscos","pendencias","stakeholders"];
 const GID_DATASET_MAP = Object.fromEntries(
   Object.entries(DEFAULT_SOURCES).map(([dataset,cfg])=>{
@@ -1144,6 +1162,31 @@ function loadStoredSources(){
 
 function persistSources(){
   localStorage.setItem("mit013_sources", JSON.stringify(SOURCES));
+}
+function getStoredAutoRefreshMinutes(){
+  const raw = localStorage.getItem(AUTO_REFRESH_KEY);
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+}
+function persistAutoRefreshMinutes(minutes){
+  localStorage.setItem(AUTO_REFRESH_KEY, String(minutes));
+}
+function updateAutoRefreshLabel(minutes){
+  autoRefreshInfo.textContent = minutes > 0
+    ? `Atualização automática: a cada ${minutes} min`
+    : "Atualização automática: desativada";
+}
+function setAutoRefreshTimer(minutes){
+  if(autoRefreshTimer){
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+  updateAutoRefreshLabel(minutes);
+  if(minutes > 0){
+    autoRefreshTimer = setInterval(async ()=>{
+      await loadAll({isAutoRefresh:true});
+    }, minutes * 60 * 1000);
+  }
 }
 
 function getDataset(key){
@@ -1427,13 +1470,18 @@ async function loadDataset(datasetType, sourceEntries){
   DB[datasetType] = {headers:mergedHeaders,rows:mergedRows};
 }
 
-async function loadAll(){
+async function loadAll(options = {}){
+  const {isAutoRefresh = false} = options;
   loading.classList.remove("hidden");
   try{
     const grouped = getSourceEntriesByDataset();
     await Promise.all(BASE_DATASETS.map(datasetType=>loadDataset(datasetType, grouped[datasetType])));
     buildFilters();
     renderAll();
+    if(isAutoRefresh){
+      const minutes = getStoredAutoRefreshMinutes();
+      setAutoRefreshTimer(minutes);
+    }
     loading.classList.add("hidden");
   }catch(e){
     loading.textContent = "Erro ao carregar. Confirme se as abas seguem publicadas em CSV.";
@@ -1675,7 +1723,9 @@ function renderAll(){
   pendCount.textContent = pend.length + " registros";
   riskCount.textContent = riscos.length + " registros";
   stakeCount.textContent = stakes.length + " registros";
-  lastUpdate.textContent = "Última atualização: " + new Date().toLocaleString("pt-BR");
+  const nowLabel = new Date().toLocaleString("pt-BR");
+  lastUpdate.textContent = "Última atualização: " + nowLabel;
+  lastUpdateTop.textContent = "Última atualização: " + nowLabel;
 }
 
 function clearFilters(){
@@ -1692,6 +1742,8 @@ function openConfigModal(){
   configModal.classList.remove("hidden");
   configError.textContent = "";
   configStatus.textContent = "";
+  const minutes = getStoredAutoRefreshMinutes();
+  autoRefreshMinutes.value = minutes ? String(minutes) : "";
 }
 function closeConfigModal(){
   configModal.classList.add("hidden");
@@ -1761,6 +1813,9 @@ async function saveSourceLinks(){
     return;
   }
   SOURCES = next;
+  const refreshMinutes = Math.max(0, Number(autoRefreshMinutes.value) || 0);
+  persistAutoRefreshMinutes(refreshMinutes);
+  setAutoRefreshTimer(refreshMinutes);
   persistSources();
   configStatus.textContent = "Links salvos. Atualizando dados...";
   await loadAll();
@@ -1781,7 +1836,11 @@ document.addEventListener("click",(e)=>{
   if(e.target.id === "configModal"){ closeConfigModal(); }
 });
 
-window.addEventListener("DOMContentLoaded", loadAll);
+window.addEventListener("DOMContentLoaded", ()=>{
+  const minutes = getStoredAutoRefreshMinutes();
+  setAutoRefreshTimer(minutes);
+  loadAll();
+});
 </script>
 </body>
 </html>
