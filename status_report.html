@@ -346,19 +346,23 @@
                     <input type="text" id="url-geral" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
                 </div>
                 
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Pendências</label>
-                    <input type="text" id="url-pendencias" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-                </div>
-                
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Riscos</label>
-                    <input type="text" id="url-riscos" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-                </div>
-                
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - GAPs</label>
-                    <input type="text" id="url-gaps" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+                <div class="rounded-lg border border-slate-200 p-3 bg-slate-50/70">
+                    <p class="text-xs font-bold text-slate-600 mb-3 uppercase tracking-wide">Pendências / Riscos / GAPs (URLs separadas)</p>
+
+                    <div class="mb-3">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Pendências</label>
+                        <input type="text" id="url-pendencias" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="Cole aqui a URL CSV exclusiva de Pendências" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Riscos</label>
+                        <input type="text" id="url-riscos" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="Cole aqui a URL CSV exclusiva de Riscos" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - GAPs</label>
+                        <input type="text" id="url-gaps" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="Cole aqui a URL CSV exclusiva de GAPs" required>
+                    </div>
                 </div>
                 
                 <div>
