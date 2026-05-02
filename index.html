@@ -1032,9 +1032,9 @@
 
 <script>
 const DEFAULT_SOURCES = {
-  riscos: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv", interval:"", firstRowHeader:true},
-  pendencias: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv", interval:"", firstRowHeader:true},
-  stakeholders: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv", interval:"", firstRowHeader:true}
+  riscos: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv", interval:"", firstRowHeader:false},
+  pendencias: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv", interval:"", firstRowHeader:false},
+  stakeholders: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv", interval:"", firstRowHeader:false}
 };
 
 let SOURCES = loadStoredSources();
@@ -1049,7 +1049,6 @@ let autoRefreshTimer = null;
 let autoRefreshCountdownTimer = null;
 let nextAutoRefreshAt = null;
 const BASE_DATASETS = ["riscos","pendencias","stakeholders"];
-const FETCH_TIMEOUT_MS = 20000;
 const GID_DATASET_MAP = Object.fromEntries(
   Object.entries(DEFAULT_SOURCES).map(([dataset,cfg])=>{
     const gid = new URL(cfg.url).searchParams.get("gid");
@@ -1059,7 +1058,7 @@ const GID_DATASET_MAP = Object.fromEntries(
 
 
 function normalizeSourceConfig(value){
-  if(typeof value === "string") return {url:value,interval:"",firstRowHeader:true};
+  if(typeof value === "string") return {url:value,interval:"",firstRowHeader:false};
   const startCell = String(value?.startCell || "").trim().toUpperCase();
   const endCell = String(value?.endCell || "").trim().toUpperCase();
   const interval = String(value?.interval || "").trim().toUpperCase() || [startCell, endCell].filter(Boolean).join(":");
@@ -1164,22 +1163,11 @@ function detectDatasetType(key, cfg){
 }
 function getSourceEntriesByDataset(){
   const grouped = {riscos:[],pendencias:[],stakeholders:[]};
-  const unknownEntries = [];
-
   Object.entries(SOURCES).forEach(([key,rawCfg])=>{
     const cfg = normalizeSourceConfig(rawCfg);
     const datasetType = detectDatasetType(key, cfg);
-    const entry = {key,cfg};
-    if(datasetType) grouped[datasetType].push(entry);
-    else unknownEntries.push(entry);
+    if(datasetType) grouped[datasetType].push({key,cfg});
   });
-
-  BASE_DATASETS.forEach((datasetType, index)=>{
-    if(!grouped[datasetType].length && unknownEntries[index]){
-      grouped[datasetType].push(unknownEntries[index]);
-    }
-  });
-
   return grouped;
 }
 const COLORS = ["#16a34a","#d97706","#dc2626","#2563eb","#7c3aed"];
@@ -1402,17 +1390,10 @@ async function loadCSV(key){
 }
 
 async function fetchSourceMatrix(url){
-  if(!url) throw new Error("URL da fonte não configurada");
-  const controller = new AbortController();
-  const timeoutId = setTimeout(()=>controller.abort(), FETCH_TIMEOUT_MS);
-  try{
-    const res = await fetch(buildSourceURL(url), {cache:"no-store", signal:controller.signal});
-    if(!res.ok) throw new Error("HTTP " + res.status);
-    const txt = await res.text();
-    return parseCSV(txt);
-  }finally{
-    clearTimeout(timeoutId);
-  }
+  const res = await fetch(buildSourceURL(url), {cache:"no-store"});
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  const txt = await res.text();
+  return parseCSV(txt);
 }
 
 async function loadDataset(datasetType, sourceEntries){
@@ -1449,35 +1430,22 @@ async function loadDataset(datasetType, sourceEntries){
 
 async function loadAll(options = {}){
   const {isAutoRefresh = false} = options;
-  loading.textContent = "Carregando dados da planilha publicada...";
   loading.classList.remove("hidden");
-
-  const grouped = getSourceEntriesByDataset();
-  const failures = [];
-
-  await Promise.all(BASE_DATASETS.map(async (datasetType)=>{
-    try{
-      await loadDataset(datasetType, grouped[datasetType] || []);
-    }catch(error){
-      console.error(`Falha ao carregar ${datasetType}:`, error);
-      failures.push(datasetType);
-      DB[datasetType] = {headers:[],rows:[]};
+  try{
+    const grouped = getSourceEntriesByDataset();
+    await Promise.all(BASE_DATASETS.map(datasetType=>loadDataset(datasetType, grouped[datasetType])));
+    buildFilters();
+    renderAll();
+    if(isAutoRefresh){
+      const minutes = getStoredAutoRefreshMinutes();
+      setAutoRefreshTimer(minutes);
     }
-  }));
-
-  buildFilters();
-  renderAll();
-
-  if(isAutoRefresh){
-    const minutes = getStoredAutoRefreshMinutes();
-    setAutoRefreshTimer(minutes);
-  }
-
-  if(failures.length){
-    loading.textContent = `Falha ao carregar: ${failures.join(", ")}. Verifique os links publicados em CSV.`;
-    loading.classList.remove("hidden");
-  }else{
     loading.classList.add("hidden");
+  }catch(e){
+    console.error(e);
+    renderAll();
+    loading.textContent = "Erro ao carregar. Confirme se as abas seguem publicadas em CSV.";
+    loading.classList.remove("hidden");
   }
 }
 
@@ -1814,7 +1782,7 @@ function authenticateConfig(){
 }
 
 function addSourceLink(){
-  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = {url:"",interval:"",firstRowHeader:true};
+  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = {url:"",interval:"",firstRowHeader:false};
   renderConfigLinks();
 }
 
