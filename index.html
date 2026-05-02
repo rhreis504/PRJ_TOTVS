@@ -573,6 +573,7 @@
 
     .timeline{
       position:relative;
+      padding:0;
       min-width:0;
       width:100%;
       border-radius:14px;
@@ -590,8 +591,8 @@
     .phase-item{
       text-align:center;
       color:#29415d;
-      padding:16px 10px 14px;
-      min-height:250px;
+      padding:30px 20px;
+      min-height:290px;
       border-right:1px solid #e2e8f0;
       display:flex;
       flex-direction:column;
@@ -602,18 +603,18 @@
     .phase-item:last-child{border-right:0;}
 
     .phase-ring{
-      width:62px;
-      height:62px;
-      margin:0 auto 6px;
+      width:80px;
+      height:80px;
+      margin:0 auto 20px;
       border-radius:50%;
       border:2px solid currentColor;
-      background:#f8fbff;
+      background:#fff;
       display:grid;
       place-items:center;
     }
 
     .phase-item[data-state="current"] .phase-ring{
-      animation:pulseCurrent 1.3s infinite;
+      animation:pulseCurrent 2s infinite;
     }
 
     @keyframes pulseCurrent{
@@ -632,21 +633,21 @@
       stroke-linejoin:round;
     }
 
-    .phase-number{display:block;font-size:11px;font-weight:800;color:#64748b;line-height:1;letter-spacing:.08em;}
-    .phase-title{display:block;font-size:12px;font-weight:900;line-height:1.25;margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
-    .phase-sub{display:block;font-size:10px;line-height:1.35;color:#334155;max-width:180px;}
+    .phase-number{font-size:14px;font-weight:900;}
+    .phase-title{display:block;font-size:14px;font-weight:900;line-height:1.25;margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
+    .phase-sub{display:block;font-size:13px;line-height:1.5;color:#607d8b;max-width:220px;}
 
     .phase-item[data-state="future"] .phase-number{color:#94a3b8;}
 
     .phase-badge{
       margin-top:auto;
       width:max-content;
-      padding:7px 12px;
-      border-radius:999px;
-      background:#e2e8f0;
-      color:#475569;
-      font-size:10px;
-      font-weight:800;
+      padding:5px 12px;
+      border-radius:20px;
+      background:#e8f5e9;
+      color:#2e7d32;
+      font-size:11px;
+      font-weight:700;
     }
 
     .phase-item[data-state="current"] .phase-badge{
@@ -655,20 +656,7 @@
       box-shadow:0 0 0 1px rgba(34,197,94,.45) inset;
     }
 
-    .timeline-legend{
-      margin-top:12px;
-      border-top:1px solid #d8e1ee;
-      padding:8px 10px 10px;
-      display:flex;
-      gap:18px;
-      flex-wrap:wrap;
-      color:#64748b;
-      font-size:11px;
-    }
-
-    .timeline-legend-item{display:flex;align-items:center;gap:8px;}
-    .timeline-legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:#cbd5e1;}
-    .timeline-legend-dot.current{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18);}
+    
     .phase-item.phase-init{color:#4ade80}
     .phase-item.phase-prep{color:#38bdf8}
     .phase-item.phase-refine{color:#f59e0b}
@@ -972,7 +960,7 @@
         <div class="card panel">
           <div class="panel-title">
             <h3>Linha do tempo do projeto</h3>
-            <small>Visão simplificada das fases</small>
+            <small>Fases Executivas</small>
           </div>
           <div class="timeline-wrap">
             <div class="timeline" id="timeline"></div>
@@ -1637,29 +1625,24 @@ function fmt(d){
 
 function renderTimeline(dateInfo){
   const phases = [
-    { number:"01", title:"Fase Iniciação", icon:"assets/icons/rocket.svg", status:"Alinhamentos preliminares, abertura do projeto e identificação dos stakeholders principais.", state:"current", className:"phase-init", badge:"Fase atual · Em execução" },
-    { number:"02", title:"Fase Preparação", icon:"assets/icons/timer.svg", status:"Alinhamentos iniciais, avaliação e definição do planejamento e elaboração dos planos do projeto.", state:"future", className:"phase-prep", badge:"Em fase de definição" },
-    { number:"03", title:"Fase Refinamento", icon:"assets/icons/users.svg", status:"Entendimento do negócio do cliente e disseminação da abordagem do trabalho e entregas conforme o propósito.", state:"future", className:"phase-refine", badge:"Em fase de definição" },
-    { number:"04", title:"Fase Realização", icon:"assets/icons/wrench.svg", status:"Realização de sprints focados em resultados rápidos e evolução constante de valor.", state:"future", className:"phase-do", badge:"Em fase de definição", extra:"Capacitações e Simulações · Simulações Internas | Simulações Integradas" },
-    { number:"05", title:"Fase Operação", icon:"assets/icons/send.svg", status:"Acompanhamento da experiência e valor gerado, garantindo qualidade e insumos para novos projetos.", state:"future", className:"phase-operate", badge:"Em fase de definição" }
+    { number:"01", title:"FASE INICIAÇÃO", icon:"assets/icons/rocket.svg", status:"Alinhamentos preliminares, abertura do projeto e identificação dos stakeholders principais.", state:"current", className:"phase-init", badge:"● Em andamento" },
+    { number:"02", title:"FASE PREPARAÇÃO", icon:"assets/icons/timer.svg", status:"Alinhamentos iniciais, avaliação e definição do planejamento e elaboração dos planos do projeto.", state:"future", className:"phase-prep" },
+    { number:"03", title:"FASE REFINAMENTO", icon:"assets/icons/users.svg", status:"Entendimento do negócio do cliente e disseminação da abordagem do trabalho e entregas conforme o propósito.", state:"future", className:"phase-refine" },
+    { number:"04", title:"FASE REALIZAÇÃO", icon:"assets/icons/wrench.svg", status:"Execução de Sprints e geração de valor constante.", state:"future", className:"phase-do", extra:"Simulações Internas / Integradas" },
+    { number:"05", title:"FASE OPERAÇÃO", icon:"assets/icons/send.svg", status:"Acompanhamento da experiência e garantia de qualidade nos insumos finais.", state:"future", className:"phase-operate" }
   ];
 
   timeline.innerHTML = `
     <div class="phase-list">
       ${phases.map(p=>`
-        <article class="phase-item ${p.className}" data-state="${p.state}">
+        <article class="phase-item ${p.className} ${p.state === "current" ? "active-phase" : ""}" data-state="${p.state}">
           <div class="phase-ring"><img class="phase-icon-glyph" src="${p.icon}" alt=""></div>
-          <span class="phase-number">${p.number}</span>
-          <span class="phase-title">${esc(p.title)}</span>
+          <span class="phase-title"><span class="phase-number">${p.number}</span> ${esc(p.title)}</span>
           <span class="phase-sub">${esc(p.status)}</span>
           ${p.extra ? `<span class="phase-extra">${esc(p.extra)}</span>` : ""}
-          <span class="phase-badge">${esc(p.badge)}</span>
+          ${p.badge ? `<span class="phase-badge">${esc(p.badge)}</span>` : ""}
         </article>
       `).join("")}
-    </div>
-    <div class="timeline-legend">
-      <div class="timeline-legend-item"><i class="timeline-legend-dot current"></i><span><b>Fase atual</b></span></div>
-      <div class="timeline-legend-item"><i class="timeline-legend-dot"></i><span><b>Próximas fases</b></span></div>
     </div>
   `;
 }
