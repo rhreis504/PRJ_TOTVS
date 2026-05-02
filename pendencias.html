@@ -118,19 +118,29 @@
       const cleanedRows = rows.filter(row => row.some(cell => cell !== ''));
       if (cleanedRows.length === 0) return [];
 
-      const sourceHeaders = cleanedRows[0];
-      const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
       const headers = EXPECTED_HEADERS;
-      const sprintIndex = headers.indexOf('Sprint');
-      const hasSprintHeader = sourceIndexByHeader.has('Sprint');
-      const data = [];
-
       const normalize = (value = '') => value
         .toString()
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '')
         .toLowerCase()
         .trim();
+
+      const headerMatches = (row = []) => {
+        const normalizedExpected = headers.map(normalize);
+        const normalizedRow = row.map(normalize);
+        const matches = normalizedExpected.reduce((count, header, index) => {
+          return count + (normalizedRow[index] === header ? 1 : 0);
+        }, 0);
+        return matches;
+      };
+
+      const sourceHeaderIndex = headerMatches(cleanedRows[1]) > headerMatches(cleanedRows[0]) ? 1 : 0;
+      const sourceHeaders = cleanedRows[sourceHeaderIndex] || [];
+      const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
+      const sprintIndex = headers.indexOf('Sprint');
+      const hasSprintHeader = sourceIndexByHeader.has('Sprint');
+      const data = [];
 
       const normalizedHeaders = headers.map(normalize);
 
@@ -145,7 +155,7 @@
         return matchesAtOffset(0) || matchesAtOffset(1) || matchesAtOffset(-1);
       };
 
-      for (let i = 1; i < cleanedRows.length; i++) {
+      for (let i = sourceHeaderIndex + 1; i < cleanedRows.length; i++) {
         const row = cleanedRows[i];
 
         let alignedRow = row;
