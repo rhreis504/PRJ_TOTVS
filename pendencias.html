@@ -121,6 +121,8 @@
       const sourceHeaders = cleanedRows[0];
       const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
       const headers = EXPECTED_HEADERS;
+      const sprintIndex = headers.indexOf('Sprint');
+      const hasSprintHeader = sourceIndexByHeader.has('Sprint');
       const data = [];
 
       const normalize = (value = '') => value
@@ -132,20 +134,36 @@
 
       const normalizedHeaders = headers.map(normalize);
 
+      const isHeaderLikeRow = (cells) => {
+        const normalizedCells = cells.map(normalize);
+
+        const matchesAtOffset = (offset) => normalizedHeaders.every((header, index) => {
+          const value = normalizedCells[index + offset] || '';
+          return value === '' || value === header;
+        });
+
+        return matchesAtOffset(0) || matchesAtOffset(1) || matchesAtOffset(-1);
+      };
+
       for (let i = 1; i < cleanedRows.length; i++) {
         const row = cleanedRows[i];
+
+        let alignedRow = row;
+
+        if (!hasSprintHeader && row.length === headers.length - 1) {
+          // Fonte sem coluna Sprint: insere célula vazia para manter o restante alinhado.
+          alignedRow = [...row.slice(0, sprintIndex), '', ...row.slice(sprintIndex)];
+        }
+
+        if (isHeaderLikeRow(alignedRow)) continue;
+
         const rowValues = headers.map((header, index) => {
           const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
-          return (row[sourceIndex] || '').trim();
+          return (alignedRow[sourceIndex] || '').trim();
         });
 
         const hasRealContent = rowValues.some(cell => cell && cell !== '-');
-        const isDuplicateHeaderRow = rowValues.every((cell, index) => {
-          if (!cell) return true;
-          return normalize(cell) === normalizedHeaders[index];
-        });
-
-        if (!hasRealContent || isDuplicateHeaderRow) continue;
+        if (!hasRealContent || isHeaderLikeRow(rowValues)) continue;
 
         const obj = {};
         headers.forEach((header, index) => {
@@ -158,11 +176,11 @@
     }
 
     const FALLBACK_CSV = `ID,Área,Categoria,Etapa do Projeto,Sprint,Atividade,Descrição,Responsável,Criticidade,Responsável Cliente,Data Identificação,Data Planejada,Dias para Concluir,Condição Pendência,Data Conclusão,% Conclusão,Status
-1,Governança,Planejamento,Iniciação,Recebimento de documentos TOTVS,Receber materiais iniciais do projeto enviados pela TOTVS,Fabio Daumichen,Baixa,,28/04/2026,28/04/2026,,Dentro do Prazo,,100%,Concluída
-2,Governança,Planejamento,Iniciação,Consolidação de informações do projeto,Levantamento de escopo soluções contatos e propostas,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
-3,Governança,Planejamento,Iniciação,Mapeamento de stakeholders,Identificação de contatos TOTVS e Rossi,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
-4,Técnico,Planejamento,Iniciação,Identificação de dependências,Levantamento de dependências entre soluções,Regis Reis,Crítica,,28/04/2026,30/04/2026,,Dentro do Prazo,,50%,Em execução
-5,Governança,Planejamento,Iniciação,Definição da estratégia de comunicação,Criação da abordagem para alinhamento,Regis Reis,Média,,28/04/2026,08/05/2026,,Dentro do Prazo,,0%,Pendente`;
+1,Governança,Planejamento,Iniciação,,Recebimento de documentos TOTVS,Receber materiais iniciais do projeto enviados pela TOTVS,Fabio Daumichen,Baixa,,28/04/2026,28/04/2026,,Dentro do Prazo,,100%,Concluída
+2,Governança,Planejamento,Iniciação,,Consolidação de informações do projeto,Levantamento de escopo soluções contatos e propostas,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
+3,Governança,Planejamento,Iniciação,,Mapeamento de stakeholders,Identificação de contatos TOTVS e Rossi,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
+4,Técnico,Planejamento,Iniciação,,Identificação de dependências,Levantamento de dependências entre soluções,Regis Reis,Crítica,,28/04/2026,30/04/2026,,Dentro do Prazo,,50%,Em execução
+5,Governança,Planejamento,Iniciação,,Definição da estratégia de comunicação,Criação da abordagem para alinhamento,Regis Reis,Média,,28/04/2026,08/05/2026,,Dentro do Prazo,,0%,Pendente`;
 
     // ==========================================
     // COMPONENTE PRINCIPAL
