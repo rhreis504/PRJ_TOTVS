@@ -80,6 +80,8 @@
     // ==========================================
     // FUNÇÕES UTILITÁRIAS
     // ==========================================
+    const EXPECTED_HEADERS = ['ID','Área','Categoria','Etapa do Projeto','Sprint','Atividade','Descrição','Responsável','Criticidade','Responsável Cliente','Data Identificação','Data Planejada','Dias para Concluir','Condição Pendência','Data Conclusão','% Conclusão','Status'];
+
     function parseCSVToObjects(text) {
       const rows = [];
       let currentRow = [];
@@ -116,14 +118,17 @@
       const cleanedRows = rows.filter(row => row.some(cell => cell !== ''));
       if (cleanedRows.length === 0) return [];
 
-      const headers = cleanedRows[0];
+      const sourceHeaders = cleanedRows[0];
+      const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
+      const headers = EXPECTED_HEADERS;
       const data = [];
 
       for (let i = 1; i < cleanedRows.length; i++) {
         const row = cleanedRows[i];
         const obj = {};
         headers.forEach((header, index) => {
-          obj[header] = row[index] || '';
+          const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
+          obj[header] = row[sourceIndex] || '';
         });
         data.push(obj);
       }
@@ -204,11 +209,13 @@
         });
       }, [dataset, searchTerm, statusFilter, criticidadeFilter, responsavelFilter]);
 
+      const normalizeStatus = (status) => (status || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
       const kpis = useMemo(() => {
         const total = filteredData.length;
-        const concluidas = filteredData.filter(d => d['Status']?.toLowerCase().includes('concluída')).length;
-        const emExecucao = filteredData.filter(d => d['Status']?.toLowerCase().includes('em execução')).length;
-        const pendentes = filteredData.filter(d => d['Status']?.toLowerCase().includes('pendente')).length;
+        const concluidas = filteredData.filter(d => normalizeStatus(d['Status']).includes('concluida')).length;
+        const emExecucao = filteredData.filter(d => normalizeStatus(d['Status']).includes('em execucao')).length;
+        const pendentes = filteredData.filter(d => normalizeStatus(d['Status']).includes('pendente')).length;
         const criticas = filteredData.filter(d => d['Criticidade']?.toLowerCase().includes('crítica')).length;
         
         return { total, concluidas, emExecucao, pendentes, criticas };
@@ -292,6 +299,9 @@
                 <IconRefreshCw size={16} className={loading ? "animate-spin text-indigo-600" : "text-slate-400"} />
                 <span className="hidden sm:inline">Sincronizar Dados</span>
               </button>
+              <a href="index.html" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-medium">
+                Voltar ao Menu Principal
+              </a>
             </div>
           </header>
 
