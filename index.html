@@ -253,7 +253,7 @@
 
     .executive-strip{
       display:grid;
-      grid-template-columns:1.15fr repeat(4,1fr);
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
       align-items:stretch;
     }
@@ -838,19 +838,6 @@
       grid-template-columns:1fr;
       gap:14px;
     }
-    .section-grid .panel:first-child{
-      grid-column:1 / -1;
-    }
-    .section-grid .panel:first-child .timeline-wrap{
-      overflow:visible;
-      min-height:170px;
-    }
-    .section-grid .panel:first-child .timeline{
-      min-width:0;
-      width:100%;
-      grid-template-columns:repeat(6,1fr);
-      padding:24px 4px 12px;
-    }
     .section-grid .card:nth-child(2),
     .section-grid .card:nth-child(3){
       width:100%;
@@ -858,9 +845,6 @@
     .section-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
-    }
-    .section-grid .card:first-child{
-      grid-column:1 / -1;
     }
     @media(max-width:1100px){
       .section-grid{
@@ -967,6 +951,16 @@
 
     <div class="content">
       <section class="executive-strip" id="visao">
+        <div class="card panel">
+          <div class="panel-title">
+            <h3>Linha do tempo do projeto</h3>
+            <small>Visão simplificada das fases</small>
+          </div>
+          <div class="timeline-wrap">
+            <div class="timeline" id="timeline"></div>
+          </div>
+        </div>
+
         <div class="card summary-card">
           <div class="gauge" id="gauge"><b id="progressPct">Status</b></div>
           <div>
@@ -976,6 +970,21 @@
           </div>
         </div>
 
+        <div class="card kpi">
+          <div>
+            <div class="kpi-head"><div class="kpi-title">Prazo</div><div class="kpi-icon">🕒</div></div>
+            <div class="kpi-value" id="timePct">0%</div>
+            <div class="kpi-caption">Consumo estimado do período</div>
+          </div>
+          <div class="mini-breakdown">
+            <div><b class="blue" id="dateStart">--</b><span>Início</span></div>
+            <div><b class="blue" id="dateEnd">--</b><span>Término</span></div>
+            <div><b class="blue" id="dateToday">Hoje</b><span>Atual</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-grid" id="cronograma">
         <div class="card kpi">
           <div>
             <div class="kpi-head"><div class="kpi-title">Pendências</div><div class="kpi-icon">☑️</div></div>
@@ -1012,31 +1021,6 @@
             <div><b class="danger" id="stakeHigh">0</b><span>Alta infl.</span></div>
             <div><b class="amber" id="stakeMid">0</b><span>Média</span></div>
             <div><b class="green" id="stakeLow">0</b><span>Baixa</span></div>
-          </div>
-        </div>
-
-        <div class="card kpi">
-          <div>
-            <div class="kpi-head"><div class="kpi-title">Prazo</div><div class="kpi-icon">🕒</div></div>
-            <div class="kpi-value" id="timePct">0%</div>
-            <div class="kpi-caption">Consumo estimado do período</div>
-          </div>
-          <div class="mini-breakdown">
-            <div><b class="blue" id="dateStart">--</b><span>Início</span></div>
-            <div><b class="blue" id="dateEnd">--</b><span>Término</span></div>
-            <div><b class="blue" id="dateToday">Hoje</b><span>Atual</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-grid" id="cronograma">
-        <div class="card panel">
-          <div class="panel-title">
-            <h3>Linha do tempo do projeto</h3>
-            <small>Visão simplificada das fases</small>
-          </div>
-          <div class="timeline-wrap">
-            <div class="timeline" id="timeline"></div>
           </div>
         </div>
 
