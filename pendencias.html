@@ -134,12 +134,28 @@
 
       const normalizedHeaders = headers.map(normalize);
 
+      const isHeaderLikeRow = (cells) => {
+        const normalizedCells = cells.map(normalize);
+
+        const matchesAtOffset = (offset) => normalizedHeaders.every((header, index) => {
+          const value = normalizedCells[index + offset] || '';
+          return value === '' || value === header;
+        });
+
+        return matchesAtOffset(0) || matchesAtOffset(1) || matchesAtOffset(-1);
+      };
+
       for (let i = 1; i < cleanedRows.length; i++) {
         const row = cleanedRows[i];
 
-        const alignedRow = (!hasSprintHeader && row.length === headers.length - 1)
-          ? [...row.slice(0, sprintIndex), '', ...row.slice(sprintIndex)]
-          : row;
+        let alignedRow = row;
+
+        if (!hasSprintHeader && row.length === headers.length - 1) {
+          // Fonte sem coluna Sprint: insere célula vazia para manter o restante alinhado.
+          alignedRow = [...row.slice(0, sprintIndex), '', ...row.slice(sprintIndex)];
+        }
+
+        if (isHeaderLikeRow(alignedRow)) continue;
 
         const rowValues = headers.map((header, index) => {
           const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
@@ -147,18 +163,7 @@
         });
 
         const hasRealContent = rowValues.some(cell => cell && cell !== '-');
-        const isDuplicateHeaderRow = rowValues.every((cell, index) => {
-          if (!cell) return true;
-          return normalize(cell) === normalizedHeaders[index];
-        });
-
-        const isShiftedDuplicateHeaderRow = rowValues.every((cell, index) => {
-          if (index === sprintIndex) return !cell;
-          const targetIndex = index > sprintIndex ? index - 1 : index;
-          return normalize(cell) === normalize(headers[targetIndex] || '');
-        });
-
-        if (!hasRealContent || isDuplicateHeaderRow || isShiftedDuplicateHeaderRow) continue;
+        if (!hasRealContent || isHeaderLikeRow(rowValues)) continue;
 
         const obj = {};
         headers.forEach((header, index) => {
