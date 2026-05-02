@@ -567,29 +567,32 @@
       font-size:12px;
     }
 
-    .timeline-wrap{min-height:350px;}
+    .timeline-wrap{min-height:0;}
+
+    .executive-strip{grid-template-columns:minmax(0,1fr);}
 
     .timeline{
       position:relative;
-      min-width:920px;
-      border-radius:16px;
+      min-width:0;
+      width:100%;
+      border-radius:14px;
       overflow:hidden;
-      background:linear-gradient(180deg,#031321,#041a2f);
-      border:1px solid rgba(148,163,184,.25);
+      background:linear-gradient(180deg,#ffffff,#f8fbff);
+      border:1px solid #dbe5f2;
     }
 
     .phase-list{
       position:relative;
       display:grid;
-      grid-template-columns:repeat(5,minmax(165px,1fr));
+      grid-template-columns:repeat(5,minmax(0,1fr));
     }
 
     .phase-item{
       text-align:center;
-      color:#d8e2f0;
-      padding:24px 14px 18px;
-      min-height:320px;
-      border-right:1px solid rgba(148,163,184,.34);
+      color:#29415d;
+      padding:16px 10px 14px;
+      min-height:250px;
+      border-right:1px solid #e2e8f0;
       display:flex;
       flex-direction:column;
       align-items:center;
@@ -604,7 +607,7 @@
       margin:0 auto 6px;
       border-radius:50%;
       border:2px solid currentColor;
-      background:rgba(15,23,42,.35);
+      background:#f8fbff;
       display:grid;
       place-items:center;
     }
@@ -620,8 +623,8 @@
     }
 
     .phase-icon-glyph{
-      width:32px;
-      height:32px;
+      width:24px;
+      height:24px;
       stroke:currentColor;
       fill:none;
       stroke-width:2;
@@ -629,38 +632,38 @@
       stroke-linejoin:round;
     }
 
-    .phase-number{display:block;font-size:16px;font-weight:800;color:#dbeafe;line-height:1;letter-spacing:.04em;}
-    .phase-title{display:block;font-size:41px;font-weight:900;line-height:1.05;margin-top:1px;text-transform:uppercase;}
-    .phase-sub{display:block;font-size:16px;line-height:1.25;color:#f8fafc;max-width:240px;}
+    .phase-number{display:block;font-size:11px;font-weight:800;color:#64748b;line-height:1;letter-spacing:.08em;}
+    .phase-title{display:block;font-size:12px;font-weight:900;line-height:1.25;margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
+    .phase-sub{display:block;font-size:10px;line-height:1.35;color:#334155;max-width:180px;}
 
-    .phase-item[data-state="future"] .phase-number{color:#9fb4d1;}
+    .phase-item[data-state="future"] .phase-number{color:#94a3b8;}
 
     .phase-badge{
       margin-top:auto;
       width:max-content;
       padding:7px 12px;
       border-radius:999px;
-      background:rgba(148,163,184,.18);
-      color:#cbd5e1;
-      font-size:12px;
+      background:#e2e8f0;
+      color:#475569;
+      font-size:10px;
       font-weight:800;
     }
 
     .phase-item[data-state="current"] .phase-badge{
       background:rgba(34,197,94,.2);
-      color:#86efac;
+      color:#166534;
       box-shadow:0 0 0 1px rgba(34,197,94,.45) inset;
     }
 
     .timeline-legend{
       margin-top:12px;
       border-top:1px solid #d8e1ee;
-      padding-top:10px;
+      padding:8px 10px 10px;
       display:flex;
       gap:18px;
       flex-wrap:wrap;
-      color:#6b7f97;
-      font-size:12px;
+      color:#64748b;
+      font-size:11px;
     }
 
     .timeline-legend-item{display:flex;align-items:center;gap:8px;}
@@ -674,11 +677,11 @@
     .phase-extra{
       margin-top:auto;
       width:100%;
-      border:1px dashed rgba(203,213,225,.45);
+      border:1px dashed #cbd5e1;
       border-radius:10px;
       padding:8px 6px;
-      color:#e2e8f0;
-      font-size:13px;
+      color:#334155;
+      font-size:10px;
       line-height:1.2;
     }
 
@@ -884,7 +887,7 @@
       .executive-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
       .summary-card{grid-column:1/-1}
       .section-grid,.section-grid-bottom{grid-template-columns:1fr}
-      .timeline-wrap{overflow-x:auto}
+      .timeline-wrap{overflow-x:visible}
     }
 
     @media(max-width:900px){
@@ -973,28 +976,6 @@
           </div>
           <div class="timeline-wrap">
             <div class="timeline" id="timeline"></div>
-          </div>
-        </div>
-
-        <div class="card summary-card">
-          <div class="gauge" id="gauge"><b id="progressPct">Status</b></div>
-          <div>
-            <h2>Saúde geral do projeto</h2>
-            <p>Indicador calculado com base no percentual de pendências concluídas em relação ao volume total publicado na base.</p>
-            <div class="health-pill" id="healthPill">Aguardando dados</div>
-          </div>
-        </div>
-
-        <div class="card kpi">
-          <div>
-            <div class="kpi-head"><div class="kpi-title">Prazo</div><div class="kpi-icon">🕒</div></div>
-            <div class="kpi-value" id="timePct">0%</div>
-            <div class="kpi-caption">Consumo estimado do período</div>
-          </div>
-          <div class="mini-breakdown">
-            <div><b class="blue" id="dateStart">--</b><span>Início</span></div>
-            <div><b class="blue" id="dateEnd">--</b><span>Término</span></div>
-            <div><b class="blue" id="dateToday">Hoje</b><span>Atual</span></div>
           </div>
         </div>
       </section>
