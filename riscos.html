@@ -1,0 +1,396 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  RefreshCw, 
+  Search, 
+  Filter, 
+  ShieldAlert,
+  AlertOctagon,
+  ShieldCheck,
+  Activity,
+  Target,
+  AlertTriangle
+} from 'lucide-react';
+
+// Função robusta para fazer o parse do CSV e converter para array de objetos
+function parseCSVToObjects(text) {
+  const rows = [];
+  let currentRow = [];
+  let currentCell = '';
+  let insideQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '"' && text[i + 1] === '"') {
+      currentCell += '"';
+      i++;
+    } else if (char === '"') {
+      insideQuotes = !insideQuotes;
+    } else if (char === ',' && !insideQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+    } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      currentRow.push(currentCell.trim());
+      rows.push(currentRow);
+      currentRow = [];
+      currentCell = '';
+    } else {
+      currentCell += char;
+    }
+  }
+  if (currentCell || text[text.length - 1] === ',') {
+    currentRow.push(currentCell.trim());
+  }
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
+
+  const cleanedRows = rows.filter(row => row.some(cell => cell !== ''));
+  if (cleanedRows.length === 0) return [];
+
+  const headers = cleanedRows[0];
+  const data = [];
+
+  for (let i = 1; i < cleanedRows.length; i++) {
+    const row = cleanedRows[i];
+    const obj = {};
+    headers.forEach((header, index) => {
+      obj[header] = row[index] || '';
+    });
+    data.push(obj);
+  }
+
+  return { headers, data };
+}
+
+// Dados transformados em CSV com base na sua tabela
+const RISCOS_CSV_DATA = `ID,Data,Área,Responsável,Situação,Probabilidade,Impacto,Exposição ocorrência,Estratégia de Resposta ao risco,Plano de ação,Data Limite,Condição Plano de Ação,Tipo Impacto,Custo Risco,Data Conclusão,Comentários,Status Plano de Ação,Status do Risco
+1,01/05/2026,Folha / Dependências,Regis Reis,Bloqueada,3,3,9,Mitigar,"Garantir que a implantação da Folha seja tratada como prioridade do projeto, acompanhando de perto sua evolução e alinhando claramente com os demais parceiros que as outras frentes dependem dela. Caso necessário, replanejar as atividades para evitar bloqueio total das demais implantações.",,A iniciar,Prazo,,,Risco: Dependência da Folha. Entendimento: não conseguir avançar com os demais módulos por conta do travamento da Folha.,Aberto,Em análise
+2,01/05/2026,Integrações,Regis Reis,Bloqueada,3,3,9,Mitigar,"Realizar o levantamento e definição das integrações entre os sistemas o quanto antes, envolvendo os responsáveis técnicos de cada frente, garantindo que todas as integrações estejam mapeadas, documentadas e alinhadas antes do avanço das implantações.",,A iniciar,Escopo,,,Risco: Integrações não definidas. Entendimento: não ter todas as integrações entre módulos definidas e documentadas.,Aberto,Em análise
+3,01/05/2026,Feedz / Cadastros,Regis Reis,Bloqueada,2,2,4,Mitigar,"Avaliar o melhor momento para iniciar o Feedz, priorizando sua implantação após a Folha sempre que possível. Caso seja necessário iniciar antes, alinhar com o cliente sobre o risco de retrabalho e orientar para que o cadastro seja feito de forma controlada, minimizando impactos futuros.",,A iniciar,Prazo,,,Risco: Retrabalho cadastral no Feedz. Entendimento: o Feedz pode iniciar antes da Folha mas depende de dados como colaboradores cargos e estrutura organizacional; se cadastrados fora do padrão final podem exigir revisão ou retrabalho após a Folha.,Aberto,Em análise
+4,01/05/2026,Cliente / Governança,Regis Reis,Bloqueada,3,2,6,Mitigar,"Alinhar com o cliente, desde o início, a necessidade de participação ativa durante o projeto, definindo responsáveis claros e garantindo agenda e disponibilidade para validações, decisões e acompanhamento das atividades.",,A iniciar,Prazo,,,Risco: Disponibilidade do cliente. Entendimento: etapas do projeto dependem da participação ativa do cliente para validar informações tomar decisões disponibilizar pessoas-chave e acompanhar atividades.,Aberto,Em análise
+5,01/05/2026,PMO / Cronograma,Regis Reis,Bloqueada,3,3,9,Prevenir/Evitar,"Construir um cronograma único e integrado entre todos os parceiros, consolidando prazos, dependências e sequência de execução das frentes, garantindo alinhamento geral e previsibilidade do projeto.",,A iniciar,Prazo,,,Risco: Falta de cronograma. Entendimento: sem cronograma consolidado entre parceiros não há visão única de execução dependências sequência das atividades e previsibilidade do projeto.,Aberto,Em análise`;
+
+export default function RiscosDashboard() {
+  const [dataset, setDataset] = useState({ headers: [], data: [] });
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Estados dos Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusRiscoFilter, setStatusRiscoFilter] = useState('');
+  const [areaFilter, setAreaFilter] = useState('');
+  const [estrategiaFilter, setEstrategiaFilter] = useState('');
+
+  // Se você tiver um link do Google Sheets para os Riscos depois, basta colar aqui.
+  const CSV_URL = ""; 
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      if (CSV_URL) {
+        const response = await fetch(CSV_URL);
+        if (!response.ok) throw new Error("Falha no link do Google Sheets");
+        const csvText = await response.text();
+        setDataset(parseCSVToObjects(csvText));
+        setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+      } else {
+        // Usa os dados que você colou como padrão caso não tenha link
+        setDataset(parseCSVToObjects(RISCOS_CSV_DATA));
+        setLastUpdated("Dados Inseridos Manualmente");
+      }
+    } catch (err) {
+      console.error("Erro ao carregar, caindo para fallback:", err);
+      setDataset(parseCSVToObjects(RISCOS_CSV_DATA));
+      setLastUpdated("Offline (Fallback)");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Extração de valores únicos para os dropdowns de filtro
+  const uniqueValues = useMemo(() => {
+    const data = dataset.data;
+    return {
+      statusRisco: [...new Set(data.map(item => item['Status do Risco']))].filter(Boolean),
+      areas: [...new Set(data.map(item => item['Área']))].filter(Boolean),
+      estrategias: [...new Set(data.map(item => item['Estratégia de Resposta ao risco']))].filter(Boolean),
+    };
+  }, [dataset]);
+
+  // Aplicação dos Filtros
+  const filteredData = useMemo(() => {
+    return dataset.data.filter(row => {
+      // Filtro Global
+      const matchesSearch = Object.values(row).some(val => 
+        val.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      
+      // Filtros Específicos
+      const matchesStatus = statusRiscoFilter === '' || row['Status do Risco'] === statusRiscoFilter;
+      const matchesArea = areaFilter === '' || row['Área'] === areaFilter;
+      const matchesEstrategia = estrategiaFilter === '' || row['Estratégia de Resposta ao risco'] === estrategiaFilter;
+
+      return matchesSearch && matchesStatus && matchesArea && matchesEstrategia;
+    });
+  }, [dataset, searchTerm, statusRiscoFilter, areaFilter, estrategiaFilter]);
+
+  // Cálculo dos KPIs de Risco
+  const kpis = useMemo(() => {
+    const total = filteredData.length;
+    // Exposição alta (>= 7)
+    const exposicaoAlta = filteredData.filter(d => parseInt(d['Exposição ocorrência']) >= 7).length;
+    // Exposição média (4 a 6)
+    const exposicaoMedia = filteredData.filter(d => {
+      const exp = parseInt(d['Exposição ocorrência']);
+      return exp >= 4 && exp <= 6;
+    }).length;
+    // Ações pendentes / a iniciar
+    const acoesAIniciar = filteredData.filter(d => d['Condição Plano de Ação']?.toLowerCase().includes('iniciar')).length;
+    // Status do Risco = Em análise ou Aberto
+    const emAnalise = filteredData.filter(d => d['Status do Risco']?.toLowerCase().includes('análise')).length;
+    
+    return { total, exposicaoAlta, exposicaoMedia, acoesAIniciar, emAnalise };
+  }, [filteredData]);
+
+  // Renderizadores Visuais Customizados UX para Riscos
+  const renderExposicaoBadge = (valor) => {
+    if (!valor) return <span className="text-slate-400">-</span>;
+    const num = parseInt(valor);
+    if (isNaN(num)) return <span>{valor}</span>;
+
+    if (num >= 7) {
+      return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-700 font-bold border border-red-200">{num}</span>;
+    }
+    if (num >= 4) {
+      return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold border border-amber-200">{num}</span>;
+    }
+    return <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold border border-emerald-200">{num}</span>;
+  };
+
+  const renderStatusBadge = (status) => {
+    if (!status) return <span className="text-slate-400">-</span>;
+    const s = status.toLowerCase();
+    if (s.includes('fechado') || s.includes('mitigado')) {
+      return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200"><ShieldCheck size={12} /> {status}</span>;
+    }
+    if (s.includes('análise')) {
+      return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"><Activity size={12} /> {status}</span>;
+    }
+    return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-800 border border-rose-200"><AlertOctagon size={12} /> {status}</span>;
+  };
+
+  const renderEstrategiaBadge = (estrategia) => {
+    if (!estrategia) return <span className="text-slate-400">-</span>;
+    const e = estrategia.toLowerCase();
+    if (e.includes('mitigar')) return <span className="text-amber-600 font-medium px-2 bg-amber-50 rounded border border-amber-100">{estrategia}</span>;
+    if (e.includes('prevenir') || e.includes('evitar')) return <span className="text-indigo-600 font-medium px-2 bg-indigo-50 rounded border border-indigo-100">{estrategia}</span>;
+    if (e.includes('aceitar')) return <span className="text-slate-600 font-medium px-2 bg-slate-100 rounded border border-slate-200">{estrategia}</span>;
+    return <span className="text-slate-700 font-medium">{estrategia}</span>;
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-800 flex flex-col">
+      
+      {/* Top Navbar */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-rose-600 p-2 rounded-lg shadow-sm">
+            <ShieldAlert size={20} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800 leading-tight">Painel de Riscos</h1>
+            <p className="text-xs text-slate-500">Matriz de Riscos e Planos de Ação do Projeto</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4 text-sm w-full sm:w-auto">
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-medium ml-auto sm:ml-0">
+            <span>Base atualizada:</span>
+            <span className="bg-slate-100 px-2 py-1 rounded text-slate-700">{lastUpdated || 'Carregando...'}</span>
+          </div>
+          <button 
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50 font-medium"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin text-rose-600" : "text-slate-400"} />
+            <span className="hidden sm:inline">Recarregar Dados</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto flex flex-col gap-6">
+        
+        {/* KPI Cards Section */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-slate-300 hover:shadow-md transition-all">
+            <div className="p-3 bg-slate-100 text-slate-600 rounded-lg"><Target size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Total Mapeado</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.total}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-red-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg"><AlertOctagon size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Exposição Alta</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.exposicaoAlta}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-amber-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg"><AlertTriangle size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Exposição Média</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.exposicaoMedia}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-blue-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Activity size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Em Análise</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.emAnalise}</h3>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-indigo-200 hover:shadow-md transition-all">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg"><ShieldAlert size={24} /></div>
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-0.5">Ações a Iniciar</p>
+              <h3 className="text-2xl font-bold text-slate-800">{kpis.acoesAIniciar}</h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters Toolbar */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col lg:flex-row items-center justify-between gap-4">
+          <div className="relative w-full lg:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Buscar risco, área ou descrição..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-sm"
+            />
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
+              <Filter size={16} /> Filtros:
+            </div>
+            
+            <select 
+              value={statusRiscoFilter} 
+              onChange={(e) => setStatusRiscoFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-rose-500 focus:border-rose-500 block px-3 py-2 outline-none"
+            >
+              <option value="">Status do Risco (Todos)</option>
+              {uniqueValues.statusRisco.map(val => <option key={val} value={val}>{val}</option>)}
+            </select>
+
+            <select 
+              value={areaFilter} 
+              onChange={(e) => setAreaFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-rose-500 focus:border-rose-500 block px-3 py-2 outline-none max-w-[200px] truncate"
+            >
+              <option value="">Área (Todas)</option>
+              {uniqueValues.areas.map(val => <option key={val} value={val}>{val}</option>)}
+            </select>
+
+            <select 
+              value={estrategiaFilter} 
+              onChange={(e) => setEstrategiaFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-rose-500 focus:border-rose-500 block px-3 py-2 outline-none"
+            >
+              <option value="">Estratégia (Todas)</option>
+              {uniqueValues.estrategias.map(val => <option key={val} value={val}>{val}</option>)}
+            </select>
+            
+            {(searchTerm || statusRiscoFilter || areaFilter || estrategiaFilter) && (
+              <button 
+                onClick={() => { setSearchTerm(''); setStatusRiscoFilter(''); setAreaFilter(''); setEstrategiaFilter(''); }}
+                className="text-rose-600 hover:text-rose-800 text-sm font-medium px-2 py-1 hover:bg-rose-50 rounded transition-colors"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+          <div className="overflow-x-auto flex-1">
+            {loading && dataset.data.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
+                <RefreshCw size={32} className="animate-spin text-rose-400" />
+                <p>Analisando matriz de riscos...</p>
+              </div>
+            ) : filteredData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
+                <Search size={32} className="text-slate-300 mb-2" />
+                <p className="font-medium text-slate-700">Nenhum risco encontrado.</p>
+                <p className="text-sm">Tente ajustar seus filtros de busca.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
+                <thead>
+                  <tr>
+                    {dataset.headers.map((header, index) => (
+                      <th 
+                        key={index} 
+                        className="bg-slate-50 border-y border-slate-200 px-4 py-3 text-xs uppercase tracking-wider font-semibold text-slate-600 sticky top-0 z-10 shadow-sm"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredData.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="hover:bg-rose-50/30 transition-colors group">
+                      {dataset.headers.map((header, colIndex) => {
+                        const cellValue = row[header];
+                        
+                        // Aplicando renderizadores de UX Específicos para Riscos
+                        let content = cellValue;
+                        if (header === 'Status do Risco') content = renderStatusBadge(cellValue);
+                        else if (header === 'Exposição ocorrência') content = renderExposicaoBadge(cellValue);
+                        else if (header === 'Estratégia de Resposta ao risco') content = renderEstrategiaBadge(cellValue);
+                        
+                        // Ajustes de Tipografia e Largura de Coluna
+                        let cellClass = "px-4 py-3 text-sm text-slate-700 max-w-[250px] truncate group-hover:text-slate-900";
+                        
+                        if (header === 'ID') cellClass += " font-semibold text-slate-500";
+                        if (header === 'Plano de ação' || header === 'Comentários') cellClass += " whitespace-normal min-w-[350px] text-xs leading-relaxed";
+                        if (header === 'Exposição ocorrência') cellClass += " text-center"; // Centraliza a bolinha de exposição
+
+                        return (
+                          <td key={colIndex} className={cellClass} title={typeof content === 'string' ? content : ''}>
+                            {content}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          
+          {/* Table Footer */}
+          <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-between text-sm text-slate-500">
+            <p>
+              Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> riscos 
+              {filteredData.length !== dataset.data.length && ` (filtrados de ${dataset.data.length} totais)`}
+            </p>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  );
+}
