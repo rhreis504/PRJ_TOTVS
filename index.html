@@ -194,6 +194,26 @@
       color:var(--muted);
       margin-top:-2px;
     }
+    .refresh-progress-wrap{
+      margin-top:6px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      justify-content:flex-end;
+    }
+    .refresh-progress-track{
+      width:180px;
+      height:8px;
+      border-radius:999px;
+      background:#e2e8f0;
+      overflow:hidden;
+    }
+    .refresh-progress-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#2563eb,#60a5fa);
+      transition:width .4s linear;
+    }
 
     .meta{
       display:flex;
@@ -935,6 +955,12 @@
         <div class="refresh-status">
           <span id="autoRefreshInfo">Atualização automática: desativada</span> ·
           <span id="lastUpdateTop">Última atualização: --</span>
+          <div class="refresh-progress-wrap">
+            <span id="nextUpdateCountdown">Próxima atualização em: --:--</span>
+            <div class="refresh-progress-track" aria-hidden="true">
+              <div class="refresh-progress-fill" id="nextUpdateProgress"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1127,6 +1153,8 @@ let DB = {
 };
 const AUTO_REFRESH_KEY = "mit013_auto_refresh_minutes";
 let autoRefreshTimer = null;
+let autoRefreshCountdownTimer = null;
+let nextAutoRefreshAt = null;
 const BASE_DATASETS = ["riscos","pendencias","stakeholders"];
 const GID_DATASET_MAP = Object.fromEntries(
   Object.entries(DEFAULT_SOURCES).map(([dataset,cfg])=>{
@@ -1176,15 +1204,52 @@ function updateAutoRefreshLabel(minutes){
     ? `Atualização automática: a cada ${minutes} min`
     : "Atualização automática: desativada";
 }
+function formatCountdown(ms){
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
+}
+function updateAutoRefreshProgress(minutes){
+  if(minutes <= 0 || !nextAutoRefreshAt){
+    nextUpdateCountdown.textContent = "Próxima atualização em: --:--";
+    nextUpdateProgress.style.width = "0%";
+    return;
+  }
+  const totalMs = minutes * 60 * 1000;
+  const remainingMs = nextAutoRefreshAt - Date.now();
+  const elapsedPct = Math.max(0, Math.min(100, ((totalMs - remainingMs) / totalMs) * 100));
+  nextUpdateCountdown.textContent = `Próxima atualização em: ${formatCountdown(remainingMs)}`;
+  nextUpdateProgress.style.width = `${elapsedPct}%`;
+}
+function startAutoRefreshCountdown(minutes){
+  if(autoRefreshCountdownTimer){
+    clearInterval(autoRefreshCountdownTimer);
+    autoRefreshCountdownTimer = null;
+  }
+  if(minutes <= 0){
+    nextAutoRefreshAt = null;
+    updateAutoRefreshProgress(0);
+    return;
+  }
+  nextAutoRefreshAt = Date.now() + (minutes * 60 * 1000);
+  updateAutoRefreshProgress(minutes);
+  autoRefreshCountdownTimer = setInterval(()=>{
+    updateAutoRefreshProgress(minutes);
+  }, 1000);
+}
 function setAutoRefreshTimer(minutes){
   if(autoRefreshTimer){
     clearInterval(autoRefreshTimer);
     autoRefreshTimer = null;
   }
   updateAutoRefreshLabel(minutes);
+  startAutoRefreshCountdown(minutes);
   if(minutes > 0){
     autoRefreshTimer = setInterval(async ()=>{
       await loadAll({isAutoRefresh:true});
+      nextAutoRefreshAt = Date.now() + (minutes * 60 * 1000);
+      updateAutoRefreshProgress(minutes);
     }, minutes * 60 * 1000);
   }
 }
