@@ -225,7 +225,8 @@
         .step-dot { width: 40px; height: 40px; background: white; border: 2px solid #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; transition: var(--transition); }
         .timeline-step.completed .step-dot { border-color: var(--totvs-green); background: #f0fdf4; color: var(--totvs-green); }
         .timeline-step.active .step-dot { border-color: var(--totvs-blue-light); background: #eff6ff; color: var(--totvs-blue-light); box-shadow: 0 0 0 4px rgba(0, 161, 228, 0.1); }
-        .timeline-step p { font-size: 11px; font-weight: 700; color: var(--totvs-text-muted); text-transform: uppercase; }
+        .timeline-step p { font-size: 11px; font-weight: 700; color: #ffffff; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+        .timeline-step .step-lock { opacity: 0.95; }
         .timeline-step.active p { color: var(--totvs-text-main); font-weight: 800; }
         .timeline-step.current .step-dot {
             border-color: var(--totvs-green);
@@ -399,20 +400,20 @@
         <aside class="sidebar">
             <div class="logo"><i data-lucide="gauge"></i> COCKPIT</div>
             <nav>
-                <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="pie-chart"></i> Visão Geral<i data-lucide="lock" size="14" class="nav-lock"></i></div>
+                <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="pie-chart"></i> Visão Geral</div>
                 <div class="nav-separator"></div>
-                <div class="nav-item" onclick="showPage('status', this)"><i data-lucide="clipboard-list"></i> Status Report<i data-lucide="lock" size="14" class="nav-lock"></i></div>
-                <div class="nav-item" onclick="openStaticPage('pendencias.html')"><i data-lucide="check-square"></i> Pendências<i data-lucide="lock" size="14" class="nav-lock"></i></div>
-                <div class="nav-item" onclick="openStaticPage('riscos.html')"><i data-lucide="alert-triangle"></i> Riscos<i data-lucide="lock" size="14" class="nav-lock"></i></div>
-                <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-pull-request"></i> Gaps e Mudanças<i data-lucide="lock" size="14" class="nav-lock"></i></div>
-                <div class="nav-item" id="nav-stakeholders" onclick="showPage('stakeholders', this)"><i data-lucide="users"></i> Stakeholders<i data-lucide="lock" size="14" class="nav-lock"></i></div>
+                <div class="nav-item" onclick="showPage('status', this)"><i data-lucide="clipboard-list"></i> Status Report</div>
+                <div class="nav-item" onclick="openStaticPage('pendencias.html')"><i data-lucide="check-square"></i> Pendências</div>
+                <div class="nav-item" onclick="openStaticPage('riscos.html')"><i data-lucide="alert-triangle"></i> Riscos</div>
+                <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-pull-request"></i> Gaps e Mudanças</div>
+                <div class="nav-item" id="nav-stakeholders" onclick="showPage('stakeholders', this)"><i data-lucide="users"></i> Stakeholders</div>
                 <div class="nav-separator"></div>
-                <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Treinamentos<i data-lucide="lock" size="14" class="nav-lock"></i></div>
-                <div class="nav-item" id="nav-agenda" onclick="showPage('agenda', this)"><i data-lucide="calendar"></i> Agenda de Treinos<i data-lucide="lock" size="14" class="nav-lock"></i></div>
+                <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Treinamentos</div>
+                <div class="nav-item" id="nav-agenda" onclick="showPage('agenda', this)"><i data-lucide="calendar"></i> Agenda de Treinos</div>
                 <div class="nav-separator"></div>
-                <div class="nav-item" id="nav-config" onclick="showPage('config', this)"><i data-lucide="settings"></i> Configurações<i data-lucide="lock" size="14" class="nav-lock"></i></div>
+                <div class="nav-item" id="nav-config" onclick="showPage('config', this)"><i data-lucide="settings"></i> Configurações</div>
             </nav>
-            <div class="nav-item" style="margin-top: auto;" onclick="handleLogout()"><i data-lucide="log-out"></i> Sair<i data-lucide="lock" size="14" class="nav-lock"></i></div>
+            <div class="nav-item" style="margin-top: auto;" onclick="handleLogout()"><i data-lucide="log-out"></i> Sair</div>
         </aside>
 
         <main class="content">
@@ -442,19 +443,19 @@
                         </div>
                         <div class="timeline-step">
                             <div class="step-dot"><i data-lucide="clipboard-list" size="18"></i></div>
-                            <p>Preparação</p>
+                            <p>Preparação <i data-lucide="lock" size="12" class="step-lock"></i></p>
                         </div>
                         <div class="timeline-step">
                             <div class="step-dot"><i data-lucide="users" size="18"></i></div>
-                            <p>Refinamento</p>
+                            <p>Refinamento <i data-lucide="lock" size="12" class="step-lock"></i></p>
                         </div>
                         <div class="timeline-step">
                             <div class="step-dot"><i data-lucide="cpu" size="18"></i></div>
-                            <p>Realização</p>
+                            <p>Realização <i data-lucide="lock" size="12" class="step-lock"></i></p>
                         </div>
                         <div class="timeline-step">
                             <div class="step-dot"><i data-lucide="flag" size="18"></i></div>
-                            <p>Operação</p>
+                            <p>Operação <i data-lucide="lock" size="12" class="step-lock"></i></p>
                         </div>
                     </div>
                 </div>
