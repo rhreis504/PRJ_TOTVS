@@ -559,17 +559,19 @@
             </div>
         </div>
 
-        <div class="card" style="padding: 20px; background: #f8fafc;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-                <div class="form-group"><label>Título do Roteiro</label><input type="text" id="edit-roadmap-name"></div>
-                <div class="form-group"><label>Instrutor / Responsável</label><input type="text" id="edit-roadmap-owner"></div>
-                <div class="form-group">
-                    <label>Adicionar Participante (do Mapa Stakeholders)</label>
-                    <select id="participant-selector" onchange="addParticipant()">
-                        <option value="">Selecione um participante...</option>
-                    </select>
-                    <div id="participant-tags" class="participant-list"></div>
-                </div>
+        <!-- CABEÇALHO DO ROTEIRO ATUALIZADO -->
+        <div class="card" style="padding: 20px; background: #f8fafc; border-left: 5px solid var(--totvs-blue-dark);">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                <div class="form-group"><label>Nome do cliente</label><input type="text" id="header-client-name"></div>
+                <div class="form-group"><label>Código do cliente</label><input type="text" id="header-client-code"></div>
+                <div class="form-group"><label>Nome do projeto</label><input type="text" id="header-project-name"></div>
+                <div class="form-group"><label>Código do projeto</label><input type="text" id="header-project-code"></div>
+                <div class="form-group"><label>Proposta comercial</label><input type="text" id="header-proposal"></div>
+                <div class="form-group"><label>Gerente/Coordenador TOTVS</label><input type="text" id="header-mgr-totvs"></div>
+                <div class="form-group"><label>Gerente/Coordenador Cliente</label><input type="text" id="header-mgr-client"></div>
+                <div class="form-group"><label>Data</label><input type="date" id="header-date"></div>
+                <div class="form-group"><label>Assinatura</label><input type="text" id="header-signature"></div>
+                <div class="form-group" style="grid-column: span 2;"><label>Aprovado por (Nome e Função)</label><input type="text" id="header-approved-by"></div>
             </div>
         </div>
 
@@ -585,10 +587,11 @@
                     <thead>
                         <tr>
                             <th style="width: 40px;">#</th>
-                            <th style="width: 120px;">Sistema</th>
-                            <th style="width: 120px;">Módulo</th>
+                            <th style="width: 100px;">Sistema</th>
+                            <th style="width: 100px;">Módulo</th>
                             <th>Processo de Negócio</th>
                             <th>Tarefa / Atividade</th>
+                            <th style="width: 180px;">Participantes (Stakeholders)</th>
                             <th style="width: 120px;">Status</th>
                             <th>Observações</th>
                             <th style="width: 40px;"></th>
@@ -619,7 +622,6 @@
 
         let roadmaps = [];
         let currentRoadmapId = null;
-        let selectedParticipants = [];
         let dataStore = { pendencias: [], riscos: [], gaps: [], stakeholders: [], agenda: [] };
         let timeLeft = 0, totalSeconds = 0, timerInterval;
 
@@ -663,9 +665,8 @@
             list.innerHTML = roadmaps.map(r => `
                 <div class="roadmap-card" onclick="openRoadmap('${r.id}')">
                     <div class="badge">ROTEIRO</div>
-                    <div class="title">${r.name}</div>
-                    <div class="info"><i data-lucide="user" style="width:12px"></i> Instrutor: ${r.owner || '--'}</div>
-                    <div class="info"><i data-lucide="users" style="width:12px"></i> ${r.participants?.length || 0} Participantes</div>
+                    <div class="title">${r.clientName || 'Cliente sem nome'}</div>
+                    <div class="info"><i data-lucide="briefcase" style="width:12px"></i> Projeto: ${r.projectName || '--'}</div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 11px; font-weight: 700; color: var(--totvs-green)">${r.items.length} PASSOS</span>
                         <button class="btn-icon delete" onclick="event.stopPropagation(); deleteRoadmap('${r.id}')"><i data-lucide="trash-2" style="width:14px"></i></button>
@@ -675,57 +676,14 @@
             lucide.createIcons();
         }
 
-        function populateStakeholders() {
-            const selector = document.getElementById('participant-selector');
-            if(!selector) return;
-            selector.innerHTML = '<option value="">Selecione um participante...</option>';
-            
-            // Tentamos encontrar a coluna de Nome no Mapa de Stakeholders
-            dataStore.stakeholders.forEach(stk => {
-                const name = stk[0] || stk["Nome"] || stk["NOME"]; // Tenta pegar o primeiro campo ou o campo 'Nome'
-                if(name && name !== "Nome" && name !== "NOME") {
-                    const opt = document.createElement('option');
-                    opt.value = name;
-                    opt.textContent = name;
-                    selector.appendChild(opt);
-                }
-            });
-        }
-
-        function addParticipant() {
-            const selector = document.getElementById('participant-selector');
-            const val = selector.value;
-            if(val && !selectedParticipants.includes(val)) {
-                selectedParticipants.push(val);
-                renderParticipantTags();
-            }
-            selector.value = "";
-        }
-
-        function removeParticipant(name) {
-            selectedParticipants = selectedParticipants.filter(p => p !== name);
-            renderParticipantTags();
-        }
-
-        function renderParticipantTags() {
-            const container = document.getElementById('participant-tags');
-            if(!container) return;
-            container.innerHTML = selectedParticipants.map(p => `
-                <div class="participant-tag">
-                    ${p} <i data-lucide="x" style="width:12px" onclick="removeParticipant('${p}')"></i>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        }
-
         function openNewRoadmap() {
             currentRoadmapId = 'rm_' + Date.now();
-            selectedParticipants = [];
-            document.getElementById('edit-roadmap-name').value = "Novo Roteiro";
-            document.getElementById('edit-roadmap-owner').value = "";
+            
+            // Limpa cabeçalho
+            const headerFields = ['header-client-name', 'header-client-code', 'header-project-name', 'header-project-code', 'header-proposal', 'header-mgr-totvs', 'header-mgr-client', 'header-date', 'header-signature', 'header-approved-by'];
+            headerFields.forEach(id => document.getElementById(id).value = "");
+            
             document.getElementById('roadmap-items-body').innerHTML = "";
-            renderParticipantTags();
-            populateStakeholders();
             document.getElementById('roadmap-editor').style.display = 'block';
             addRoadmapRow(); 
             lucide.createIcons();
@@ -735,24 +693,45 @@
             const rm = roadmaps.find(r => r.id === id);
             if(!rm) return;
             currentRoadmapId = id;
-            selectedParticipants = rm.participants || [];
-            document.getElementById('edit-roadmap-name').value = rm.name;
-            document.getElementById('edit-roadmap-owner').value = rm.owner;
-            document.getElementById('roadmap-items-body').innerHTML = rm.items.map((item, i) => generateRowHtml(i + 1, item)).join('');
             
-            renderParticipantTags();
-            populateStakeholders();
+            // Popula cabeçalho
+            document.getElementById('header-client-name').value = rm.clientName || "";
+            document.getElementById('header-client-code').value = rm.clientCode || "";
+            document.getElementById('header-project-name').value = rm.projectName || "";
+            document.getElementById('header-project-code').value = rm.projectCode || "";
+            document.getElementById('header-proposal').value = rm.proposal || "";
+            document.getElementById('header-mgr-totvs').value = rm.mgrTotvs || "";
+            document.getElementById('header-mgr-client').value = rm.mgrClient || "";
+            document.getElementById('header-date').value = rm.date || "";
+            document.getElementById('header-signature').value = rm.signature || "";
+            document.getElementById('header-approved-by').value = rm.approvedBy || "";
+
+            document.getElementById('roadmap-items-body').innerHTML = rm.items.map((item, i) => generateRowHtml(i + 1, item)).join('');
             document.getElementById('roadmap-editor').style.display = 'block';
             lucide.createIcons();
         }
 
         function generateRowHtml(idx, data = {}) {
+            // Gera as opções de stakeholders sincronizados
+            let stakeholderOptions = '<option value="">Selecionar...</option>';
+            dataStore.stakeholders.forEach(stk => {
+                const name = stk[0] || stk["Nome"] || stk["NOME"];
+                if(name && name !== "Nome" && name !== "NOME") {
+                    stakeholderOptions += `<option value="${name}" ${data.participants && data.participants.includes(name) ? 'selected' : ''}>${name}</option>`;
+                }
+            });
+
             return `<tr>
                 <td style="font-size:10px; font-weight:800; color:#94a3b8">${idx}</td>
-                <td><input type="text" class="row-system" placeholder="Protheus" value="${data.system || ''}"></td>
-                <td><input type="text" class="row-module" placeholder="Faturamento" value="${data.module || ''}"></td>
-                <td><input type="text" class="row-process" placeholder="Fluxo de Venda" value="${data.process || ''}"></td>
-                <td><input type="text" class="row-task" placeholder="Gerar Nota" value="${data.task || ''}"></td>
+                <td><input type="text" class="row-system" placeholder="Sistema" value="${data.system || ''}"></td>
+                <td><input type="text" class="row-module" placeholder="Módulo" value="${data.module || ''}"></td>
+                <td><input type="text" class="row-process" placeholder="Processo" value="${data.process || ''}"></td>
+                <td><input type="text" class="row-task" placeholder="Atividade" value="${data.task || ''}"></td>
+                <td>
+                    <select class="row-participants" multiple style="height: 60px; font-size: 11px; background: #fff;">
+                        ${stakeholderOptions}
+                    </select>
+                </td>
                 <td><select class="row-status">
                     <option value="Aguardando" ${data.status === 'Aguardando'?'selected':''}>Aguardando</option>
                     <option value="Em Andamento" ${data.status === 'Em Andamento'?'selected':''}>Em Andamento</option>
@@ -775,23 +754,37 @@
         function saveRoadmap() {
             const items = [];
             document.querySelectorAll('#roadmap-items-body tr').forEach(tr => {
+                const partSelect = tr.querySelector('.row-participants');
+                const selectedParts = Array.from(partSelect.selectedOptions).map(opt => opt.value).filter(v => v !== "");
+                
                 items.push({
                     system: tr.querySelector('.row-system').value,
                     module: tr.querySelector('.row-module').value,
                     process: tr.querySelector('.row-process').value,
                     task: tr.querySelector('.row-task').value,
+                    participants: selectedParts,
                     status: tr.querySelector('.row-status').value,
                     obs: tr.querySelector('.row-obs').value
                 });
             });
+            
             const index = roadmaps.findIndex(r => r.id === currentRoadmapId);
             const rmData = {
                 id: currentRoadmapId,
-                name: document.getElementById('edit-roadmap-name').value,
-                owner: document.getElementById('edit-roadmap-owner').value,
-                participants: selectedParticipants,
-                items, date: new Date().toLocaleDateString('pt-BR')
+                clientName: document.getElementById('header-client-name').value,
+                clientCode: document.getElementById('header-client-code').value,
+                projectName: document.getElementById('header-project-name').value,
+                projectCode: document.getElementById('header-project-code').value,
+                proposal: document.getElementById('header-proposal').value,
+                mgrTotvs: document.getElementById('header-mgr-totvs').value,
+                mgrClient: document.getElementById('header-mgr-client').value,
+                date: document.getElementById('header-date').value,
+                signature: document.getElementById('header-signature').value,
+                approvedBy: document.getElementById('header-approved-by').value,
+                items, 
+                saveTimestamp: new Date().getTime()
             };
+            
             if(index > -1) roadmaps[index] = rmData; else roadmaps.push(rmData);
             localStorage.setItem('cockpit_roadmaps', JSON.stringify(roadmaps));
             showToast("Roteiro salvo com sucesso!"); closeEditor(); renderRoadmapList();
@@ -809,23 +802,35 @@
         }
 
         function exportRoadmapToExcel() {
-            const name = document.getElementById('edit-roadmap-name').value;
-            const owner = document.getElementById('edit-roadmap-owner').value;
-            let csv = `ROTEIRO: ${name}\nINSTRUTOR: ${owner}\nPARTICIPANTES: ${selectedParticipants.join(', ')}\n\n`;
-            csv += `ID;SISTEMA;MODULO;PROCESSO;TAREFA;STATUS;OBSERVACAO\n`;
+            const client = document.getElementById('header-client-name').value || 'roteiro';
+            const project = document.getElementById('header-project-name').value || 'projeto';
+            
+            let csv = `ROTEIRO DE TREINAMENTO\n`;
+            csv += `Cliente:;${document.getElementById('header-client-name').value};Codigo:;${document.getElementById('header-client-code').value}\n`;
+            csv += `Projeto:;${document.getElementById('header-project-name').value};Codigo Proj:;${document.getElementById('header-project-code').value}\n`;
+            csv += `Proposta:;${document.getElementById('header-proposal').value}\n`;
+            csv += `Gerente TOTVS:;${document.getElementById('header-mgr-totvs').value}\n`;
+            csv += `Gerente Cliente:;${document.getElementById('header-mgr-client').value}\n`;
+            csv += `Data:;${document.getElementById('header-date').value}\n`;
+            csv += `Aprovado por:;${document.getElementById('header-approved-by').value}\n\n`;
+            
+            csv += `ID;SISTEMA;MODULO;PROCESSO;TAREFA;PARTICIPANTES;STATUS;OBSERVACAO\n`;
+            
             document.querySelectorAll('#roadmap-items-body tr').forEach((tr, i) => {
                 const s = tr.querySelector('.row-system').value;
                 const m = tr.querySelector('.row-module').value;
                 const p = tr.querySelector('.row-process').value;
                 const t = tr.querySelector('.row-task').value;
+                const parts = Array.from(tr.querySelector('.row-participants').selectedOptions).map(o => o.value).join(', ');
                 const st = tr.querySelector('.row-status').value;
                 const ob = tr.querySelector('.row-obs').value;
-                csv += `${i+1};${s};${m};${p};${t};${st};${ob}\n`;
+                csv += `${i+1};${s};${m};${p};${t};"${parts}";${st};${ob}\n`;
             });
+            
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `roteiro_${name.toLowerCase().replace(/\s/g, '_')}.csv`;
+            link.download = `roteiro_${client.toLowerCase().replace(/\s/g, '_')}.csv`;
             link.click();
         }
 
@@ -880,7 +885,6 @@
                 });
                 const syncEl = document.getElementById('last-sync-time'); if (syncEl) syncEl.innerText = new Date().toLocaleTimeString('pt-BR');
                 generateConfigRows();
-                populateStakeholders(); // Atualiza a lista de participantes com os novos dados syncados
             } catch (err) { console.error(err); }
             finally { if (icon) icon.classList.remove('loading-spinner'); }
         }
