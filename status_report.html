@@ -347,8 +347,18 @@
                 </div>
                 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Pendências, Riscos e GAPs</label>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Pendências</label>
+                    <input type="text" id="url-pendencias" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Riscos</label>
                     <input type="text" id="url-riscos" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - GAPs</label>
+                    <input type="text" id="url-gaps" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
                 </div>
                 
                 <div>
@@ -684,7 +694,9 @@
             document.getElementById('config-modal').classList.remove('hidden');
             // Carregar dados salvos
             document.getElementById('url-geral').value = localStorage.getItem('urlGeral') || '';
+            document.getElementById('url-pendencias').value = localStorage.getItem('urlPendencias') || '';
             document.getElementById('url-riscos').value = localStorage.getItem('urlRiscos') || '';
+            document.getElementById('url-gaps').value = localStorage.getItem('urlGaps') || '';
             document.getElementById('url-atividades').value = localStorage.getItem('urlAtividades') || '';
         }
 
@@ -698,11 +710,15 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Sincronizando...';
             
             const urlGeral = document.getElementById('url-geral').value;
+            const urlPendencias = document.getElementById('url-pendencias').value;
             const urlRiscos = document.getElementById('url-riscos').value;
+            const urlGaps = document.getElementById('url-gaps').value;
             const urlAtividades = document.getElementById('url-atividades').value;
 
             localStorage.setItem('urlGeral', urlGeral);
+            localStorage.setItem('urlPendencias', urlPendencias);
             localStorage.setItem('urlRiscos', urlRiscos);
+            localStorage.setItem('urlGaps', urlGaps);
             localStorage.setItem('urlAtividades', urlAtividades);
 
             // Simulação de Fetching e Parsing
@@ -718,7 +734,9 @@
             // Inicializar com as URLs de exemplo enviadas se for o primeiro acesso
             if(!localStorage.getItem('urlGeral')) {
                 localStorage.setItem('urlGeral', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv');
+                localStorage.setItem('urlPendencias', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv');
                 localStorage.setItem('urlRiscos', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv');
+                localStorage.setItem('urlGaps', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv');
                 localStorage.setItem('urlAtividades', 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=600743470&single=true&output=csv');
             }
 
