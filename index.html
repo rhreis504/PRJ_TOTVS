@@ -173,6 +173,16 @@
             box-shadow: 0 12px 30px rgba(0,0,0,0.18);
             margin-bottom: 24px;
         }
+
+        .embedded-page-frame {
+            width: 100%;
+            min-height: calc(100vh - 120px);
+            border: none;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: var(--shadow-md);
+        }
+
         .card {
             background: var(--glass-bg);
             backdrop-filter: blur(18px) saturate(155%);
@@ -482,6 +492,17 @@
                     <span>ÚLTIMA SINCRONIZAÇÃO: <b id="last-sync-time">--</b></span>
                     <span id="current-date">--</span>
                 </div>
+            </div>
+
+
+            <!-- STATUS REPORT -->
+            <div id="page-status" class="hidden">
+                <iframe
+                    class="embedded-page-frame"
+                    src="status_report.html"
+                    title="Status Report"
+                    loading="lazy">
+                </iframe>
             </div>
 
             <!-- TREINAMENTOS -->
