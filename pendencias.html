@@ -118,6 +118,20 @@
       const cleanedRows = rows.filter(row => row.some(cell => cell !== ''));
       if (cleanedRows.length === 0) return [];
 
+      const stripLeadingEmptyColumn = (inputRows = []) => {
+        if (inputRows.length === 0) return inputRows;
+
+        const hasLeadingEmptyColumn = inputRows.every((row) => {
+          if (!row || row.length === 0) return true;
+          return (row[0] || '').trim() === '';
+        });
+
+        if (!hasLeadingEmptyColumn) return inputRows;
+        return inputRows.map((row) => row.slice(1));
+      };
+
+      const normalizedRows = stripLeadingEmptyColumn(cleanedRows);
+
       const headers = EXPECTED_HEADERS;
       const normalize = (value = '') => value
         .toString()
@@ -135,8 +149,8 @@
         return matches;
       };
 
-      const sourceHeaderIndex = headerMatches(cleanedRows[1]) > headerMatches(cleanedRows[0]) ? 1 : 0;
-      const sourceHeaders = cleanedRows[sourceHeaderIndex] || [];
+      const sourceHeaderIndex = headerMatches(normalizedRows[1]) > headerMatches(normalizedRows[0]) ? 1 : 0;
+      const sourceHeaders = normalizedRows[sourceHeaderIndex] || [];
       const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
       const sprintIndex = headers.indexOf('Sprint');
       const hasSprintHeader = sourceIndexByHeader.has('Sprint');
@@ -155,8 +169,8 @@
         return matchesAtOffset(0) || matchesAtOffset(1) || matchesAtOffset(-1);
       };
 
-      for (let i = sourceHeaderIndex + 1; i < cleanedRows.length; i++) {
-        const row = cleanedRows[i];
+      for (let i = sourceHeaderIndex + 1; i < normalizedRows.length; i++) {
+        const row = normalizedRows[i];
 
         let alignedRow = row;
 
