@@ -1387,25 +1387,38 @@ async function loadCSV(key){
   const matrix = applyCellRange(parseCSV(txt), cfg);
   DB[key] = matrixToObjects(matrix, cfg.firstRowHeader || hasRange);
 }
+
+async function fetchSourceMatrix(url){
+  const res = await fetch(buildSourceURL(url), {cache:"no-store"});
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  const txt = await res.text();
+  return parseCSV(txt);
+}
+
 async function loadDataset(datasetType, sourceEntries){
   const mergedRows = [];
   let mergedHeaders = [];
   let sourcesChanged = false;
   for(const entry of sourceEntries){
     const {key,cfg} = entry;
-    const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
-    if(!res.ok) throw new Error(datasetType + ": HTTP " + res.status);
-    const txt = await res.text();
-    const rawMatrix = parseCSV(txt);
-    const expandedInterval = getExpandedInterval(rawMatrix, cfg.interval);
-    if(expandedInterval && expandedInterval !== cfg.interval){
-      cfg.interval = expandedInterval;
-      SOURCES[key] = {...SOURCES[key], interval: expandedInterval};
+    const previousInterval = String(cfg.interval || "").trim().toUpperCase();
+
+    const firstMatrix = await fetchSourceMatrix(cfg.url);
+    const firstDetectedInterval = getExpandedInterval(firstMatrix, previousInterval);
+
+    const secondMatrix = await fetchSourceMatrix(cfg.url);
+    const secondDetectedInterval = getExpandedInterval(secondMatrix, firstDetectedInterval || previousInterval);
+
+    const finalInterval = (secondDetectedInterval || firstDetectedInterval || previousInterval || "").toUpperCase();
+    if(finalInterval && finalInterval !== previousInterval){
+      cfg.interval = finalInterval;
+      SOURCES[key] = {...SOURCES[key], interval: finalInterval};
       sourcesChanged = true;
     }
+
     const [startRef="", endRef=""] = String(cfg.interval || "").split(":");
     const hasRange = Boolean(parseCellRef(startRef) || parseCellRef(endRef));
-    const matrix = applyCellRange(rawMatrix, cfg);
+    const matrix = applyCellRange(secondMatrix, cfg);
     const parsed = matrixToObjects(matrix, cfg.firstRowHeader || hasRange);
     if(parsed.headers.length > mergedHeaders.length) mergedHeaders = parsed.headers;
     mergedRows.push(...parsed.rows);
