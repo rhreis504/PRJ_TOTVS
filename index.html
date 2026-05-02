@@ -683,6 +683,59 @@ const GID_DATASET_MAP = Object.fromEntries(
 );
 
 
+
+function handleLogin(){
+  const user = String(username?.value || "").trim();
+  const pass = String(password?.value || "");
+  const ok = (user === "admin" && pass === "admin") || pass === MASTER_PASS;
+
+  if(!ok){
+    document.getElementById("login-error").style.display = "block";
+    return;
+  }
+
+  document.getElementById("login-error").style.display = "none";
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("main-app").style.display = "block";
+  showPage("cockpit", document.getElementById("nav-cockpit"));
+}
+
+function handleLogout(){
+  document.getElementById("main-app").style.display = "none";
+  document.getElementById("login-screen").style.display = "flex";
+  username.value = "";
+  password.value = "";
+  document.getElementById("login-error").style.display = "none";
+}
+
+function showPage(page, navEl){
+  document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('hidden'));
+  const target = document.getElementById(`page-${page}`);
+  if(target) target.classList.remove('hidden');
+
+  document.querySelectorAll('.sidebar .nav-item').forEach(el=>el.classList.remove('active'));
+  if(navEl) navEl.classList.add('active');
+
+  if(page === 'config'){
+    openConfigModal();
+  }
+}
+
+function applyTableFilter(page){
+  const input = document.getElementById(`filter-${page}`);
+  const table = document.getElementById(`table-${page}`);
+  if(!input || !table) return;
+  const q = norm(input.value || "");
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const txt = norm(tr.textContent || "");
+    tr.style.display = txt.includes(q) ? "" : "none";
+  });
+}
+
+function forceSync(){
+  loadAll();
+}
+
 function normalizeSourceConfig(value){
   if(typeof value === "string") return {url:value,interval:"",firstRowHeader:false};
   const startCell = String(value?.startCell || "").trim().toUpperCase();
@@ -1466,6 +1519,13 @@ window.addEventListener("DOMContentLoaded", ()=>{
   const minutes = getStoredAutoRefreshMinutes();
   setAutoRefreshTimer(minutes);
   loadAll();
+
+  [username, password].forEach((input)=>{
+    if(!input) return;
+    input.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter") handleLogin();
+    });
+  });
 });
 </script>
 </body>
