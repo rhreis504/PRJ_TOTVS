@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cockpit Executivo - Gestão de Projetos TOTVS</title>
+    <!-- Fontes e Ícones -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            /* TOTVS Palette */
+            --totvs-blue-dark: #004a80;
+            --totvs-blue-light: #00a1e4;
+            --totvs-green: #00b140;
+            --totvs-gray-bg: #f4f7fa;
+            --totvs-text: #2c3e50;
+            --totvs-white: #ffffff;
+            --border-radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--totvs-gray-bg);
+            color: var(--totvs-text);
+            overflow-x: hidden;
+        }
+
+        /* --- LOGIN SCREEN --- */
+        #login-screen {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--totvs-blue-dark) 0%, #002d50 100%);
+        }
+
+        .login-card {
+            background: white;
+            padding: 50px;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+        }
+
+        .login-card h1 {
+            color: var(--totvs-blue-dark);
+            margin-bottom: 30px;
+            font-weight: 800;
+            font-size: 26px;
+            letter-spacing: -1px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--totvs-blue-dark);
+            text-transform: uppercase;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #eef2f7;
+            border-radius: 12px;
+            outline: none;
+            transition: var(--transition);
+            font-size: 15px;
+            background: white;
+        }
+
+        .form-group input:focus, .form-group select:focus { border-color: var(--totvs-blue-light); box-shadow: 0 0 0 4px rgba(0, 161, 228, 0.1); }
+
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: var(--totvs-blue-light);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 16px;
+        }
+
+        .btn-primary:hover { background: var(--totvs-blue-dark); transform: translateY(-2px); }
+
+        /* --- SIDEBAR --- */
+        #main-app { display: none; min-height: 100vh; }
+
+        .sidebar {
+            width: 280px;
+            background: var(--totvs-blue-dark);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            padding: 30px 24px;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .sidebar .logo {
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: var(--transition);
+            font-weight: 600;
+            color: rgba(255,255,255,0.7);
+            font-size: 13px;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .nav-separator {
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin: 10px 0;
+        }
+
+        /* --- CONTENT --- */
+        .content {
+            margin-left: 280px;
+            padding: 30px 50px;
+            width: calc(100% - 280px);
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 25px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.02);
+            margin-bottom: 25px;
+            border: 1px solid #f1f5f9;
+        }
+
+        /* --- TIMELINE --- */
+        .timeline-wrapper {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline-line {
+            position: absolute;
+            top: 45px;
+            left: 8%;
+            right: 8%;
+            height: 2px;
+            background: #f1f5f9;
+            z-index: 1;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 2;
+            width: 20%;
+            text-align: center;
+        }
+
+        .icon-circle {
+            width: 45px;
+            height: 45px;
+            background: white;
+            border: 2px solid #f1f5f9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            transition: var(--transition);
+        }
+
+        .active .icon-circle {
+            border-color: var(--totvs-green);
+            background: #f0fdf4;
+            animation: pulse-green 2.5s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(0, 177, 64, 0.4); transform: scale(1); }
+            50% { box-shadow: 0 0 0 12px rgba(0, 177, 64, 0); transform: scale(1.05); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 177, 64, 0); transform: scale(1); }
+        }
+
+        /* --- KPI GRID --- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 4px solid transparent;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 15px 20px -5px rgba(0,0,0,0.05); }
+        .kpi-card.pendencias { border-color: #f59e0b; }
+        .kpi-card.riscos { border-color: #ef4444; }
+        .kpi-card.stakeholders { border-color: var(--totvs-blue-light); }
+        .kpi-card.gaps { border-color: #8b5cf6; }
+
+        .kpi-icon {
+            width: 45px;
+            height: 45px;
+            background: #f8fafc;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--totvs-blue-dark);
+        }
+
+        .kpi-data h3 { font-size: 10px; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-data p { font-size: 22px; font-weight: 800; color: var(--totvs-blue-dark); }
+
+        /* --- TABLES & FILTERS --- */
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex-grow: 1;
+        }
+
+        .search-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            width: 18px;
+        }
+
+        .search-wrapper input {
+            width: 100%;
+            padding: 12px 15px 12px 45px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            outline: none;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .search-wrapper input:focus { border-color: var(--totvs-blue-light); }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid #f1f5f9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        thead th {
+            background: #f8fafc;
+            padding: 12px 15px;
+            font-weight: 700;
+            color: var(--totvs-blue-dark);
+            border-bottom: 2px solid #edf2f7;
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #475569;
+        }
+
+        tbody tr:hover { background: #fcfdfe; }
+
+        .btn-action {
+            background: var(--totvs-blue-light);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: var(--transition);
+        }
+
+        .btn-action:hover { background: var(--totvs-blue-dark); }
+
+        /* --- CONFIG SETTINGS --- */
+        .sheet-config-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr auto;
+            gap: 12px;
+            align-items: flex-end;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 14px;
+            border: 1px solid #edf2f7;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: white;
+            border: 2px solid #eef2f7;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .checkbox-group:hover { border-color: var(--totvs-blue-light); }
+        .checkbox-group label { font-size: 11px; font-weight: 600; color: var(--totvs-blue-dark); margin: 0; cursor: pointer; }
+
+        /* --- TIMER --- */
+        .sync-control-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid #eef2f7;
+            min-width: 300px;
+        }
+
+        .timer-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--totvs-blue-dark);
+        }
+
+        .progress-bar-bg { width: 100%; height: 5px; background: #f1f5f9; border-radius: 10px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; width: 100%; background: var(--totvs-blue-light); transition: width 1s linear; }
+
+        .hidden { display: none !important; }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--totvs-blue-dark);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            transform: translateY(150px);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .toast.show { transform: translateY(0); }
+
+        .sync-btn {
+            background: var(--totvs-green);
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: var(--transition);
+            font-size: 11px;
+        }
+
+        .sync-btn:hover { background: #008f33; }
+        .loading-spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen">
+        <div class="login-card">
+            <div style="color: var(--totvs-blue-light); margin-bottom: 20px;">
+                <i data-lucide="shield-check" style="width: 64px; height: 64px;"></i>
+            </div>
+            <h1>Acesso Executivo</h1>
+            <div class="form-group">
+                <label>Administrador</label>
+                <input type="text" id="username" placeholder="Usuário">
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button class="btn-primary" onclick="handleLogin()">Entrar</button>
+            <p id="login-error" style="color: #ef4444; font-size: 13px; margin-top: 15px; display: none; font-weight: 600;">Credenciais incorretas.</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="main-app">
+        <aside class="sidebar">
+            <div class="logo"><i data-lucide="gauge" style="color: var(--totvs-blue-light);"></i> COCKPIT</div>
+            <nav>
+                <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="pie-chart"></i> Visão Geral</div>
+                
+                <div class="nav-separator"></div>
+                
+                <div class="nav-item" id="nav-status" onclick="showPage('status', this)"><i data-lucide="file-text"></i> Status Report</div>
+                <div class="nav-item" id="nav-pendencias" onclick="showPage('pendencias', this)"><i data-lucide="check-square"></i> Pendências</div>
+                <div class="nav-item" id="nav-riscos" onclick="showPage('riscos', this)"><i data-lucide="alert-circle"></i> Riscos</div>
+                <div class="nav-item" id="nav-gaps" onclick="showPage('gaps', this)"><i data-lucide="git-pull-request"></i> Gaps e Mudanças</div>
+                <div class="nav-item" id="nav-stakeholders" onclick="showPage('stakeholders', this)"><i data-lucide="user-plus"></i> Stakeholders</div>
+                
+                <div class="nav-separator"></div>
+
+                <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Treinamentos</div>
+                <div class="nav-item" id="nav-agenda" onclick="showPage('agenda', this)"><i data-lucide="calendar-clock"></i> Agenda de Treinos</div>
+                
+                <div class="nav-separator"></div>
+                
+                <div class="nav-item" id="nav-config" onclick="showPage('config', this)"><i data-lucide="sliders"></i> Configurações</div>
+            </nav>
+            <div class="nav-item" style="margin-top: auto;" onclick="handleLogout()"><i data-lucide="power"></i> Encerrar Sessão</div>
+        </aside>
+
+        <main class="content">
+            <!-- PAGE: COCKPIT -->
+            <div id="page-cockpit">
+                <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <div>
+                        <h2>Dashboard de Gestão</h2>
+                        <p style="color: #64748b; font-size: 14px;">Monitoramento Estratégico TOTVS</p>
+                    </div>
+                    
+                    <div class="sync-control-container">
+                        <div class="timer-info">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="clock" style="width: 14px;"></i>
+                                Próxima atualização: <span id="timer-text">00:00</span>
+                            </div>
+                            <button class="sync-btn" onclick="forceSync()">
+                                <i data-lucide="refresh-cw" id="sync-icon"></i> Forçar Sync
+                            </button>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="progress-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LINHA DO TEMPO -->
+                <div class="card">
+                    <h3 style="font-size: 13px; text-transform: uppercase; color: var(--totvs-blue-dark); font-weight: 800; margin-bottom: 5px;">Linha do Tempo</h3>
+                    <div class="timeline-wrapper">
+                        <div class="timeline-line"></div>
+                        <div class="step active">
+                            <div class="icon-circle"><i data-lucide="rocket" style="color: var(--totvs-green); width: 22px;"></i></div>
+                            <div style="font-weight: 800; font-size: 12px;">Iniciação</div>
+                            <div style="font-size: 10px; color: #64748b;">Alinhamento</div>
+                        </div>
+                        <div class="step"><div class="icon-circle"><i data-lucide="clipboard-list" style="color: #cbd5e1; width: 20px;"></i></div><div style="font-weight: 700; font-size: 11px; color: #94a3b8;">Preparação</div></div>
+                        <div class="step"><div class="icon-circle"><i data-lucide="users" style="color: #cbd5e1; width: 20px;"></i></div><div style="font-weight: 700; font-size: 11px; color: #94a3b8;">Refinamento</div></div>
+                        <div class="step"><div class="icon-circle"><i data-lucide="cpu" style="color: #cbd5e1; width: 20px;"></i></div><div style="font-weight: 700; font-size: 11px; color: #94a3b8;">Realização</div></div>
+                        <div class="step"><div class="icon-circle"><i data-lucide="flag" style="color: #cbd5e1; width: 20px;"></i></div><div style="font-weight: 700; font-size: 11px; color: #94a3b8;">Operação</div></div>
+                    </div>
+                </div>
+
+                <!-- KPI GRID -->
+                <div class="kpi-grid">
+                    <div class="kpi-card pendencias" onclick="showPage('pendencias', document.getElementById('nav-pendencias'))">
+                        <div class="kpi-icon"><i data-lucide="check-square"></i></div>
+                        <div class="kpi-data"><h3>Pendências</h3><p id="val-pendencias">0</p></div>
+                    </div>
+                    <div class="kpi-card riscos" onclick="showPage('riscos', document.getElementById('nav-riscos'))">
+                        <div class="kpi-icon"><i data-lucide="alert-circle"></i></div>
+                        <div class="kpi-data"><h3>Riscos</h3><p id="val-riscos">0</p></div>
+                    </div>
+                    <div class="kpi-card gaps" onclick="showPage('gaps', document.getElementById('nav-gaps'))">
+                        <div class="kpi-icon"><i data-lucide="git-pull-request"></i></div>
+                        <div class="kpi-data"><h3>Gaps</h3><p id="val-gaps">0</p></div>
+                    </div>
+                    <div class="kpi-card stakeholders" onclick="showPage('stakeholders', document.getElementById('nav-stakeholders'))">
+                        <div class="kpi-icon"><i data-lucide="user-plus"></i></div>
+                        <div class="kpi-data"><h3>Pessoas</h3><p id="val-stakeholders">0</p></div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 12px;">
+                        <i data-lucide="info" style="width: 14px;"></i>
+                        <span>Sync: <strong id="last-sync-time">--</strong></span>
+                    </div>
+                    <div id="current-date" style="font-weight: 700; color: var(--totvs-blue-dark); font-size: 12px;"></div>
+                </div>
+            </div>
+
+            <!-- PAGE: STATUS REPORT -->
+            <div id="page-status" class="hidden">
+                <div class="page-header"><div><h2>Status Report</h2><p style="color: #64748b;">Relatório Executivo de Saúde</p></div></div>
+                <div class="card">
+                    <h3 style="margin-bottom: 20px; font-size: 16px;">Semáforos e Resumo</h3>
+                    <div style="display:grid; grid-template-columns: 1fr 2fr; gap:30px;">
+                        <div>
+                            <div class="health-indicator"><div class="traffic-light light-green"></div><span>Cronograma (On Track)</span></div>
+                            <div class="health-indicator"><div class="traffic-light light-green"></div><span>Escopo (Validado)</span></div>
+                            <div class="health-indicator"><div class="traffic-light light-yellow"></div><span>Orçamento (Atenção)</span></div>
+                        </div>
+                        <div style="background:#f8fafc; padding:15px; border-radius:10px; font-size:13px; line-height:1.6;">
+                            O projeto encontra-se na fase de Iniciação. Stakeholders principais foram mapeados e o alinhamento de escopo está em fase final de aprovação.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: TREINAMENTOS -->
+            <div id="page-treinamentos" class="hidden">
+                <div class="page-header"><div><h2>Treinamentos Disponíveis</h2><p style="color: #64748b;">Catálogo de capacitação do projeto</p></div></div>
+                <div class="card">
+                    <div class="table-controls">
+                        <div class="search-wrapper"><i data-lucide="search"></i><input type="text" id="filter-treinamentos" placeholder="Pesquisar treinamentos..." onkeyup="applyTableFilter('treinamentos')"></div>
+                    </div>
+                    <div class="table-container"><table id="table-treinamentos"><thead></thead><tbody></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- PAGE: AGENDA -->
+            <div id="page-agenda" class="hidden">
+                <div class="page-header"><div><h2>Agenda de Treinamentos</h2><p style="color: #64748b;">Cronograma detalhado de sessões ao vivo</p></div></div>
+                <div class="card">
+                    <div class="table-controls">
+                        <div class="search-wrapper"><i data-lucide="search"></i><input type="text" id="filter-agenda" placeholder="Filtrar por data, instrutor ou participante..." onkeyup="applyTableFilter('agenda')"></div>
+                    </div>
+                    <div class="table-container"><table id="table-agenda"><thead></thead><tbody></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- PAGE: TABLES (PENDENCIAS, RISCOS, GAPS, STAKEHOLDERS) -->
+            <div id="page-pendencias" class="hidden">
+                <div class="page-header"><div><h2>Pendências</h2><p style="color: #64748b;">Ações e atividades em aberto</p></div></div>
+                <div class="card"><div class="table-controls"><div class="search-wrapper"><i data-lucide="search"></i><input type="text" id="filter-pendencias" placeholder="Filtrar..." onkeyup="applyTableFilter('pendencias')"></div></div><div class="table-container"><table id="table-pendencias"><thead></thead><tbody></tbody></table></div></div>
+            </div>
+
+            <div id="page-riscos" class="hidden">
+                <div class="page-header"><div><h2>Riscos</h2><p style="color: #64748b;">Monitoramento de desvios potenciais</p></div></div>
+                <div class="card"><div class="table-controls"><div class="search-wrapper"><i data-lucide="search"></i><input type="text" id="filter-riscos" placeholder="Filtrar..." onkeyup="applyTableFilter('riscos')"></div></div><div class="table-container"><table id="table-riscos"><thead></thead><tbody></tbody></table></div></div>
+            </div>
+
+            <div id="page-gaps" class="hidden">
+                <div class="page-header"><div><h2>Gaps e Mudanças</h2><p style="color: #64748b;">Controle de escopo e solicitações</p></div></div>
+                <div class="card"><div class="table-controls"><div class="search-wrapper"><i data-lucide="search"></i><input type="text" id="filter-gaps" placeholder="Filtrar..." onkeyup="applyTableFilter('gaps')"></div></div><div class="table-container"><table id="table-gaps"><thead></thead><tbody></tbody></table></div></div>
+            </div>
+
+            <div id="page-stakeholders" class="hidden">
+                <div class="page-header"><div><h2>Stakeholders</h2><p style="color: #64748b;">Mapeamento de influência</p></div></div>
+                <div class="card"><div class="table-controls"><div class="search-wrapper"><i data-lucide="search"></i><input type="text" id="filter-stakeholders" placeholder="Filtrar..." onkeyup="applyTableFilter('stakeholders')"></div></div><div class="table-container"><table id="table-stakeholders"><thead></thead><tbody></tbody></table></div></div>
+            </div>
+
+            <!-- PAGE: CONFIG -->
+            <div id="page-config" class="hidden">
+                <div class="page-header"><div><h2>Configurações</h2><p style="color: #64748b;">Mapeamento de Fontes de Dados</p></div></div>
+                <div class="card">
+                    <div class="config-section" style="margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 15px; font-size: 15px; color: var(--totvs-blue-dark);">Automação</h3>
+                        <div class="form-group" style="max-width: 250px;"><label>Atualizar a cada (minutos)</label><select id="update-interval"><option value="1">1</option><option value="5" selected>5</option><option value="15">15</option></select></div>
+                    </div>
+                    <div class="config-section">
+                        <h3 style="margin-bottom: 15px; font-size: 15px; color: var(--totvs-blue-dark);">Planilhas Google (CSV)</h3>
+                        
+                        <!-- REPEAT CONFIG ROWS -->
+                        <div id="config-rows-container"></div>
+                    </div>
+                    <button class="btn-primary" style="max-width: 200px; margin-top: 20px;" onclick="saveConfig()">Salvar</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="toast"><i data-lucide="check-circle-2"></i><span id="toast-msg">Sucesso!</span></div>
+
+    <script>
+        // --- ESTADO ---
+        let config = {
+            password: 'admin',
+            interval: 5,
+            sources: {
+                pendencias: { label: 'Pendências', url: '', range: '', hasHeader: true, color: '#f59e0b' },
+                riscos: { label: 'Riscos', url: '', range: '', hasHeader: true, color: '#ef4444' },
+                gaps: { label: 'Gaps', url: '', range: '', hasHeader: true, color: '#8b5cf6' },
+                stakeholders: { label: 'Stakeholders', url: '', range: '', hasHeader: true, color: '#00a1e4' },
+                treinamentos: { label: 'Treinamentos', url: '', range: '', hasHeader: true, color: '#10b981' },
+                agenda: { label: 'Agenda de Treinos', url: '', range: '', hasHeader: true, color: '#0f172a' }
+            }
+        };
+
+        let dataStore = { pendencias: [], riscos: [], gaps: [], stakeholders: [], treinamentos: [], agenda: [] };
+        let timeLeft = 0, totalSeconds = 0, timerInterval;
+
+        const saved = localStorage.getItem('cockpit_config');
+        if(saved) config = JSON.parse(saved);
+
+        // --- UI GENERATORS ---
+        function generateConfigRows() {
+            const container = document.getElementById('config-rows-container');
+            container.innerHTML = Object.entries(config.sources).map(([key, item]) => `
+                <div class="sheet-config-row">
+                    <div class="form-group" style="margin:0"><label>${item.label} (URL)</label><input type="text" id="url-${key}" value="${item.url}"></div>
+                    <div class="form-group" style="margin:0"><label>Intervalo</label><input type="text" id="range-${key}" value="${item.range}"></div>
+                    <div class="checkbox-group" onclick="document.getElementById('header-${key}').click()">
+                        <input type="checkbox" id="header-${key}" ${item.hasHeader ? 'checked' : ''} onclick="event.stopPropagation()">
+                        <label>Primeira linha cabeçalho</label>
+                    </div>
+                    <i data-lucide="link" style="color: ${item.color};"></i>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // --- AUTH ---
+        function handleLogin() {
+            const u = document.getElementById('username').value, p = document.getElementById('password').value;
+            if(u === 'admin' && p === config.password) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'flex';
+                initApp();
+            } else { document.getElementById('login-error').style.display = 'block'; }
+        }
+
+        function handleLogout() { location.reload(); }
+
+        function showPage(id, el) {
+            ['cockpit', 'status', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'config'].forEach(p => {
+                const element = document.getElementById('page-' + p);
+                if (element) element.classList.add('hidden');
+            });
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.getElementById('page-' + id).classList.remove('hidden');
+            if (el) el.classList.add('active');
+        }
+
+        // --- CORE ---
+        function initApp() {
+            lucide.createIcons();
+            updateDate();
+            document.getElementById('update-interval').value = config.interval;
+            generateConfigRows();
+            startSyncCycle();
+        }
+
+        function updateDate() {
+            const now = new Date();
+            document.getElementById('current-date').innerText = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function startSyncCycle() {
+            clearInterval(timerInterval);
+            totalSeconds = config.interval * 60;
+            timeLeft = totalSeconds;
+            syncAllData();
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const min = Math.floor(timeLeft / 60), sec = timeLeft % 60;
+                document.getElementById('timer-text').innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                document.getElementById('progress-fill').style.width = ((timeLeft / totalSeconds) * 100) + '%';
+                if(timeLeft <= 0) { syncAllData(); timeLeft = totalSeconds; }
+            }, 1000);
+        }
+
+        function forceSync() { showToast("Sincronizando..."); syncAllData(); timeLeft = totalSeconds; }
+
+        async function syncAllData() {
+            const icon = document.getElementById('sync-icon');
+            if (icon) icon.classList.add('loading-spinner');
+            try {
+                const keys = Object.keys(config.sources);
+                const results = await Promise.all(keys.map(key => fetchCSV(config.sources[key].url, config.sources[key].hasHeader)));
+                keys.forEach((key, i) => {
+                    dataStore[key] = results[i];
+                    const countEl = document.getElementById(`val-${key}`);
+                    if (countEl) countEl.innerText = results[i].length;
+                    renderTable(key);
+                });
+                document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString('pt-BR');
+                showToast("Dados atualizados!");
+            } catch (err) { showToast("Erro na sincronização."); }
+            finally { if (icon) icon.classList.remove('loading-spinner'); }
+        }
+
+        async function fetchCSV(url, hasHeader) {
+            if(!url) return [];
+            let fetchUrl = url.includes('spreadsheets/d/') && !url.includes('format=csv') ? url.replace(/\/edit.*$/, '/export?format=csv') : url;
+            const finalUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+            try {
+                const resp = await fetch(finalUrl);
+                const txt = await resp.text();
+                const rows = txt.trim().split('\n').map(l => l.split(',').map(c => c.replace(/^"(.*)"$/, '$1').trim()));
+                if (rows.length === 0) return [];
+                if (hasHeader) {
+                    const h = rows[0], d = rows.slice(1);
+                    return d.map(r => { let o = {}; h.forEach((label, i) => o[label] = r[i] || ""); return o; });
+                } else { return rows.map(r => { let o = {}; r.forEach((c, i) => o[`Col ${i+1}`] = c); return o; }); }
+            } catch { return []; }
+        }
+
+        function renderTable(type, filterText = "") {
+            const table = document.getElementById(`table-${type}`);
+            if (!table) return;
+            const thead = table.querySelector('thead'), tbody = table.querySelector('tbody'), data = dataStore[type];
+            if (!data || data.length === 0) {
+                thead.innerHTML = "<tr><th>Sem dados</th></tr>";
+                tbody.innerHTML = "<tr><td style='padding:20px'>Aguardando link...</td></tr>";
+                return;
+            }
+            const headers = Object.keys(data[0]);
+            thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join('') + "</tr>";
+            const filtered = data.filter(row => !filterText || Object.values(row).some(v => String(v).toLowerCase().includes(filterText.toLowerCase())));
+            
+            tbody.innerHTML = filtered.map(row => {
+                return "<tr>" + headers.map(h => {
+                    const val = row[h];
+                    // Specialized rendering for Links in Agenda
+                    if (type === 'agenda' && h.toLowerCase().includes('link')) {
+                        return `<td><a href="${val}" target="_blank" class="btn-action"><i data-lucide="external-link" style="width:12px;"></i> Acessar</a></td>`;
+                    }
+                    return `<td>${val}</td>`;
+                }).join('') + "</tr>";
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function applyTableFilter(type) { renderTable(type, document.getElementById(`filter-${type}`).value); }
+
+        function saveConfig() {
+            config.interval = parseInt(document.getElementById('update-interval').value);
+            Object.keys(config.sources).forEach(key => {
+                config.sources[key].url = document.getElementById(`url-${key}`).value;
+                config.sources[key].range = document.getElementById(`range-${key}`).value;
+                config.sources[key].hasHeader = document.getElementById(`header-${key}`).checked;
+            });
+            localStorage.setItem('cockpit_config', JSON.stringify(config));
+            showToast("Salvo!");
+            startSyncCycle();
+        }
+
+        function showToast(m) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = m;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+        document.getElementById('password').addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
+    </script>
+</body>
+</html>
