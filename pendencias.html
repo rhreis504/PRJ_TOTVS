@@ -123,12 +123,33 @@
       const headers = EXPECTED_HEADERS;
       const data = [];
 
+      const normalize = (value = '') => value
+        .toString()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .trim();
+
+      const normalizedHeaders = headers.map(normalize);
+
       for (let i = 1; i < cleanedRows.length; i++) {
         const row = cleanedRows[i];
+        const rowValues = headers.map((header, index) => {
+          const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
+          return (row[sourceIndex] || '').trim();
+        });
+
+        const hasRealContent = rowValues.some(cell => cell && cell !== '-');
+        const isDuplicateHeaderRow = rowValues.every((cell, index) => {
+          if (!cell) return true;
+          return normalize(cell) === normalizedHeaders[index];
+        });
+
+        if (!hasRealContent || isDuplicateHeaderRow) continue;
+
         const obj = {};
         headers.forEach((header, index) => {
-          const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
-          obj[header] = row[sourceIndex] || '';
+          obj[header] = rowValues[index] || '';
         });
         data.push(obj);
       }
