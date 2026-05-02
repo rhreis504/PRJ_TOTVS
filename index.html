@@ -123,7 +123,9 @@
         #page-cockpit .section-title,
         #page-cockpit h2,
         #page-cockpit > p,
-        #page-cockpit .page-header p {
+        #page-cockpit .page-header p,
+        #page-cockpit .kpi-info h4,
+        #page-cockpit .kpi-info p {
             color: #ffffff;
         }
         
@@ -143,6 +145,29 @@
         .timeline-step.active .step-dot { border-color: var(--totvs-blue-light); background: #eff6ff; color: var(--totvs-blue-light); box-shadow: 0 0 0 4px rgba(0, 161, 228, 0.1); }
         .timeline-step p { font-size: 11px; font-weight: 700; color: var(--totvs-text-muted); text-transform: uppercase; }
         .timeline-step.active p { color: var(--totvs-text-main); font-weight: 800; }
+        .timeline-step.current .step-dot {
+            border-color: var(--totvs-green);
+            background: #f0fdf4;
+            color: var(--totvs-green);
+            animation: pulse-current-phase 1.6s ease-in-out infinite;
+        }
+        .timeline-step.current p { color: #ffffff; font-weight: 800; }
+        .timeline-step .current-label {
+            margin-top: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            color: #ffffff;
+            background: rgba(16, 185, 129, 0.25);
+            border: 1px solid rgba(255,255,255,0.55);
+            border-radius: 999px;
+            padding: 2px 8px;
+            letter-spacing: .02em;
+        }
+        @keyframes pulse-current-phase {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); transform: scale(1); }
+            70% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); transform: scale(1.08); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); transform: scale(1); }
+        }
 
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
         .kpi-card { background: var(--glass-bg); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); padding: 20px; border-radius: 12px; border-left: 4px solid var(--totvs-blue-light); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 15px; border: 1px solid var(--glass-border); }
@@ -258,11 +283,12 @@
                     <h3 class="section-title">Jornada de Implementação</h3>
                     <div class="timeline">
                         <div class="timeline-line"></div>
-                        <div class="timeline-step completed">
+                        <div class="timeline-step current">
                             <div class="step-dot"><i data-lucide="rocket" size="18"></i></div>
                             <p>Iniciação</p>
+                            <span class="current-label">ESTAMOS AQUI!</span>
                         </div>
-                        <div class="timeline-step active">
+                        <div class="timeline-step">
                             <div class="step-dot"><i data-lucide="clipboard-list" size="18"></i></div>
                             <p>Preparação</p>
                         </div>
