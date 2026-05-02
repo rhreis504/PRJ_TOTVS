@@ -1222,6 +1222,35 @@ function applyCellRange(matrix, cfg){
     .map(r => r.slice(colStart, colEnd + 1));
 }
 
+function colNumberToLetters(num){
+  let n = Number(num) || 0;
+  if(n <= 0) return "";
+  let letters = "";
+  while(n > 0){
+    const rem = (n - 1) % 26;
+    letters = String.fromCharCode(65 + rem) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters;
+}
+
+function getExpandedInterval(matrix, interval){
+  const [startRef="", endRef=""] = String(interval || "").trim().toUpperCase().split(":");
+  const start = parseCellRef(startRef);
+  const end = parseCellRef(endRef);
+  if(!start && !end) return String(interval || "").trim().toUpperCase();
+
+  const rowStart = Math.max(0, ((start?.row || end?.row || 1) - 1));
+  const colStart = Math.max(0, ((start?.col || end?.col || 1) - 1));
+  const matrixMaxCol = matrix.reduce((max,row)=>Math.max(max,row.length),0);
+  const colEnd = Math.min(Math.max(matrixMaxCol - 1, 0), ((end?.col || start?.col || matrixMaxCol) - 1));
+  const detectedLastRow = detectLastRowWithData(matrix, rowStart, colStart, colEnd) + 1;
+
+  const startCell = `${colNumberToLetters(start?.col || end?.col || 1)}${start?.row || end?.row || 1}`;
+  const endCell = `${colNumberToLetters(end?.col || start?.col || matrixMaxCol || 1)}${Math.max(end?.row || 1, detectedLastRow)}`;
+  return `${startCell}:${endCell}`;
+}
+
 function detectLastRowWithData(matrix, rowStart, colStart, colEnd){
   for(let rowIndex = matrix.length - 1; rowIndex >= rowStart; rowIndex--){
     const row = matrix[rowIndex] || [];
@@ -1355,18 +1384,27 @@ async function loadCSV(key){
 async function loadDataset(datasetType, sourceEntries){
   const mergedRows = [];
   let mergedHeaders = [];
+  let sourcesChanged = false;
   for(const entry of sourceEntries){
-    const {cfg} = entry;
+    const {key,cfg} = entry;
     const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
     if(!res.ok) throw new Error(datasetType + ": HTTP " + res.status);
     const txt = await res.text();
+    const rawMatrix = parseCSV(txt);
+    const expandedInterval = getExpandedInterval(rawMatrix, cfg.interval);
+    if(expandedInterval && expandedInterval !== cfg.interval){
+      cfg.interval = expandedInterval;
+      SOURCES[key] = {...SOURCES[key], interval: expandedInterval};
+      sourcesChanged = true;
+    }
     const [startRef="", endRef=""] = String(cfg.interval || "").split(":");
     const hasRange = Boolean(parseCellRef(startRef) || parseCellRef(endRef));
-    const matrix = applyCellRange(parseCSV(txt), cfg);
+    const matrix = applyCellRange(rawMatrix, cfg);
     const parsed = matrixToObjects(matrix, cfg.firstRowHeader || hasRange);
     if(parsed.headers.length > mergedHeaders.length) mergedHeaders = parsed.headers;
     mergedRows.push(...parsed.rows);
   }
+  if(sourcesChanged) persistSources();
   DB[datasetType] = {headers:mergedHeaders,rows:mergedRows};
 }
 
