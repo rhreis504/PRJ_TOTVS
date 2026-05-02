@@ -601,6 +601,15 @@
         }
         function handleLogout() { location.reload(); }
 
+        function openMainMenuDirectlyIfRequested() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('menu') === '1') {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'flex';
+                initApp();
+            }
+        }
+
         // --- NAVIGATION ---
         function showPage(id, el) {
             ['cockpit', 'status', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'config'].forEach(p => {
