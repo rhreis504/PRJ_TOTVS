@@ -1235,14 +1235,20 @@ function colNumberToLetters(num){
 }
 
 function getExpandedInterval(matrix, interval){
-  const [startRef="", endRef=""] = String(interval || "").trim().toUpperCase().split(":");
+  const normalizedInterval = String(interval || "").trim().toUpperCase();
+  const [startRef="", endRef=""] = normalizedInterval.split(":");
   const start = parseCellRef(startRef);
   const end = parseCellRef(endRef);
-  if(!start && !end) return String(interval || "").trim().toUpperCase();
+  const matrixMaxCol = matrix.reduce((max,row)=>Math.max(max,row.length),0);
+  if(matrixMaxCol <= 0) return normalizedInterval;
+
+  if(!start && !end){
+    const detectedLastRow = detectLastRowWithData(matrix, 0, 0, matrixMaxCol - 1) + 1;
+    return `A1:${colNumberToLetters(matrixMaxCol)}${Math.max(1, detectedLastRow)}`;
+  }
 
   const rowStart = Math.max(0, ((start?.row || end?.row || 1) - 1));
   const colStart = Math.max(0, ((start?.col || end?.col || 1) - 1));
-  const matrixMaxCol = matrix.reduce((max,row)=>Math.max(max,row.length),0);
   const colEnd = Math.min(Math.max(matrixMaxCol - 1, 0), ((end?.col || start?.col || matrixMaxCol) - 1));
   const detectedLastRow = detectLastRowWithData(matrix, rowStart, colStart, colEnd) + 1;
 
