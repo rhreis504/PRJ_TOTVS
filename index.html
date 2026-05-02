@@ -734,7 +734,7 @@
             if (icon) icon.classList.add('loading-spinner');
             try {
                 const keys = Object.keys(config.sources);
-                const results = await Promise.all(keys.map(key => fetchCSV(config.sources[key].url, config.sources[key].hasHeader)));
+                const results = await Promise.all(keys.map(key => fetchCSV(config.sources[key].url, config.sources[key].range, config.sources[key].hasHeader)));
                 keys.forEach((key, i) => {
                     dataStore[key] = results[i];
                     const countEl = document.getElementById(`val-${key}`);
@@ -747,14 +747,43 @@
             finally { if (icon) icon.classList.remove('loading-spinner'); }
         }
 
-        async function fetchCSV(url, hasHeader) {
+        function columnToIndex(column) {
+            return column.split('').reduce((acc, char) => (acc * 26) + (char.charCodeAt(0) - 64), 0) - 1;
+        }
+
+        function parseA1Range(range) {
+            const m = (range || '').trim().toUpperCase().match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+            if (!m) return null;
+            const startCol = columnToIndex(m[1]);
+            const startRow = parseInt(m[2], 10) - 1;
+            const endCol = columnToIndex(m[3]);
+            const endRow = parseInt(m[4], 10) - 1;
+            if ([startCol, startRow, endCol, endRow].some(Number.isNaN)) return null;
+            return {
+                startCol: Math.min(startCol, endCol),
+                endCol: Math.max(startCol, endCol),
+                startRow: Math.min(startRow, endRow),
+                endRow: Math.max(startRow, endRow)
+            };
+        }
+
+        function applyRange(rows, range) {
+            const parsedRange = parseA1Range(range);
+            if (!parsedRange) return rows;
+            return rows
+                .slice(parsedRange.startRow, parsedRange.endRow + 1)
+                .map(row => row.slice(parsedRange.startCol, parsedRange.endCol + 1));
+        }
+
+        async function fetchCSV(url, range, hasHeader) {
             if(!url) return [];
             let fetchUrl = url.includes('spreadsheets/d/') && !url.includes('format=csv') ? url.replace(/\/edit.*$/, '/export?format=csv') : url;
             const finalUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
             try {
                 const resp = await fetch(finalUrl);
                 const txt = await resp.text();
-                const rows = txt.trim().split('\n').map(l => l.split(',').map(c => c.replace(/^"(.*)"$/, '$1').trim()));
+                const csvRows = txt.trim().split('\n').map(l => l.split(',').map(c => c.replace(/^"(.*)"$/, '$1').trim()));
+                const rows = applyRange(csvRows, range);
                 if (rows.length === 0) return [];
                 if (hasHeader) {
                     const h = rows[0], d = rows.slice(1);
