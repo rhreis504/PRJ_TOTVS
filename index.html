@@ -616,917 +616,200 @@
                 <div class="card"><div class="table-controls"><div class="search-wrapper"><i data-lucide="search"></i><input type="text" id="filter-stakeholders" placeholder="Filtrar..." onkeyup="applyTableFilter('stakeholders')"></div></div><div class="table-container"><table id="table-stakeholders"><thead></thead><tbody></tbody></table></div></div>
             </div>
 
-      <div class="footer">
-        <span class="connected">Sistema conectado</span>
-        <span id="lastUpdate">Última atualização: --</span>
-      </div>
+            <!-- PAGE: CONFIG -->
+            <div id="page-config" class="hidden">
+                <div class="page-header"><div><h2>Configurações</h2><p style="color: #64748b;">Mapeamento de Fontes de Dados</p></div></div>
+                <div class="card">
+                    <div class="config-section" style="margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 15px; font-size: 15px; color: var(--totvs-blue-dark);">Automação</h3>
+                        <div class="form-group" style="max-width: 250px;"><label>Atualizar a cada (minutos)</label><select id="update-interval"><option value="1">1</option><option value="5" selected>5</option><option value="15">15</option></select></div>
+                    </div>
+                    <div class="config-section">
+                        <h3 style="margin-bottom: 15px; font-size: 15px; color: var(--totvs-blue-dark);">Planilhas Google (CSV)</h3>
+                        
+                        <!-- REPEAT CONFIG ROWS -->
+                        <div id="config-rows-container"></div>
+                    </div>
+                    <button class="btn-primary" style="max-width: 200px; margin-top: 20px;" onclick="saveConfig()">Salvar</button>
+                </div>
+            </div>
+        </main>
     </div>
-  </main>
-</div>
 
-
-<div class="modal hidden" id="configModal">
-  <div class="modal-box">
-    <div class="panel-title"><h3>Configurações</h3><small>Acesso restrito</small></div>
-    <div id="configLoginArea">
-      <input id="configUser" placeholder="Usuário" style="color:#172033;background:#fff;border:1px solid #d1d5db"/>
-      <input id="configPass" type="password" placeholder="Senha" style="color:#172033;background:#fff;border:1px solid #d1d5db"/>
-      <button onclick="authenticateConfig()">Entrar</button>
-      <p id="configError" style="color:#b91c1c;font-size:12px"></p>
-    </div>
-    <div id="configLinksArea" class="hidden">
-      <p style="font-size:13px;color:#475569">Links das abas (MIT013 · Monitoramento e Controle):</p>
-      <div class="config-link-row" style="grid-template-columns:220px 1fr; margin-bottom:12px;">
-        <span style="font-size:12px;color:#475569;font-weight:700;">Atualização automática (min)</span>
-        <input id="autoRefreshMinutes" type="number" min="0" step="1" placeholder="Ex.: 5 (0 desativa)" style="color:#172033;background:#fff;border:1px solid #d1d5db"/>
-      </div>
-      <ul id="configLinks"></ul>
-      <div class="config-actions">
-        <div class="config-actions-left">
-          <button class="secondary" onclick="addSourceLink()">+ Incluir link</button>
-          <button class="secondary" onclick="saveSourceLinks()">Salvar</button>
-          <button class="secondary" onclick="resetSourceLinks()">Restaurar padrão</button>
-        </div>
-        <small id="configStatus" style="color:#0f766e"></small>
-      </div>
-    </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="secondary" onclick="closeConfigModal()">Fechar</button></div>
-  </div>
-</div>
-
-<div class="loading" id="loading">Carregando dados da planilha publicada...</div>
-
-<script>
-const DEFAULT_SOURCES = {
-  riscos: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=871226992&single=true&output=csv", interval:"", firstRowHeader:false},
-  pendencias: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv", interval:"", firstRowHeader:false},
-  stakeholders: {url:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=2057731569&single=true&output=csv", interval:"", firstRowHeader:false}
-};
-
-let SOURCES = loadStoredSources();
-
-let DB = {
-  riscos:{headers:[],rows:[]},
-  pendencias:{headers:[],rows:[]},
-  stakeholders:{headers:[],rows:[]}
-};
-const AUTO_REFRESH_KEY = "mit013_auto_refresh_minutes";
-let autoRefreshTimer = null;
-let autoRefreshCountdownTimer = null;
-let nextAutoRefreshAt = null;
-const BASE_DATASETS = ["riscos","pendencias","stakeholders"];
-const GID_DATASET_MAP = Object.fromEntries(
-  Object.entries(DEFAULT_SOURCES).map(([dataset,cfg])=>{
-    const gid = new URL(cfg.url).searchParams.get("gid");
-    return [gid, dataset];
-  }).filter(([gid])=>Boolean(gid))
-);
-
-
-
-function handleLogin(){
-  const user = String(username?.value || "").trim();
-  const pass = String(password?.value || "");
-  const ok = (user === "admin" && pass === "admin") || pass === MASTER_PASS;
-
-  if(!ok){
-    document.getElementById("login-error").style.display = "block";
-    return;
-  }
-
-  document.getElementById("login-error").style.display = "none";
-  document.getElementById("login-screen").style.display = "none";
-  document.getElementById("main-app").style.display = "block";
-  showPage("cockpit", document.getElementById("nav-cockpit"));
-}
-
-function handleLogout(){
-  document.getElementById("main-app").style.display = "none";
-  document.getElementById("login-screen").style.display = "flex";
-  username.value = "";
-  password.value = "";
-  document.getElementById("login-error").style.display = "none";
-}
-
-function showPage(page, navEl){
-  document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('hidden'));
-  const target = document.getElementById(`page-${page}`);
-  if(target) target.classList.remove('hidden');
-
-  document.querySelectorAll('.sidebar .nav-item').forEach(el=>el.classList.remove('active'));
-  if(navEl) navEl.classList.add('active');
-
-  if(page === 'config'){
-    openConfigModal();
-  }
-}
-
-function applyTableFilter(page){
-  const input = document.getElementById(`filter-${page}`);
-  const table = document.getElementById(`table-${page}`);
-  if(!input || !table) return;
-  const q = norm(input.value || "");
-  table.querySelectorAll('tbody tr').forEach(tr=>{
-    const txt = norm(tr.textContent || "");
-    tr.style.display = txt.includes(q) ? "" : "none";
-  });
-}
-
-function forceSync(){
-  loadAll();
-}
-
-function normalizeSourceConfig(value){
-  if(typeof value === "string") return {url:value,interval:"",firstRowHeader:false};
-  const startCell = String(value?.startCell || "").trim().toUpperCase();
-  const endCell = String(value?.endCell || "").trim().toUpperCase();
-  const interval = String(value?.interval || "").trim().toUpperCase() || [startCell, endCell].filter(Boolean).join(":");
-  return {
-    url: String(value?.url || "").trim(),
-    interval,
-    firstRowHeader: Boolean(value?.firstRowHeader)
-  };
-}
-
-function loadStoredSources(){
-  try{
-    const raw = localStorage.getItem("mit013_sources");
-    if(!raw) return structuredClone(DEFAULT_SOURCES);
-    const parsed = JSON.parse(raw);
-    if(!parsed || typeof parsed !== "object") return structuredClone(DEFAULT_SOURCES);
-    const next = {};
-    Object.entries(parsed).forEach(([k,v])=> next[k] = normalizeSourceConfig(v));
-    return Object.keys(next).length ? next : structuredClone(DEFAULT_SOURCES);
-  }catch{ return structuredClone(DEFAULT_SOURCES); }
-}
-
-function persistSources(){
-  localStorage.setItem("mit013_sources", JSON.stringify(SOURCES));
-}
-function getStoredAutoRefreshMinutes(){
-  const raw = localStorage.getItem(AUTO_REFRESH_KEY);
-  const value = Number(raw);
-  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
-}
-function persistAutoRefreshMinutes(minutes){
-  localStorage.setItem(AUTO_REFRESH_KEY, String(minutes));
-}
-function updateAutoRefreshLabel(minutes){
-  autoRefreshInfo.textContent = minutes > 0
-    ? `Atualização automática: a cada ${minutes} min`
-    : "Atualização automática: desativada";
-}
-function formatCountdown(ms){
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
-}
-function updateAutoRefreshProgress(minutes){
-  if(minutes <= 0 || !nextAutoRefreshAt){
-    nextUpdateCountdown.textContent = "Próxima atualização em: --:--";
-    nextUpdateProgress.style.width = "0%";
-    return;
-  }
-  const totalMs = minutes * 60 * 1000;
-  const remainingMs = nextAutoRefreshAt - Date.now();
-  const elapsedPct = Math.max(0, Math.min(100, ((totalMs - remainingMs) / totalMs) * 100));
-  nextUpdateCountdown.textContent = `Próxima atualização em: ${formatCountdown(remainingMs)}`;
-  nextUpdateProgress.style.width = `${elapsedPct}%`;
-}
-function startAutoRefreshCountdown(minutes){
-  if(autoRefreshCountdownTimer){
-    clearInterval(autoRefreshCountdownTimer);
-    autoRefreshCountdownTimer = null;
-  }
-  if(minutes <= 0){
-    nextAutoRefreshAt = null;
-    updateAutoRefreshProgress(0);
-    return;
-  }
-  nextAutoRefreshAt = Date.now() + (minutes * 60 * 1000);
-  updateAutoRefreshProgress(minutes);
-  autoRefreshCountdownTimer = setInterval(()=>{
-    updateAutoRefreshProgress(minutes);
-  }, 1000);
-}
-function setAutoRefreshTimer(minutes){
-  if(autoRefreshTimer){
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
-  }
-  updateAutoRefreshLabel(minutes);
-  startAutoRefreshCountdown(minutes);
-  if(minutes > 0){
-    autoRefreshTimer = setInterval(async ()=>{
-      await loadAll({isAutoRefresh:true});
-      nextAutoRefreshAt = Date.now() + (minutes * 60 * 1000);
-      updateAutoRefreshProgress(minutes);
-    }, minutes * 60 * 1000);
-  }
-}
-
-function getDataset(key){
-  return DB[key] || {headers:[],rows:[]};
-}
-function detectDatasetType(key, cfg){
-  const text = norm(`${key} ${cfg?.url || ""}`);
-  if(/pend/.test(text)) return "pendencias";
-  if(/risc/.test(text)) return "riscos";
-  if(/stake|interessad/.test(text)) return "stakeholders";
-  try{
-    const gid = new URL(cfg?.url || "", window.location.href).searchParams.get("gid");
-    if(gid && GID_DATASET_MAP[gid]) return GID_DATASET_MAP[gid];
-  }catch{}
-  return null;
-}
-function getSourceEntriesByDataset(){
-  const grouped = {riscos:[],pendencias:[],stakeholders:[]};
-  Object.entries(SOURCES).forEach(([key,rawCfg])=>{
-    const cfg = normalizeSourceConfig(rawCfg);
-    const datasetType = detectDatasetType(key, cfg);
-    if(datasetType) grouped[datasetType].push({key,cfg});
-  });
-  return grouped;
-}
-const COLORS = ["#16a34a","#d97706","#dc2626","#2563eb","#7c3aed"];
-
-function norm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();}
-function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
-
-function parseCSV(text){
-  const rows=[]; let row=[], cur="", q=false;
-  for(let i=0;i<text.length;i++){
-    const c=text[i], n=text[i+1];
-    if(c=='"' && q && n=='"'){cur+='"';i++;}
-    else if(c=='"'){q=!q;}
-    else if(c=="," && !q){row.push(cur);cur="";}
-    else if((c=="\n"||c=="\r")&&!q){
-      if(cur!==""||row.length){row.push(cur);rows.push(row);row=[];cur="";}
-      if(c=="\r"&&n=="\n")i++;
-    } else cur+=c;
-  }
-  if(cur!==""||row.length){row.push(cur);rows.push(row);}
-  return rows;
-}
-
-
-function parseCellRef(ref){
-  const m = String(ref||"").trim().toUpperCase().match(/^([A-Z]+)(\d+)$/);
-  if(!m) return null;
-  let col=0;
-  for(const ch of m[1]) col = col*26 + (ch.charCodeAt(0)-64);
-  return {row:Number(m[2]),col};
-}
-
-function applyCellRange(matrix, cfg){
-  const [startRef="", endRef=""] = String(cfg?.interval || "").toUpperCase().split(":");
-  const start = parseCellRef(startRef);
-  const end = parseCellRef(endRef);
-
-  if(!start && !end) return matrix;
-
-  const matrixMaxRow = matrix.length;
-  const matrixMaxCol = matrix.reduce((max,row)=>Math.max(max,row.length),0);
-
-  const rowStart = Math.max(0, ((start?.row || end?.row || 1) - 1));
-  const colStart = Math.max(0, ((start?.col || end?.col || 1) - 1));
-  const colEnd = Math.min(Math.max(matrixMaxCol - 1, 0), ((end?.col || start?.col || matrixMaxCol) - 1));
-  const rowEndRef = (end?.row || start?.row || matrixMaxRow) - 1;
-  const rowEnd = Math.min(matrixMaxRow - 1, Math.max(rowEndRef, detectLastRowWithData(matrix, rowStart, colStart, colEnd)));
-
-  if(rowEnd < rowStart || colEnd < colStart) return [];
-
-  return matrix
-    .slice(rowStart, rowEnd + 1)
-    .map(r => r.slice(colStart, colEnd + 1));
-}
-
-function colNumberToLetters(num){
-  let n = Number(num) || 0;
-  if(n <= 0) return "";
-  let letters = "";
-  while(n > 0){
-    const rem = (n - 1) % 26;
-    letters = String.fromCharCode(65 + rem) + letters;
-    n = Math.floor((n - 1) / 26);
-  }
-  return letters;
-}
-
-function getExpandedInterval(matrix, interval){
-  const normalizedInterval = String(interval || "").trim().toUpperCase();
-  const [startRef="", endRef=""] = normalizedInterval.split(":");
-  const start = parseCellRef(startRef);
-  const end = parseCellRef(endRef);
-  const matrixMaxCol = matrix.reduce((max,row)=>Math.max(max,row.length),0);
-  if(matrixMaxCol <= 0) return normalizedInterval;
-
-  if(!start && !end){
-    const detectedLastRow = detectLastRowWithData(matrix, 0, 0, matrixMaxCol - 1) + 1;
-    return `A1:${colNumberToLetters(matrixMaxCol)}${Math.max(1, detectedLastRow)}`;
-  }
-
-  const rowStart = Math.max(0, ((start?.row || end?.row || 1) - 1));
-  const colStart = Math.max(0, ((start?.col || end?.col || 1) - 1));
-  const colEnd = Math.min(Math.max(matrixMaxCol - 1, 0), ((end?.col || start?.col || matrixMaxCol) - 1));
-  const detectedLastRow = detectLastRowWithData(matrix, rowStart, colStart, colEnd) + 1;
-
-  const startCell = `${colNumberToLetters(start?.col || end?.col || 1)}${start?.row || end?.row || 1}`;
-  const endCell = `${colNumberToLetters(end?.col || start?.col || matrixMaxCol || 1)}${Math.max(end?.row || 1, detectedLastRow)}`;
-  return `${startCell}:${endCell}`;
-}
-
-function detectLastRowWithData(matrix, rowStart, colStart, colEnd){
-  for(let rowIndex = matrix.length - 1; rowIndex >= rowStart; rowIndex--){
-    const row = matrix[rowIndex] || [];
-    for(let colIndex = colStart; colIndex <= colEnd; colIndex++){
-      if(String(row[colIndex] || "").trim()) return rowIndex;
-    }
-  }
-  return rowStart;
-}
-
-function matrixToObjects(matrix, forceFirstRowHeader=false){
-  if(!matrix.length) return {headers:[],rows:[]};
-
-  if(forceFirstRowHeader){
-    const headers = matrix[0].map((h,i)=>String(h||`Coluna ${i+1}`).trim() || `Coluna ${i+1}`);
-    const rows = matrix.slice(1).map(r=>{
-      const o={};
-      headers.forEach((h,i)=>o[h]=String(r[i]||"").trim());
-      return o;
-    }).filter(o=>Object.values(o).some(Boolean));
-    return {headers,rows};
-  }
-
-  const maxCols = matrix.reduce((max,row)=>Math.max(max,row.length),0);
-  const headers = Array.from({length:maxCols},(_,i)=>`Coluna ${i+1}`);
-  const rows = matrix.map(r=>{
-    const o={};
-    headers.forEach((h,i)=>o[h]=String(r[i]||"").trim());
-    return o;
-  }).filter(o=>Object.values(o).some(Boolean));
-
-  return {headers,rows};
-}
-
-function col(headers,names){
-  const hs=headers.map(h=>norm(h));
-  for(const n of names){
-    const nn=norm(n);
-    const i=hs.findIndex(h=>h===nn || h.includes(nn) || nn.includes(h));
-    if(i>=0) return headers[i];
-  }
-  return null;
-}
-
-function val(row,headers,names){
-  const c=col(headers,names);
-  return c ? row[c] : "";
-}
-
-
-function pendenciaCriticidade(row, headers){
-  return val(row, headers, ["criticidade","prioridade","classificação","classificacao"]);
-}
-
-function stakeholderInfluencia(row, headers){
-  return val(row, headers, ["influência","influencia","tipo de influência","tipo de influencia","poder","impacto"]);
-}
-function riscoCriticidade(row, headers){
-  return val(row, headers, ["criticidade","nível","nivel","classificação","classificacao","prioridade","probabilidade x impacto","probabilidade"]);
-}
-
-function isRiscoValido(row, headers){
-  const required = [
-    ["data"],
-    ["área","area"],
-    ["responsável","responsavel"],
-    ["situação","situacao","status"],
-    ["probabilidade"],
-    ["risco","descrição","descricao","evento","ameaça","ameaca"]
-  ];
-  const preenchidos = required.filter(names => !!val(row, headers, names)).length;
-  return preenchidos >= 4;
-}
-
-function influenciaClasse(text){
-  const s = norm(text);
-  if(/decisor|alta/.test(s)) return "high";
-  if(/apoiador|media|m[eé]dia/.test(s)) return "mid";
-  if(/indicador|baixa/.test(s)) return "low";
-  return labelClass(text);
-}
-
-function classifyText(text){
-  const s=norm(text);
-  if(/alto|alta|crit|crít|vermelho|bloque|imped|atras|vencid|problema|abert/.test(s)) return "high";
-  if(/medio|médio|media|média|pend|aguard|andamento|exec|tratativa|aten/.test(s)) return "mid";
-  if(/baixo|baixa|concl|final|feito|resol|ok|validado|aprovado|ativo|verde/.test(s)) return "low";
-  return "mid";
-}
-
-function isDone(row){
-  return /concl|final|feito|resol|encerr|ok|validado|aprovado/i.test(norm(Object.values(row).join(" ")));
-}
-
-function isDoing(row){
-  return /andamento|exec|curso|tratativa|iniciado|pend|aguard/i.test(norm(Object.values(row).join(" ")));
-}
-
-function isLate(row){
-  return /atras|vencid|bloque|imped|crit|problema/i.test(norm(Object.values(row).join(" ")));
-}
-
-function labelClass(text){
-  if(/crit/.test(norm(text))) return "high";
-  const c=classifyText(text);
-  if(c==="high") return "high";
-  if(c==="low") return "low";
-  return "mid";
-}
-
-function labelTextByClass(c){
-  return c==="high" ? "Alta" : c==="low" ? "Baixa" : "Média";
-}
-
-function buildSourceURL(url){
-  const parsed = new URL(url, window.location.href);
-  parsed.searchParams.set("cacheBust", Date.now().toString());
-  return parsed.toString();
-}
-
-async function loadCSV(key){
-  const cfg = normalizeSourceConfig(SOURCES[key]);
-  const res = await fetch(buildSourceURL(cfg.url), {cache:"no-store"});
-  if(!res.ok) throw new Error(key + ": HTTP " + res.status);
-  const txt = await res.text();
-  const [startRef="", endRef=""] = String(cfg.interval || "").split(":");
-  const hasRange = Boolean(parseCellRef(startRef) || parseCellRef(endRef));
-  const matrix = applyCellRange(parseCSV(txt), cfg);
-  DB[key] = matrixToObjects(matrix, cfg.firstRowHeader || hasRange);
-}
-
-async function fetchSourceMatrix(url){
-  const res = await fetch(buildSourceURL(url), {cache:"no-store"});
-  if(!res.ok) throw new Error("HTTP " + res.status);
-  const txt = await res.text();
-  return parseCSV(txt);
-}
-
-async function loadDataset(datasetType, sourceEntries){
-  const mergedRows = [];
-  let mergedHeaders = [];
-  let sourcesChanged = false;
-  for(const entry of sourceEntries){
-    const {key,cfg} = entry;
-    const previousInterval = String(cfg.interval || "").trim().toUpperCase();
-
-    const firstMatrix = await fetchSourceMatrix(cfg.url);
-    const firstDetectedInterval = getExpandedInterval(firstMatrix, previousInterval);
-
-    const secondMatrix = await fetchSourceMatrix(cfg.url);
-    const secondDetectedInterval = getExpandedInterval(secondMatrix, firstDetectedInterval || previousInterval);
-
-    const finalInterval = (secondDetectedInterval || firstDetectedInterval || previousInterval || "").toUpperCase();
-    if(finalInterval && finalInterval !== previousInterval){
-      cfg.interval = finalInterval;
-      SOURCES[key] = {...SOURCES[key], interval: finalInterval};
-      sourcesChanged = true;
-    }
-
-    const [startRef="", endRef=""] = String(cfg.interval || "").split(":");
-    const hasRange = Boolean(parseCellRef(startRef) || parseCellRef(endRef));
-    const matrix = applyCellRange(secondMatrix, cfg);
-    const parsed = matrixToObjects(matrix, cfg.firstRowHeader || hasRange);
-    if(parsed.headers.length > mergedHeaders.length) mergedHeaders = parsed.headers;
-    mergedRows.push(...parsed.rows);
-  }
-  if(sourcesChanged) persistSources();
-  DB[datasetType] = {headers:mergedHeaders,rows:mergedRows};
-}
-
-async function loadAll(options = {}){
-  const {isAutoRefresh = false} = options;
-  loading.classList.remove("hidden");
-  try{
-    const grouped = getSourceEntriesByDataset();
-    await Promise.all(BASE_DATASETS.map(datasetType=>loadDataset(datasetType, grouped[datasetType])));
-    buildFilters();
-    renderAll();
-    if(isAutoRefresh){
-      const minutes = getStoredAutoRefreshMinutes();
-      setAutoRefreshTimer(minutes);
-    }
-    loading.classList.add("hidden");
-  }catch(e){
-    console.error(e);
-    renderAll();
-    loading.textContent = "Erro ao carregar. Confirme se as abas seguem publicadas em CSV.";
-    loading.classList.remove("hidden");
-  }
-}
-
-function allRows(){
-  return Object.entries(DB).flatMap(([key,d])=>d.rows.map(r=>({__key:key,...r})));
-}
-
-function filteredRows(key){
-  const q="";
-  const status=filterStatus.value;
-  const owner=filterOwner.value;
-  const d=getDataset(key);
-
-  return d.rows.filter(r=>{
-    const text=Object.values(r).join(" ");
-    const c=classifyText(text);
-    const o=val(r,d.headers,["responsável","responsavel","owner","dono","área","area","stakeholder","nome"]);
-    return (!q || norm(text).includes(q)) && (!status || c===status) && (!owner || o===owner);
-  });
-}
-
-function buildFilters(){
-  const owners = new Set();
-  Object.entries(DB).forEach(([key,d])=>{
-    d.rows.forEach(r=>{
-      const o=val(r,d.headers,["responsável","responsavel","owner","dono","área","area","stakeholder","nome"]);
-      if(o) owners.add(o);
-    });
-  });
-
-  filterStatus.innerHTML = `
-    <option value="">Todos os status</option>
-    <option value="high">Crítico / Alto</option>
-    <option value="mid">Médio / Em atenção</option>
-    <option value="low">Baixo / Concluído</option>
-  `;
-
-  filterOwner.innerHTML = '<option value="">Todos os responsáveis</option>' +
-    [...owners].sort().map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join("");
-}
-
-function setDonut(id, legendId, items){
-  const total = items.reduce((a,b)=>a+b.value,0) || 1;
-  let start=0;
-  const parts = items.map((it,i)=>{
-    const end = start + (it.value/total)*100;
-    const part = `${it.color} ${start}% ${end}%`;
-    start=end;
-    return part;
-  });
-  document.getElementById(id).style.background = `conic-gradient(${parts.join(",")})`;
-  document.getElementById(legendId).innerHTML = items.map(it=>`
-    <div class="legend-row">
-      <span class="legend-left"><i class="sw" style="background:${it.color}"></i>${esc(it.label)}</span>
-      <b>${it.value}</b>
-    </div>
-  `).join("");
-}
-
-function renderTable(id, rows, headers, fields, limit){
-  const body = rows.slice(0,limit).map(r=>`
-    <tr>
-      ${fields.map(f=>{
-        const v=f.get(r)||"";
-        if(f.pill) return `<td><span class="pill ${f.pill(v,r)}">${esc(v || "—")}</span></td>`;
-        return `<td>${esc(v)}</td>`;
-      }).join("")}
-    </tr>
-  `).join("");
-
-  document.getElementById(id).innerHTML = `
-    <thead><tr>${fields.map(f=>`<th>${esc(f.label)}</th>`).join("")}</tr></thead>
-    <tbody>${body || `<tr><td colspan="${fields.length}">Sem registros para exibir.</td></tr>`}</tbody>
-  `;
-}
-
-function extractDates(rows){
-  const dates=[];
-  rows.forEach(r=>{
-    Object.values(r).forEach(v=>{
-      const s=String(v||"");
-      const m=s.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
-      if(m){
-        let y=Number(m[3]); if(y<100)y+=2000;
-        const d=new Date(y,Number(m[2])-1,Number(m[1]));
-        if(!isNaN(d)) dates.push(d);
-      }
-    });
-  });
-
-  if(dates.length < 2) return {start:null,end:null,pct:0,dates:[]};
-  dates.sort((a,b)=>a-b);
-  const start=dates[0], end=dates[dates.length-1], now=new Date();
-  const pct=Math.max(0,Math.min(100,Math.round(((now-start)/(end-start))*100)));
-  return {start,end,pct,dates};
-}
-
-function fmt(d){
-  if(!d) return "--";
-  return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"});
-}
-
-function renderTimeline(dateInfo){
-  timeline.innerHTML = `
-    <div class="timeline-frame">
-      <div class="connecting-line"></div>
-      <div class="timeline-grid">
-        <div class="step active">
-          <div class="icon-circle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
-              <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
-            </svg>
-          </div>
-          <div class="step-label">Fase 01</div>
-          <div class="step-name">Alinhamento</div>
-          <p class="step-desc">Escopo e Stakeholders.</p>
-          <div class="status-tag">Em andamento</div>
-        </div>
-        <div class="step">
-          <div class="icon-circle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-          </div>
-          <div class="step-label">Fase 02</div>
-          <div class="step-name">Preparação</div>
-          <p class="step-desc">Planos e Cronograma.</p>
-          <div class="status-tag">Aguardando</div>
-        </div>
-        <div class="step">
-          <div class="icon-circle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            </svg>
-          </div>
-          <div class="step-label">Fase 03</div>
-          <div class="step-name">Refinamento</div>
-          <p class="step-desc">Negócio e Abordagem.</p>
-          <div class="status-tag">Aguardando</div>
-        </div>
-        <div class="step">
-          <div class="icon-circle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-            </svg>
-          </div>
-          <div class="step-label">Fase 04</div>
-          <div class="step-name">Realização</div>
-          <p class="step-desc">Sprints e Simulações.</p>
-          <div class="status-tag">Aguardando</div>
-        </div>
-        <div class="step">
-          <div class="icon-circle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </div>
-          <div class="step-label">Fase 05</div>
-          <div class="step-name">Operação</div>
-          <p class="step-desc">Garantia de Qualidade.</p>
-          <div class="status-tag">Aguardando</div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-
-function renderBars(rows){
-  const high = rows.filter(r=>classifyText(Object.values(r).join(" "))==="high").length;
-  const mid = rows.filter(r=>classifyText(Object.values(r).join(" "))==="mid").length;
-  const low = rows.filter(r=>classifyText(Object.values(r).join(" "))==="low").length;
-  const max = Math.max(1,high,mid,low);
-  riskBars.innerHTML = [
-    ["Alto",high],["Médio",mid],["Baixo",low]
-  ].map(([label,v])=>`
-    <div class="bar-item">
-      <b>${v}</b>
-      <div class="bar" style="height:${Math.max(8,(v/max)*150)}px"></div>
-      <span>${label}</span>
-    </div>
-  `).join("");
-}
-
-function renderAll(){
-  const pend = filteredRows("pendencias");
-  const riscos = filteredRows("riscos");
-  const stakes = filteredRows("stakeholders");
-
-  const done = pend.filter(isDone).length;
-  const doing = pend.filter(isDoing).length;
-  const late = pend.filter(isLate).length;
-  const open = pend.length;
-  progressPct.textContent = "Status";
-  gauge.style.setProperty("--progress", "100%");
-
-  healthPill.className = "health-pill";
-  healthPill.classList.add("warn");
-  healthPill.textContent = "Projeto em iniciação";
-
-  const ph = getDataset("pendencias").headers;
-  const pendLowCount = pend.filter(r=>/baixa/.test(norm(pendenciaCriticidade(r, ph)))).length;
-  const pendMidCount = pend.filter(r=>/media|m[eé]dia/.test(norm(pendenciaCriticidade(r, ph)))).length;
-  const pendHighCount = pend.filter(r=>/alta|crit/.test(norm(pendenciaCriticidade(r, ph)))).length;
-
-  pendOpen.textContent = open;
-  pendHigh.textContent = pendHighCount;
-  pendMid.textContent = pendMidCount;
-  pendLow.textContent = pendLowCount;
-
-  riskTotal.textContent = riscos.length;
-  const rh = getDataset("riscos").headers;
-  riskHigh.textContent = riscos.filter(r=>/alta|crit/.test(norm(riscoCriticidade(r, rh)))).length;
-  riskMid.textContent = riscos.filter(r=>/media|m[eé]dia/.test(norm(riscoCriticidade(r, rh)))).length;
-  riskLow.textContent = riscos.filter(r=>/baixa/.test(norm(riscoCriticidade(r, rh)))).length;
-
-  const sh = getDataset("stakeholders").headers;
-  stakeTotal.textContent = stakes.length;
-  stakeHigh.textContent = stakes.filter(r=>influenciaClasse(stakeholderInfluencia(r, sh))==="high").length;
-  stakeMid.textContent = stakes.filter(r=>influenciaClasse(stakeholderInfluencia(r, sh))==="mid").length;
-  stakeLow.textContent = stakes.filter(r=>influenciaClasse(stakeholderInfluencia(r, sh))==="low").length;
-
-  const dateInfo = {pct:0, dates:[]};
-  timePct.textContent = "Em iniciação";
-  dateStart.textContent = "--";
-  dateEnd.textContent = "--";
-  dateToday.textContent = new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});
-
-  renderTimeline(dateInfo);
-
-  setDonut("taskDonut","taskLegend",[
-    {label:"Concluídas",value:done,color:"#16a34a"},
-    {label:"Em andamento",value:doing || Math.max(open-late,0),color:"#d97706"},
-    {label:"Atrasadas",value:late,color:"#dc2626"}
-  ]);
-
-  setDonut("priorityDonut","priorityLegend",[
-    {label:"Baixas",value:pendLowCount,color:"#16a34a"},
-    {label:"Médias",value:pendMidCount,color:"#d97706"},
-    {label:"Críticas",value:pendHighCount,color:"#dc2626"}
-  ]);
-
-  renderBars(riscos);
-
-  renderTable("pendTable", pend, ph, [
-    {label:"ID",get:r=>val(r,ph,["id","código","codigo"]) || "—"},
-    {label:"Pendência",get:r=>val(r,ph,["pendência","pendencia","descrição","descricao","atividade","assunto"]) || Object.values(r)[0]},
-    {label:"Prioridade",get:r=>val(r,ph,["prioridade","criticidade","classificação","classificacao","status"]) || labelTextByClass(classifyText(Object.values(r).join(" "))), pill:(v)=>labelClass(v)},
-    {label:"Responsável",get:r=>val(r,ph,["responsável","responsavel","owner","dono","área","area"])},
-    {label:"Prazo",get:r=>val(r,ph,["prazo","data","vencimento","fim"])},
-    {label:"Status",get:r=>val(r,ph,["status","situação","situacao","andamento"]) || "Sob controle", pill:(v)=>labelClass(v)}
-  ], 7);
-
-  renderTable("riskTable", riscos, rh, [
-    {label:"Risco",get:r=>val(r,rh,["risco","descrição","descricao","evento","ameaça","ameaca"]) || Object.values(r)[0]},
-    {label:"Nível",get:r=>val(r,rh,["nível","nivel","criticidade","classificação","classificacao","impacto"]) || labelTextByClass(classifyText(Object.values(r).join(" "))), pill:(v)=>labelClass(v)},
-    {label:"Responsável",get:r=>val(r,rh,["responsável","responsavel","owner","dono","área","area"])},
-    {label:"Mitigação",get:r=>val(r,rh,["mitigação","mitigacao","plano","ação","acao","tratativa"])},
-    {label:"Status",get:r=>val(r,rh,["status","situação","situacao","andamento"]) || "Em atenção", pill:(v)=>labelClass(v)}
-  ], 6);
-
-  renderTable("stakeTable", stakes, sh, [
-    {label:"Stakeholder",get:r=>val(r,sh,["stakeholder","nome","área","area"]) || Object.values(r)[0]},
-    {label:"Função",get:r=>val(r,sh,["função","funcao","papel","cargo","perfil"])},
-    {label:"Influência",get:r=>stakeholderInfluencia(r,sh) || "—", pill:(v)=>influenciaClasse(v)},
-    {label:"Interesse",get:r=>val(r,sh,["interesse","engajamento"])},
-    {label:"Status",get:r=>val(r,sh,["status","situação","situacao"]) || "Ativo", pill:(v)=>labelClass(v)}
-  ], 7);
-
-  pendCount.textContent = pend.length + " registros";
-  riskCount.textContent = riscos.length + " registros";
-  stakeCount.textContent = stakes.length + " registros";
-  const nowLabel = new Date().toLocaleString("pt-BR");
-  lastUpdate.textContent = "Última atualização: " + nowLabel;
-  lastUpdateTop.textContent = "Última atualização: " + nowLabel;
-}
-
-function clearFilters(){
-  filterStatus.value = "";
-  filterOwner.value = "";
-  renderAll();
-}
-
-
-
-const MASTER_PASS = "Totvs@2026!";
-
-function openConfigModal(){
-  configModal.classList.remove("hidden");
-  configError.textContent = "";
-  configStatus.textContent = "";
-  const minutes = getStoredAutoRefreshMinutes();
-  autoRefreshMinutes.value = minutes ? String(minutes) : "";
-}
-function closeConfigModal(){
-  configModal.classList.add("hidden");
-}
-function renderConfigLinks(){
-  configLinks.innerHTML = Object.entries(SOURCES).map(([k,source])=>{
-    const cfg = normalizeSourceConfig(source);
-    return `<li class="config-link-item">
-    <div class="config-link-row">
-      <input data-field="key" value="${esc(k)}" placeholder="Nome da aba" />
-      <input data-field="url" value="${esc(cfg.url)}" placeholder="URL CSV publicada" />
-      <button class="danger" onclick="removeSourceLink('${esc(k)}')">Excluir</button>
-    </div>
-    <div class="config-link-row" style="grid-template-columns:140px 1fr 1fr;">
-      <span style="font-size:12px;color:#475569;font-weight:700;">Intervalo de células</span>
-      <input data-field="interval" value="${esc(cfg.interval)}" placeholder="Ex.: B5:R28" />
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;font-weight:700;">
-        <input data-field="firstRowHeader" type="checkbox" ${cfg.firstRowHeader ? "checked" : ""} style="width:16px;height:16px;margin:0;" />
-        Primeira linha é cabeçalho
-      </label>
-    </div>
-    <a href="${esc(cfg.url)}" target="_blank" rel="noopener noreferrer">${esc(cfg.url)}</a>
-  </li>`;
-  }).join("");
-}
-
-function authenticateConfig(){
-  if(configUser.value.trim() && configPass.value === MASTER_PASS){
-    configLoginArea.classList.add("hidden");
-    configLinksArea.classList.remove("hidden");
-    renderConfigLinks();
-    configError.textContent = "";
-    return;
-  }
-  configError.textContent = "Usuário ou senha inválidos.";
-}
-
-function addSourceLink(){
-  SOURCES[`nova_aba_${Object.keys(SOURCES).length+1}`] = {url:"",interval:"",firstRowHeader:false};
-  renderConfigLinks();
-}
-
-function removeSourceLink(key){
-  delete SOURCES[key];
-  if(!Object.keys(SOURCES).length) SOURCES = structuredClone(DEFAULT_SOURCES);
-  renderConfigLinks();
-}
-
-function collectConfigForm(){
-  const items = [...configLinks.querySelectorAll('.config-link-item')];
-  const next = {};
-  for(const item of items){
-    const key = item.querySelector('[data-field="key"]').value.trim();
-    const url = item.querySelector('[data-field="url"]').value.trim();
-    const interval = item.querySelector('[data-field="interval"]').value.trim().toUpperCase();
-    const firstRowHeader = item.querySelector('[data-field="firstRowHeader"]').checked;
-    if(!key || !url) continue;
-    next[key] = {url,interval,firstRowHeader};
-  }
-  return next;
-}
-
-async function saveSourceLinks(){
-  const next = collectConfigForm();
-  if(!Object.keys(next).length){
-    configStatus.textContent = "Adicione ao menos um link válido.";
-    return;
-  }
-  SOURCES = next;
-  const refreshMinutes = Math.max(0, Number(autoRefreshMinutes.value) || 0);
-  persistAutoRefreshMinutes(refreshMinutes);
-  setAutoRefreshTimer(refreshMinutes);
-  persistSources();
-  configStatus.textContent = "Links salvos. Atualizando dados...";
-  await loadAll();
-  renderConfigLinks();
-  configStatus.textContent = "Links salvos com sucesso.";
-}
-
-async function resetSourceLinks(){
-  SOURCES = structuredClone(DEFAULT_SOURCES);
-  persistSources();
-  await loadAll();
-  renderConfigLinks();
-  configStatus.textContent = "Links padrão restaurados.";
-}
-
-document.addEventListener("click",(e)=>{
-  if(e.target.id === "configNavLink"){ e.preventDefault(); openConfigModal(); }
-  if(e.target.id === "configModal"){ closeConfigModal(); }
-});
-
-window.addEventListener("DOMContentLoaded", ()=>{
-  const minutes = getStoredAutoRefreshMinutes();
-  setAutoRefreshTimer(minutes);
-  loadAll();
-
-  [username, password].forEach((input)=>{
-    if(!input) return;
-    input.addEventListener("keydown", (e)=>{
-      if(e.key === "Enter") handleLogin();
-    });
-  });
-});
-</script>
+    <!-- TOAST -->
+    <div id="toast" class="toast"><i data-lucide="check-circle-2"></i><span id="toast-msg">Sucesso!</span></div>
+
+    <script>
+        // --- ESTADO ---
+        let config = {
+            password: 'admin',
+            interval: 5,
+            sources: {
+                pendencias: { label: 'Pendências', url: '', range: '', hasHeader: true, color: '#f59e0b' },
+                riscos: { label: 'Riscos', url: '', range: '', hasHeader: true, color: '#ef4444' },
+                gaps: { label: 'Gaps', url: '', range: '', hasHeader: true, color: '#8b5cf6' },
+                stakeholders: { label: 'Stakeholders', url: '', range: '', hasHeader: true, color: '#00a1e4' },
+                treinamentos: { label: 'Treinamentos', url: '', range: '', hasHeader: true, color: '#10b981' },
+                agenda: { label: 'Agenda de Treinos', url: '', range: '', hasHeader: true, color: '#0f172a' }
+            }
+        };
+
+        let dataStore = { pendencias: [], riscos: [], gaps: [], stakeholders: [], treinamentos: [], agenda: [] };
+        let timeLeft = 0, totalSeconds = 0, timerInterval;
+
+        const saved = localStorage.getItem('cockpit_config');
+        if(saved) config = JSON.parse(saved);
+
+        // --- UI GENERATORS ---
+        function generateConfigRows() {
+            const container = document.getElementById('config-rows-container');
+            container.innerHTML = Object.entries(config.sources).map(([key, item]) => `
+                <div class="sheet-config-row">
+                    <div class="form-group" style="margin:0"><label>${item.label} (URL)</label><input type="text" id="url-${key}" value="${item.url}"></div>
+                    <div class="form-group" style="margin:0"><label>Intervalo</label><input type="text" id="range-${key}" value="${item.range}"></div>
+                    <div class="checkbox-group" onclick="document.getElementById('header-${key}').click()">
+                        <input type="checkbox" id="header-${key}" ${item.hasHeader ? 'checked' : ''} onclick="event.stopPropagation()">
+                        <label>Primeira linha cabeçalho</label>
+                    </div>
+                    <i data-lucide="link" style="color: ${item.color};"></i>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // --- AUTH ---
+        function handleLogin() {
+            const u = document.getElementById('username').value, p = document.getElementById('password').value;
+            if(u === 'admin' && p === config.password) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'flex';
+                initApp();
+            } else { document.getElementById('login-error').style.display = 'block'; }
+        }
+
+        function handleLogout() { location.reload(); }
+
+        function showPage(id, el) {
+            ['cockpit', 'status', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'config'].forEach(p => {
+                const element = document.getElementById('page-' + p);
+                if (element) element.classList.add('hidden');
+            });
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.getElementById('page-' + id).classList.remove('hidden');
+            if (el) el.classList.add('active');
+        }
+
+        // --- CORE ---
+        function initApp() {
+            lucide.createIcons();
+            updateDate();
+            document.getElementById('update-interval').value = config.interval;
+            generateConfigRows();
+            startSyncCycle();
+        }
+
+        function updateDate() {
+            const now = new Date();
+            document.getElementById('current-date').innerText = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function startSyncCycle() {
+            clearInterval(timerInterval);
+            totalSeconds = config.interval * 60;
+            timeLeft = totalSeconds;
+            syncAllData();
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const min = Math.floor(timeLeft / 60), sec = timeLeft % 60;
+                document.getElementById('timer-text').innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                document.getElementById('progress-fill').style.width = ((timeLeft / totalSeconds) * 100) + '%';
+                if(timeLeft <= 0) { syncAllData(); timeLeft = totalSeconds; }
+            }, 1000);
+        }
+
+        function forceSync() { showToast("Sincronizando..."); syncAllData(); timeLeft = totalSeconds; }
+
+        async function syncAllData() {
+            const icon = document.getElementById('sync-icon');
+            if (icon) icon.classList.add('loading-spinner');
+            try {
+                const keys = Object.keys(config.sources);
+                const results = await Promise.all(keys.map(key => fetchCSV(config.sources[key].url, config.sources[key].hasHeader)));
+                keys.forEach((key, i) => {
+                    dataStore[key] = results[i];
+                    const countEl = document.getElementById(`val-${key}`);
+                    if (countEl) countEl.innerText = results[i].length;
+                    renderTable(key);
+                });
+                document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString('pt-BR');
+                showToast("Dados atualizados!");
+            } catch (err) { showToast("Erro na sincronização."); }
+            finally { if (icon) icon.classList.remove('loading-spinner'); }
+        }
+
+        async function fetchCSV(url, hasHeader) {
+            if(!url) return [];
+            let fetchUrl = url.includes('spreadsheets/d/') && !url.includes('format=csv') ? url.replace(/\/edit.*$/, '/export?format=csv') : url;
+            const finalUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+            try {
+                const resp = await fetch(finalUrl);
+                const txt = await resp.text();
+                const rows = txt.trim().split('\n').map(l => l.split(',').map(c => c.replace(/^"(.*)"$/, '$1').trim()));
+                if (rows.length === 0) return [];
+                if (hasHeader) {
+                    const h = rows[0], d = rows.slice(1);
+                    return d.map(r => { let o = {}; h.forEach((label, i) => o[label] = r[i] || ""); return o; });
+                } else { return rows.map(r => { let o = {}; r.forEach((c, i) => o[`Col ${i+1}`] = c); return o; }); }
+            } catch { return []; }
+        }
+
+        function renderTable(type, filterText = "") {
+            const table = document.getElementById(`table-${type}`);
+            if (!table) return;
+            const thead = table.querySelector('thead'), tbody = table.querySelector('tbody'), data = dataStore[type];
+            if (!data || data.length === 0) {
+                thead.innerHTML = "<tr><th>Sem dados</th></tr>";
+                tbody.innerHTML = "<tr><td style='padding:20px'>Aguardando link...</td></tr>";
+                return;
+            }
+            const headers = Object.keys(data[0]);
+            thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join('') + "</tr>";
+            const filtered = data.filter(row => !filterText || Object.values(row).some(v => String(v).toLowerCase().includes(filterText.toLowerCase())));
+            
+            tbody.innerHTML = filtered.map(row => {
+                return "<tr>" + headers.map(h => {
+                    const val = row[h];
+                    // Specialized rendering for Links in Agenda
+                    if (type === 'agenda' && h.toLowerCase().includes('link')) {
+                        return `<td><a href="${val}" target="_blank" class="btn-action"><i data-lucide="external-link" style="width:12px;"></i> Acessar</a></td>`;
+                    }
+                    return `<td>${val}</td>`;
+                }).join('') + "</tr>";
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function applyTableFilter(type) { renderTable(type, document.getElementById(`filter-${type}`).value); }
+
+        function saveConfig() {
+            config.interval = parseInt(document.getElementById('update-interval').value);
+            Object.keys(config.sources).forEach(key => {
+                config.sources[key].url = document.getElementById(`url-${key}`).value;
+                config.sources[key].range = document.getElementById(`range-${key}`).value;
+                config.sources[key].hasHeader = document.getElementById(`header-${key}`).checked;
+            });
+            localStorage.setItem('cockpit_config', JSON.stringify(config));
+            showToast("Salvo!");
+            startSyncCycle();
+        }
+
+        function showToast(m) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = m;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+        document.getElementById('password').addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
+    </script>
 </body>
 </html>
