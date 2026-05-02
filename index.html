@@ -1529,8 +1529,10 @@ async function loadAll(options = {}){
     }
     loading.classList.add("hidden");
   }catch(e){
-    loading.textContent = "Erro ao carregar. Confirme se as abas seguem publicadas em CSV.";
     console.error(e);
+    renderAll();
+    loading.textContent = "Erro ao carregar. Confirme se as abas seguem publicadas em CSV.";
+    loading.classList.remove("hidden");
   }
 }
 
