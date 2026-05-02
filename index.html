@@ -250,6 +250,53 @@
         #agenda-modal .editor-field label { color: #344867 !important; font-weight: 700; font-size: 11px; }
         #agenda-modal input { border-radius: 10px !important; padding: 11px 12px !important; }
 
+
+        /* --- TREINAMENTOS / AGENDA UX --- */
+        .section-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+        .training-card {
+            background: rgba(255,255,255,0.28);
+            border: 1px solid rgba(255,255,255,0.4);
+            border-top: 4px solid var(--totvs-blue-light);
+            border-radius: 14px;
+            padding: 18px;
+            color: #0f172a;
+            cursor: pointer;
+            transition: var(--transition);
+            min-height: 170px;
+        }
+        .training-card:hover { transform: translateY(-2px); box-shadow: 0 14px 25px rgba(2,26,57,0.2); }
+        .training-card .badge { font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; background:rgba(255,255,255,.85); color:#0b3f78; padding:5px 10px; border-radius:999px; }
+        .training-card h4 { font-size: 24px; font-weight: 800; margin: 14px 0 4px; color:#12233f; }
+        .training-card p { font-size: 14px; color:#2f415f; }
+        .card-actions { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+        .icon-btn { border:1px solid rgba(15,23,42,.22); background:rgba(255,255,255,.58); color:#334155; border-radius:10px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+        .icon-btn.danger { color: var(--totvs-red); border-color: rgba(239,68,68,.5); }
+
+        .agenda-card { cursor: default; }
+        .agenda-title { font-size: 26px; font-weight: 800; margin-bottom: 6px; color:#0f1e39; }
+        .agenda-subtitle { font-size:14px; color:#334155; margin-bottom:14px; }
+        .agenda-meta { display:grid; gap:10px; margin-bottom:16px; }
+        .agenda-meta span { display:flex; align-items:center; gap:9px; font-size:15px; color:#1e293b; }
+        .agenda-actions { margin-top:auto; display:flex; gap:10px; }
+
+        #roadmap-editor .editor-header { padding: 26px 34px; }
+        #roadmap-editor .editor-grid { gap: 12px; }
+        #roadmap-editor .editor-field label { font-size: 10px; }
+        #roadmap-editor .editor-field input { min-height: 40px; border-radius: 8px; }
+
+        #agenda-modal .card { max-width: 760px !important; border:1px solid rgba(255,255,255,.35); }
+        #agenda-modal .editor-field label { text-transform: uppercase; letter-spacing: .04em; font-size: 10px !important; }
+        #agenda-modal form { grid-template-columns: 1fr 1fr; gap: 16px 18px !important; }
+        #agenda-modal input { min-height: 46px; font-size: 15px; }
+        #agenda-modal .btn-primary { min-width: 136px; justify-content: center; }
+
+        @media (max-width: 1024px) {
+            .content { margin-left: 0; width: 100%; padding: 20px; }
+            .sidebar { position: static; width: 100%; height: auto; }
+            #main-app { flex-direction: column; }
+            .page-header { flex-direction: column; gap: 14px; }
+        }
+
         /* --- TOAST --- */
         .toast { position: fixed; bottom: 20px; right: 20px; background: var(--totvs-blue-dark); color: white; padding: 16px 24px; border-radius: 12px; display: flex; align-items: center; gap: 10px; transform: translateY(100px); transition: transform 0.3s; z-index: 2000; font-weight: 600; }
         .toast.show { transform: translateY(0); }
@@ -376,7 +423,7 @@
                     </div>
                     <button class="btn-primary" onclick="openNewRoadmap()"><i data-lucide="plus"></i> Novo Roteiro</button>
                 </div>
-                <div id="roadmap-list-container" class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+                <div id="roadmap-list-container" class="section-grid"></div>
                 </div>
             </div>
 
@@ -385,12 +432,12 @@
                 <div class="page-shell">
                 <div class="page-header">
                     <div>
-                        <h2 style="font-size: 24px; font-weight: 800;">Agenda de Treinamentos</h2>
-                        <p style="color: var(--totvs-text-muted); font-size: 14px;">Gerencie as turmas e capacite sua equipe.</p>
+                        <h2>Agenda de Treinamentos</h2>
+                        <p>Gerencie as turmas e capacite sua equipe.</p>
                     </div>
                     <button class="btn-primary" onclick="openAgendaModal()"><i data-lucide="plus"></i> Novo Agendamento</button>
                 </div>
-                <div id="agenda-grid" class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+                <div id="agenda-grid" class="section-grid"></div>
                 </div>
             </div>
 
@@ -607,17 +654,17 @@
             const grid = document.getElementById('agenda-grid');
             if(!grid) return;
             grid.innerHTML = agenda.map(a => `
-                <div class="card" style="margin:0; border-top: 4px solid var(--totvs-blue-light);">
-                    <h4 style="font-weight:800; font-size: 15px; margin-bottom: 5px;">${a.title}</h4>
-                    <p style="font-size: 11px; color: var(--totvs-text-muted); margin-bottom: 12px;">Instrutor: ${a.instructor}</p>
-                    <div style="display:flex; flex-direction:column; gap:8px; font-size:12px;">
-                        <span style="display:flex; align-items:center; gap:8px;"><i data-lucide="calendar" size="14"></i> ${a.date}</span>
-                        <span style="display:flex; align-items:center; gap:8px;"><i data-lucide="clock" size="14"></i> ${a.time}</span>
-                        <span style="display:flex; align-items:center; gap:8px;"><i data-lucide="users" size="14"></i> ${a.capacity} vagas</span>
+                <div class="training-card agenda-card">
+                    <h4 class="agenda-title">${a.title}</h4>
+                    <p class="agenda-subtitle">Instrutor: ${a.instructor}</p>
+                    <div class="agenda-meta">
+                        <span><i data-lucide="calendar" size="16"></i> ${a.date}</span>
+                        <span><i data-lucide="clock" size="16"></i> ${a.time}</span>
+                        <span><i data-lucide="users" size="16"></i> ${a.capacity} vagas</span>
                     </div>
-                    <div style="margin-top: 15px; display:flex; gap:10px;">
-                        <a href="${a.link}" target="_blank" class="btn-primary" style="flex:1; justify-content:center; padding:8px; font-size:12px;"><i data-lucide="video" size="14"></i> Link Meet</a>
-                        <button class="btn-ghost" onclick="deleteAgenda('${a.id}')" style="padding:8px;"><i data-lucide="trash-2" size="14"></i></button>
+                    <div class="agenda-actions">
+                        <a href="${a.link}" target="_blank" class="btn-primary" style="flex:1; justify-content:center;"><i data-lucide="video" size="16"></i> Link Meet</a>
+                        <button class="icon-btn danger" onclick="deleteAgenda('${a.id}')"><i data-lucide="trash-2" size="16"></i></button>
                     </div>
                 </div>
             `).join('');
@@ -649,13 +696,13 @@
             const cont = document.getElementById('roadmap-list-container');
             if(!cont) return;
             cont.innerHTML = roadmaps.map(r => `
-                <div class="card" onclick="openRoadmap('${r.id}')" style="cursor:pointer; margin:0;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
-                        <span style="font-size: 9px; font-weight:800; background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">ROTEIRO</span>
-                        <button onclick="event.stopPropagation(); deleteRoadmap('${r.id}')" style="border:none; background:none; color: var(--totvs-red); cursor:pointer;"><i data-lucide="trash-2" size="14"></i></button>
+                <div class="training-card" onclick="openRoadmap('${r.id}')">
+                    <div class="card-actions">
+                        <span class="badge">Roteiro</span>
+                        <button class="icon-btn danger" onclick="event.stopPropagation(); deleteRoadmap('${r.id}')"><i data-lucide="trash-2" size="16"></i></button>
                     </div>
-                    <h4 style="font-weight:800; font-size: 14px;">${r.clientName || 'Sem Cliente'}</h4>
-                    <p style="font-size: 11px; color: var(--totvs-text-muted); margin-top: 4px;">Projeto: ${r.projectName || '--'}</p>
+                    <h4>${r.clientName || 'Sem Cliente'}</h4>
+                    <p>Projeto: ${r.projectName || '--'}</p>
                 </div>
             `).join('');
             lucide.createIcons();
