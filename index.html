@@ -691,7 +691,14 @@
                 document.getElementById('login-error').style.display = 'block';
             }
         }
-        function handleLogout() { location.reload(); }
+        function handleLogout() {
+            const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+            window.history.replaceState({}, document.title, cleanUrl);
+            document.getElementById('main-app').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('login-error').style.display = 'none';
+            document.getElementById('password').value = '';
+        }
 
         function openMainMenuDirectlyIfRequested() {
             const params = new URLSearchParams(window.location.search);
