@@ -93,6 +93,16 @@
 
         /* --- CONTENT --- */
         .content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); }
+        .page-shell {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 16px;
+            padding: 28px;
+            backdrop-filter: blur(14px) saturate(140%);
+            -webkit-backdrop-filter: blur(14px) saturate(140%);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+            margin-bottom: 24px;
+        }
         .card {
             background: var(--glass-bg);
             backdrop-filter: blur(18px) saturate(155%);
@@ -104,6 +114,8 @@
 
         /* --- DASHBOARD & TIMELINE --- */
         .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
+        .page-header h2 { color: #fff; font-size: 32px; font-weight: 800; line-height: 1.2; }
+        .page-header p { color: rgba(255,255,255,0.84) !important; font-size: 15px !important; max-width: 680px; }
         .section-title { font-size: 13px; font-weight: 800; color: var(--totvs-blue-dark); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 20px; }
         #page-cockpit .page-header {
             display: grid;
@@ -214,6 +226,29 @@
         .btn-primary { background: var(--totvs-blue-light); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
         .btn-primary:hover { background: var(--totvs-blue-dark); transform: translateY(-1px); }
         .btn-ghost { background: transparent; border: 1px solid var(--glass-border); color: var(--totvs-text-muted); padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+        #page-treinamentos .kpi-card,
+        #page-agenda .kpi-card,
+        #page-stakeholders .card,
+        #page-config .card { background: rgba(255,255,255,0.92); }
+        #page-treinamentos .kpi-info h4,
+        #page-agenda .kpi-info h4,
+        #page-stakeholders .section-title,
+        #page-config .section-title { color: var(--totvs-blue-dark); }
+        #page-treinamentos .kpi-info p,
+        #page-agenda .kpi-info p { color: #0f172a; }
+        #page-stakeholders table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; }
+        #page-stakeholders th {
+            background: #eaf2ff;
+            color: #0b3f78;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+        }
+        #page-stakeholders th, #page-stakeholders td { border: 1px solid #d6e3f3; padding: 10px 12px; color: #1f2a37; }
+        #page-stakeholders tbody tr:nth-child(even) { background: #f8fbff; }
+        #agenda-modal .card { border-radius: 16px; box-shadow: 0 24px 45px rgba(2, 25, 59, 0.35); }
+        #agenda-modal .editor-field label { color: #344867 !important; font-weight: 700; font-size: 11px; }
+        #agenda-modal input { border-radius: 10px !important; padding: 11px 12px !important; }
 
         /* --- TOAST --- */
         .toast { position: fixed; bottom: 20px; right: 20px; background: var(--totvs-blue-dark); color: white; padding: 16px 24px; border-radius: 12px; display: flex; align-items: center; gap: 10px; transform: translateY(100px); transition: transform 0.3s; z-index: 2000; font-weight: 600; }
@@ -333,15 +368,21 @@
 
             <!-- TREINAMENTOS -->
             <div id="page-treinamentos" class="hidden">
+                <div class="page-shell">
                 <div class="page-header">
-                    <h2>Roteiros de Treinamento</h2>
+                    <div>
+                        <h2>Roteiros de Treinamento</h2>
+                        <p>Centralize módulos, conteúdos e metas de aprendizagem com clareza para acelerar o preparo das equipes.</p>
+                    </div>
                     <button class="btn-primary" onclick="openNewRoadmap()"><i data-lucide="plus"></i> Novo Roteiro</button>
                 </div>
                 <div id="roadmap-list-container" class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+                </div>
             </div>
 
             <!-- AGENDA -->
             <div id="page-agenda" class="hidden">
+                <div class="page-shell">
                 <div class="page-header">
                     <div>
                         <h2 style="font-size: 24px; font-weight: 800;">Agenda de Treinamentos</h2>
@@ -350,6 +391,7 @@
                     <button class="btn-primary" onclick="openAgendaModal()"><i data-lucide="plus"></i> Novo Agendamento</button>
                 </div>
                 <div id="agenda-grid" class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+                </div>
             </div>
 
             <!-- STAKEHOLDERS -->
@@ -362,6 +404,7 @@
 
             <!-- CONFIGURAÇÕES (UPGRADED LAYOUT) -->
             <div id="page-config" class="hidden">
+                <div class="page-shell">
                 <div class="page-header">
                     <div>
                         <h2 style="font-size: 24px; font-weight: 800;">Configurações de Sincronização</h2>
@@ -384,6 +427,7 @@
                 
                 <div style="margin-top: 30px;">
                     <button class="btn-primary" onclick="saveConfig()"><i data-lucide="save"></i> Salvar e Sincronizar Agora</button>
+                </div>
                 </div>
             </div>
         </main>
