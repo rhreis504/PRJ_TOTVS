@@ -567,94 +567,94 @@
       font-size:12px;
     }
 
-    .timeline-wrap{min-height:190px;}
+    .timeline-wrap{min-height:350px;}
 
     .timeline{
       position:relative;
-      min-width:740px;
-      padding:8px 0 0;
-    }
-
-    .timeline-track{
-      position:absolute;
-      top:33px;
-      left:6%;
-      right:6%;
-      height:2px;
-      background:#d9e3ef;
-      border-radius:999px;
-      z-index:0;
+      min-width:920px;
+      border-radius:16px;
+      overflow:hidden;
+      background:linear-gradient(180deg,#031321,#041a2f);
+      border:1px solid rgba(148,163,184,.25);
     }
 
     .phase-list{
       position:relative;
-      z-index:1;
       display:grid;
-      grid-template-columns:repeat(6,minmax(110px,1fr));
-      gap:12px;
+      grid-template-columns:repeat(5,minmax(165px,1fr));
     }
 
     .phase-item{
       text-align:center;
-      color:#6b7f97;
+      color:#d8e2f0;
+      padding:24px 14px 18px;
+      min-height:320px;
+      border-right:1px solid rgba(148,163,184,.34);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
     }
 
+    .phase-item:last-child{border-right:0;}
+
     .phase-ring{
-      width:54px;
-      height:54px;
-      margin:0 auto;
+      width:62px;
+      height:62px;
+      margin:0 auto 6px;
       border-radius:50%;
-      border:1.5px solid #b9cbe0;
-      background:#fff;
+      border:2px solid currentColor;
+      background:rgba(15,23,42,.35);
       display:grid;
       place-items:center;
     }
 
     .phase-item[data-state="current"] .phase-ring{
-      border-color:#31b76c;
-      box-shadow:0 0 0 5px rgba(49,183,108,.16);
+      animation:pulseCurrent 1.3s infinite;
     }
 
-    .phase-icon-glyph{font-size:22px;line-height:1;filter:saturate(.55);}
-
-    .phase-dot{
-      width:8px;
-      height:8px;
-      border-radius:50%;
-      margin:8px auto 8px;
-      border:1.5px solid #c7d5e7;
-      background:#eef3fa;
+    @keyframes pulseCurrent{
+      0%{box-shadow:0 0 0 0 rgba(74,222,128,.5);}
+      70%{box-shadow:0 0 0 14px rgba(74,222,128,0);}
+      100%{box-shadow:0 0 0 0 rgba(74,222,128,0);}
     }
 
-    .phase-item[data-state="current"] .phase-dot{
-      border-color:#27a35f;
-      background:#27a35f;
+    .phase-icon-glyph{
+      width:32px;
+      height:32px;
+      stroke:currentColor;
+      fill:none;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
     }
 
-    .phase-number{display:block;font-size:14px;font-weight:800;color:#1f2a3c;line-height:1;}
-    .phase-title{display:block;font-size:15px;font-weight:700;color:#1f2a3c;line-height:1.2;margin-top:4px;}
-    .phase-sub{display:block;font-size:12px;color:#6b7f97;margin-top:2px;}
+    .phase-number{display:block;font-size:16px;font-weight:800;color:#dbeafe;line-height:1;letter-spacing:.04em;}
+    .phase-title{display:block;font-size:41px;font-weight:900;line-height:1.05;margin-top:1px;text-transform:uppercase;}
+    .phase-sub{display:block;font-size:16px;line-height:1.25;color:#f8fafc;max-width:240px;}
 
-    .phase-item[data-state="future"] .phase-number,
-    .phase-item[data-state="future"] .phase-title{color:#1f2a3c;}
+    .phase-item[data-state="future"] .phase-number{color:#9fb4d1;}
 
     .phase-badge{
-      display:none;
-      margin:8px auto 0;
+      margin-top:auto;
       width:max-content;
-      padding:4px 10px;
+      padding:7px 12px;
       border-radius:999px;
-      background:#e7f7ed;
-      color:#1f9d58;
-      font-size:11px;
-      font-weight:700;
+      background:rgba(148,163,184,.18);
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:800;
     }
 
-    .phase-item[data-state="current"] .phase-badge{display:inline-flex;align-items:center;gap:6px;}
+    .phase-item[data-state="current"] .phase-badge{
+      background:rgba(34,197,94,.2);
+      color:#86efac;
+      box-shadow:0 0 0 1px rgba(34,197,94,.45) inset;
+    }
 
     .timeline-legend{
       margin-top:12px;
-      border-top:1px solid #e8edf4;
+      border-top:1px solid #d8e1ee;
       padding-top:10px;
       display:flex;
       gap:18px;
@@ -665,7 +665,22 @@
 
     .timeline-legend-item{display:flex;align-items:center;gap:8px;}
     .timeline-legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:#cbd5e1;}
-    .timeline-legend-dot.current{background:#27a35f;box-shadow:0 0 0 4px rgba(39,163,95,.15);}
+    .timeline-legend-dot.current{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18);}
+    .phase-item.phase-init{color:#4ade80}
+    .phase-item.phase-prep{color:#38bdf8}
+    .phase-item.phase-refine{color:#f59e0b}
+    .phase-item.phase-do{color:#a855f7}
+    .phase-item.phase-operate{color:#2dd4bf}
+    .phase-extra{
+      margin-top:auto;
+      width:100%;
+      border:1px dashed rgba(203,213,225,.45);
+      border-radius:10px;
+      padding:8px 6px;
+      color:#e2e8f0;
+      font-size:13px;
+      line-height:1.2;
+    }
 
     .donut-area{
       min-height:180px;
@@ -1639,25 +1654,23 @@ function fmt(d){
 
 function renderTimeline(dateInfo){
   const phases = [
-    { number:"01", title:"Iniciação", icon:"🚀", iconClass:"icon-rocket", status:"Em andamento", state:"current" },
-    { number:"02", title:"Planejamento", icon:"📅", iconClass:"icon-calendar", status:"Aguardando definição", state:"future" },
-    { number:"03", title:"Execução", icon:"⚙️", iconClass:"icon-gear", status:"Aguardando definição", state:"future" },
-    { number:"04", title:"Monitoramento", icon:"👁️", iconClass:"icon-eye", status:"Aguardando definição", state:"future" },
-    { number:"05", title:"Controle", icon:"🛡️", iconClass:"icon-shield", status:"Aguardando definição", state:"future" },
-    { number:"06", title:"Encerramento", icon:"🏁", iconClass:"icon-flag", status:"Aguardando definição", state:"future" }
+    { number:"01", title:"Fase Iniciação", icon:"assets/icons/rocket.svg", status:"Alinhamentos preliminares, abertura do projeto e identificação dos stakeholders principais.", state:"current", className:"phase-init", badge:"Fase atual · Em execução" },
+    { number:"02", title:"Fase Preparação", icon:"assets/icons/timer.svg", status:"Alinhamentos iniciais, avaliação e definição do planejamento e elaboração dos planos do projeto.", state:"future", className:"phase-prep", badge:"Em fase de definição" },
+    { number:"03", title:"Fase Refinamento", icon:"assets/icons/users.svg", status:"Entendimento do negócio do cliente e disseminação da abordagem do trabalho e entregas conforme o propósito.", state:"future", className:"phase-refine", badge:"Em fase de definição" },
+    { number:"04", title:"Fase Realização", icon:"assets/icons/wrench.svg", status:"Realização de sprints focados em resultados rápidos e evolução constante de valor.", state:"future", className:"phase-do", badge:"Em fase de definição", extra:"Capacitações e Simulações · Simulações Internas | Simulações Integradas" },
+    { number:"05", title:"Fase Operação", icon:"assets/icons/send.svg", status:"Acompanhamento da experiência e valor gerado, garantindo qualidade e insumos para novos projetos.", state:"future", className:"phase-operate", badge:"Em fase de definição" }
   ];
 
   timeline.innerHTML = `
-    <div class="timeline-track" aria-hidden="true"></div>
     <div class="phase-list">
       ${phases.map(p=>`
-        <article class="phase-item" data-state="${p.state}">
-          <div class="phase-ring"><span class="phase-icon-glyph ${p.iconClass}" aria-hidden="true">${p.icon}</span></div>
-          <div class="phase-dot" aria-hidden="true"></div>
+        <article class="phase-item ${p.className}" data-state="${p.state}">
+          <div class="phase-ring"><img class="phase-icon-glyph" src="${p.icon}" alt=""></div>
           <span class="phase-number">${p.number}</span>
           <span class="phase-title">${esc(p.title)}</span>
           <span class="phase-sub">${esc(p.status)}</span>
-          <span class="phase-badge">Ativa</span>
+          ${p.extra ? `<span class="phase-extra">${esc(p.extra)}</span>` : ""}
+          <span class="phase-badge">${esc(p.badge)}</span>
         </article>
       `).join("")}
     </div>
