@@ -564,7 +564,8 @@
                     <!-- Cards de configuração gerados via JS -->
                 </div>
                 
-                <div style="margin-top: 30px;">
+                <div style="margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="btn-ghost" onclick="addConfigSource()"><i data-lucide="plus-circle"></i> Incluir Nova Fonte/Aba</button>
                     <button class="btn-primary" onclick="saveConfig()"><i data-lucide="save"></i> Salvar e Sincronizar Agora</button>
                 </div>
                 </div>
@@ -921,6 +922,9 @@
         async function fetchCSV(key) {
             const s = config.sources[key]; if(!s.url) return [];
             let url = s.url.includes('spreadsheets/d/') && !s.url.includes('format=csv') ? s.url.replace(/\/edit.*$/, '/export?format=csv') : s.url;
+            if(s.sheet) {
+                url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(s.sheet)}`;
+            }
             try {
                 const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
                 const t = await r.text();
@@ -943,12 +947,30 @@
         function saveConfig() {
             config.interval = parseInt(document.getElementById('update-interval').value) || 5;
             Object.keys(config.sources).forEach(k => {
+                config.sources[k].label = document.getElementById(`label-${k}`).value || 'Nova Fonte';
                 config.sources[k].url = document.getElementById(`url-${k}`).value;
                 config.sources[k].range = document.getElementById(`range-${k}`).value;
+                config.sources[k].sheet = document.getElementById(`sheet-${k}`).value;
                 config.sources[k].hasHeader = document.getElementById(`header-${k}`).checked;
             });
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
             showToast("Configurações aplicadas."); startSync();
+        }
+        function addConfigSource() {
+            const key = `custom_${Date.now()}`;
+            config.sources[key] = {
+                label: 'Nova Fonte',
+                url: '',
+                range: 'A1:Z100',
+                sheet: '',
+                hasHeader: true,
+                icon: 'sheet'
+            };
+            generateConfigRows();
+            setTimeout(() => {
+                const labelField = document.getElementById(`label-${key}`);
+                if(labelField) labelField.focus();
+            }, 0);
         }
         function generateConfigRows() {
             const container = document.getElementById('config-rows-container');
@@ -960,12 +982,20 @@
                     <h4><i data-lucide="${it.icon || 'link-2'}"></i> FONTE: ${it.label}</h4>
                     <div class="config-grid">
                         <div class="config-input-group">
+                            <label>Nome da Fonte/Aba</label>
+                            <input type="text" id="label-${k}" value="${it.label || ''}" placeholder="Ex: Financeiro">
+                        </div>
+                        <div class="config-input-group">
                             <label>URL do CSV (Google Sheets)</label>
-                            <input type="text" id="url-${k}" value="${it.url}" placeholder="https://docs.google.com/spreadsheets/d/...">
+                            <input type="text" id="url-${k}" value="${it.url || ''}" placeholder="https://docs.google.com/spreadsheets/d/...">
+                        </div>
+                        <div class="config-input-group">
+                            <label>Aba da Planilha (Opcional)</label>
+                            <input type="text" id="sheet-${k}" value="${it.sheet || ''}" placeholder="Ex: Aba1">
                         </div>
                         <div class="config-input-group">
                             <label>Range (Opcional)</label>
-                            <input type="text" id="range-${k}" value="${it.range}" placeholder="Ex: A1:Z500">
+                            <input type="text" id="range-${k}" value="${it.range || ''}" placeholder="Ex: A1:Z500">
                         </div>
                         <label class="config-checkbox">
                             <input type="checkbox" id="header-${k}" ${it.hasHeader ? 'checked' : ''}>
@@ -974,6 +1004,14 @@
                     </div>
                 </div>
             `).join('');
+            Object.keys(config.sources).forEach(k => {
+                const labelEl = document.getElementById(`label-${k}`);
+                if(labelEl) {
+                    labelEl.addEventListener('input', (e) => {
+                        config.sources[k].label = e.target.value || 'Nova Fonte';
+                    });
+                }
+            });
             lucide.createIcons();
         }
 
