@@ -249,5 +249,85 @@
         </footer>
     </div>
 
+
+<script>
+(function(){
+  const PLACEHOLDER_RE = /\{\{\s*([^}]+?)\s*\}\}/g;
+  const norm = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const alias = {
+    nomeprojeto:['nomeprojeto','projeto','projectname'],
+    codcliente:['codcliente','codigocliente','clientecodigo'],
+    database:['database','data_base'],
+    driverepositorio:['driverepositorio','drive/repositorio','repositorio','drive'],
+    produtoscontratados:['produtoscontratados','produto(s)contratado(s)','produtos'],
+    coordenadorcp:['coordenadorcp','coordenador(cp)','cp'],
+    gpp:['gpp'], esn:['esn'], arquitetototvs:['arquitetototvs','arquiteto'],
+    criticidadecliente:['criticidadecliente'], criticidadetotvs:['criticidadetotvs'],
+    valorprojeto:['valorprojeto'], receitaatual:['receitaatual'], margemvendaperc:['margemvendaperc'], margematualperc:['margematualperc'],
+    margemvendavalor:['margemvendavalor'], margematualvalor:['margematualvalor'], mrrmensal:['mrrmensal'], mrrtotal:['mrrtotal'],
+    psaplanejado:['psaplanejado'], diferencapsa:['diferencapsa'], investimentocomercial:['investimentocomercial'], investimentoerroproduto:['investimentoerroproduto'],
+    projetoemperda:['projetoemperda'], investimentoperdas:['investimentoperdas'],
+    datainicio:['datainicio'], goliveprevisao:['goliveprevisao'], statusgolive:['statusgolive'], duracaomeses:['duracaomeses'], posproducaomeses:['posproducaomeses'], dataencerramento:['dataencerramento'], statusencerramento:['statusencerramento'],
+    itemescopo:['itemescopo'], observacoesgerais:['observacoesgerais'], datageracaodocumento:['datageracaodocumento']
+  };
+
+  function parseCsv(text){
+    const rows=[]; let row=[]; let cur=''; let q=false;
+    for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];
+      if(c==='"'){ if(q && n==='"'){cur+='"';i++;} else q=!q; }
+      else if(c===',' && !q){row.push(cur.trim());cur='';}
+      else if((c==='
+' || c==='') && !q){ if(c===''&&n==='
+') i++; row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row); row=[]; cur=''; }
+      else cur+=c;
+    }
+    row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row);
+    return rows;
+  }
+  function resolveUrl(s){
+    if(!s?.url) return '';
+    let url = s.url.includes('spreadsheets/d/') && !s.url.includes('format=csv') ? s.url.replace(/\/edit.*$/, '/export?format=csv') : s.url;
+    if(s.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(s.sheet)}`;
+    return url;
+  }
+  function findTapSource(project){
+    const entries = Object.entries(project?.sources||{});
+    return entries.find(([,v])=>norm(v.label).includes('tap'))?.[1] || null;
+  }
+  function toKeyValue(rows, hasHeader){
+    const out={};
+    const data = hasHeader ? rows.slice(1) : rows;
+    data.forEach(r=>{ if(r.length<2) return; out[norm(r[0])] = r[1] ?? ''; });
+    return out;
+  }
+  function getVal(raw, key){
+    const nk=norm(key);
+    if(raw[nk]!==undefined) return raw[nk];
+    const list=alias[nk]||[];
+    for(const a of list){ const v=raw[norm(a)]; if(v!==undefined) return v; }
+    return '';
+  }
+  function apply(values){
+    const walker=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n=>{ n.textContent = n.textContent.replace(PLACEHOLDER_RE,(_,k)=> getVal(values,k)||'-');});
+  }
+
+  (async function init(){
+    const cfg = JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');
+    const projects = cfg.projects || [];
+    const activeId = (cfg.selectedProjectIds && cfg.selectedProjectIds[0]) || cfg.activeProjectId;
+    const project = projects.find(p=>p.id===activeId) || projects[0];
+    const tapSource = findTapSource(project);
+    const fallbackDate = new Date().toLocaleDateString('pt-BR');
+    if(!tapSource){ apply({datageracaodocumento:fallbackDate}); return; }
+    const resp = await fetch(resolveUrl(tapSource) + (resolveUrl(tapSource).includes('?')?'&':'?') + 't=' + Date.now());
+    const text = await resp.text();
+    const raw = toKeyValue(parseCsv(text), tapSource.hasHeader !== false);
+    raw.datageracaodocumento = raw.datageracaodocumento || fallbackDate;
+    apply(raw);
+  })().catch(()=>apply({datageracaodocumento:new Date().toLocaleDateString('pt-BR')}));
+})();
+</script>
 </body>
 </html>
