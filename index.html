@@ -572,6 +572,15 @@
                 <div class="page-shell tap-shell">
                     <div class="tap-header">Dados do <span>Projeto</span></div>
                     <p class="tap-subtitle">Dados carregados automaticamente da URL configurada em <b>Configurações &gt; TAP</b>.</p>
+                    <div class="config-grid" style="margin-bottom: 16px; align-items: end;">
+                        <div class="config-input-group">
+                            <label>Selecionar Projeto</label>
+                            <select id="tap-project-select"></select>
+                        </div>
+                        <div class="config-input-group" style="max-width: 120px;">
+                            <button class="btn-primary" onclick="applyTapProjectSelection()">OK</button>
+                        </div>
+                    </div>
                     <div id="tap-table-container" style="overflow-x: auto;"></div>
                 </div>
             </div>
@@ -980,6 +989,7 @@
             config.activeProjectId = id;
             document.getElementById('new-project-name').value = '';
             generateConfigRows();
+            renderTapProjectSelector();
             showToast('Projeto cadastrado.');
         }
         function cellToIndex(cellRef) {
@@ -1108,7 +1118,7 @@
             if(select) {
                 select.innerHTML = config.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
                 select.value = config.activeProjectId;
-                select.onchange = () => { config.activeProjectId = select.value; generateConfigRows(); };
+                select.onchange = () => { config.activeProjectId = select.value; generateConfigRows(); renderTapProjectSelector(); };
             }
             const supaUrl = document.getElementById('supabase-url'); if(supaUrl) supaUrl.value = config.supabase?.url || '';
             const supaSecret = document.getElementById('supabase-secret'); if(supaSecret) supaSecret.value = config.supabase?.secret || '';
@@ -1152,6 +1162,7 @@
                     });
                 }
             });
+            renderTapProjectSelector();
             lucide.createIcons();
         }
 
@@ -1193,12 +1204,30 @@
             html += "</tbody></table>";
             c.innerHTML = html;
         }
+        async function applyTapProjectSelection() {
+            const select = document.getElementById('tap-project-select');
+            if(!select) return;
+            config.activeProjectId = select.value;
+            localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+            await syncAll();
+            renderTapTable();
+            showToast('Dados TAP atualizados para o projeto selecionado.');
+        }
+
+        function renderTapProjectSelector() {
+            const select = document.getElementById('tap-project-select');
+            if(!select) return;
+            select.innerHTML = config.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            select.value = config.activeProjectId;
+        }
 
         function initApp() {
             lucide.createIcons();
             const dateEl = document.getElementById('current-date');
             if(dateEl) dateEl.innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-            generateConfigRows(); startSync();
+            generateConfigRows();
+            renderTapProjectSelector();
+            startSync();
         }
     </script>
 </body>
