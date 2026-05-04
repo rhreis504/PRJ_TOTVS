@@ -416,6 +416,9 @@
             <div class="project-selector">
                 <label for="sidebar-project-select">Projetos em foco</label>
                 <select id="sidebar-project-select" multiple></select>
+                <button class="btn-ghost" style="margin-top: 10px; width: 100%; justify-content: center;" onclick="loadFocusedProjects()">
+                    <i data-lucide="refresh-cw"></i> Carregar projeto em foco
+                </button>
                 <small>O primeiro selecionado será o projeto principal.</small>
             </div>
             <nav>
@@ -717,6 +720,7 @@
             pendencias: { label: 'Pendências', url: '', range: 'A1:Z100', hasHeader: true, icon: 'check-square' },
             riscos: { label: 'Riscos', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
             gaps: { label: 'Gaps', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-branch' },
+            tap: { label: 'TAP', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-text' },
         });
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
 
@@ -790,7 +794,7 @@
         }
 
         function showTapPage(el) {
-            showPage('tap', el);
+            openStaticPage('tap', 'tap.html', el);
         }
 
 
@@ -1029,6 +1033,15 @@
             document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString();
             updateDashboardStats();
         }
+        async function loadFocusedProjects() {
+            localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+            await syncAll();
+            const openTapNav = document.querySelector(".nav-item[onclick*=\"showTapPage\"]");
+            if(openTapNav && !document.getElementById('page-tap').classList.contains('hidden')) {
+                showTapPage(openTapNav);
+            }
+            showToast('Projetos em foco carregados.');
+        }
         async function supabaseRequest(path, method='GET', body) {
             const url = config.supabase?.url, secret = config.supabase?.secret;
             if(!url || !secret) return [];
@@ -1129,7 +1142,7 @@
                     config.activeProjectId = config.selectedProjectIds[0];
                     localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
                     generateConfigRows();
-                    await syncAll();
+                    showToast('Projetos selecionados. Clique em "Carregar projeto em foco".');
                 };
             }
 
