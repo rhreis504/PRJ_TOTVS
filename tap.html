@@ -375,6 +375,38 @@
     return kv;
   }
 
+  function buildRawValuesFromWebLayout(rows){
+    const kv = {};
+    const knownKeys = new Set(
+      Object.entries(fieldMap).flatMap(([tplKey, aliases]) => [tplKey, ...aliases]).map(norm)
+    );
+
+    // 1) Captura pares campo/valor em qualquer coluna da linha (layout legado TAP).
+    rows.forEach((r) => {
+      for(let i = 0; i < r.length - 1; i++){
+        const key = norm(r[i] || '');
+        const val = (r[i + 1] || '').toString().trim();
+        if(key && knownKeys.has(key) && val) kv[key] = val;
+      }
+    });
+
+    // 2) Captura "Escopo e Objetivo": linhas abaixo do cabeçalho até "Observações".
+    const allTexts = rows.flat().map(v => (v || '').toString().trim()).filter(Boolean);
+    const start = allTexts.findIndex(t => norm(t) === norm('Escopo e Objetivo'));
+    if(start >= 0){
+      const items = [];
+      for(let i = start + 1; i < allTexts.length; i++){
+        const txt = allTexts[i];
+        const n = norm(txt);
+        if(n === norm('Observações') || n === norm('Observacoes')) break;
+        if(txt.length > 6 && !knownKeys.has(n)) items.push(txt);
+      }
+      if(items.length) kv[norm('itemEscopo')] = items.join(' | ');
+    }
+
+    return kv;
+  }
+
   function formatDateBr(value){
     const v = (value || '').toString().trim();
     if(!v) return '';
@@ -424,7 +456,9 @@
     const text = await resp.text();
     const mode = tapSource.sourceType || 'csv';
     const rows = mode === 'web' ? parseHtmlTable(text) : parseCsv(text);
-    const raw = buildRawValues(rows, tapSource.hasHeader !== false);
+    const rawBase = buildRawValues(rows, tapSource.hasHeader !== false);
+    const rawWeb = mode === 'web' ? buildRawValuesFromWebLayout(rows) : {};
+    const raw = { ...rawBase, ...rawWeb };
     const mapped = mapToTemplateValues(raw);
     mapped.datageracaodocumento = mapped.datageracaodocumento || fallbackDate;
     apply(mapped);
