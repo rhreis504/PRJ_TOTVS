@@ -1112,8 +1112,10 @@
         function normalizeSupabaseBaseUrl(rawUrl = '') {
             const input = rawUrl.trim();
             if(!input) return '';
+            const candidate = /^https?:\/\//i.test(input) ? input : `https://${input}`;
             try {
-                const parsed = new URL(input);
+                const parsed = new URL(candidate);
+                if(!/^https?:$/.test(parsed.protocol)) throw new Error('A URL precisa começar com http:// ou https://.');
                 if(parsed.hostname.endsWith('supabase.co')) {
                     const hostParts = parsed.hostname.split('.');
                     if(hostParts[0] === 'app') throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não app.supabase.com.');
@@ -1122,7 +1124,7 @@
                 if(parsed.hostname.endsWith('supabase.com')) {
                     throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não a URL do dashboard.');
                 }
-                return `${parsed.protocol}//${parsed.hostname}`;
+                throw new Error('Domínio inesperado. Informe a URL do projeto Supabase (https://<project-ref>.supabase.co).');
             } catch (e) {
                 throw new Error(`URL do Supabase inválida: ${e.message || e}`);
             }
