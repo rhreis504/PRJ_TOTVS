@@ -734,11 +734,21 @@
 
         // Init Data
         const loadSavedData = () => {
-            const sc = localStorage.getItem('totvs_cockpit_config'); if(sc) config = JSON.parse(sc);
-            const sr = localStorage.getItem('totvs_roadmaps'); if(sr) roadmaps = JSON.parse(sr);
-            const sa = localStorage.getItem('totvs_agenda'); if(sa) agenda = JSON.parse(sa);
+            try {
+                const sc = localStorage.getItem('totvs_cockpit_config');
+                if(sc) config = JSON.parse(sc);
+            } catch { config = { ...config, password: 'admin' }; }
+            try {
+                const sr = localStorage.getItem('totvs_roadmaps');
+                if(sr) roadmaps = JSON.parse(sr);
+            } catch { roadmaps = []; }
+            try {
+                const sa = localStorage.getItem('totvs_agenda');
+                if(sa) agenda = JSON.parse(sa);
+            } catch { agenda = []; }
         };
         loadSavedData();
+        if(!config.password || typeof config.password !== 'string') config.password = 'admin';
         if(!Array.isArray(config.projects) || !config.projects.length) config.projects = [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }];
         if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
         if(!Array.isArray(config.selectedProjectIds) || !config.selectedProjectIds.length) config.selectedProjectIds = [config.activeProjectId];
@@ -1043,27 +1053,6 @@
                 lastFetchErrors[key] = '';
                 return parsedRows;
             } catch (e) { lastFetchErrors[key] = String(e.message || e); return []; }
-        }
-        const normalizeKey = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
-        function tapToEntry(rows, projectId){
-            const raw = {};
-            rows.forEach(r => { if(r.length >= 2) raw[normalizeKey(r[0])] = r[1] ?? ''; });
-            const map = (k, aliases=[]) => raw[normalizeKey(k)] ?? aliases.map(a => raw[normalizeKey(a)]).find(v => v!==undefined) ?? '';
-            return {
-                project_id: projectId, identificacao: map('identificacao'), data_referencia: map('dataBase', ['data', 'datareferencia']),
-                nome_projeto: map('nomeProjeto'), coordenador_projeto: map('coordenadorCP', ['coordenadorprojeto', 'cp']), esn: map('esn'),
-                criticidade_cliente: map('criticidadeCliente'), drive: map('driveRepositorio', ['drive']), cod_cliente: map('codCliente'),
-                gpp: map('gpp'), produto: map('produtosContratados', ['produto']), arquiteto: map('arquitetoTotvs', ['arquiteto']),
-                criticidade_totvs: map('criticidadeTotvs'), valor_projeto: map('valorProjeto'), margem_venda_percentual: map('margemVendaPerc'),
-                margem_venda_valor: map('margemVendaValor'), mrr_recorrente_mensal: map('mrrMensal'), mrr_total_contratados: map('mrrTotal'),
-                psa_planejado: map('psaPlanejado'), diferenca_psa_projeto: map('diferencaPsa'), receita_atual: map('receitaAtual'),
-                margem_atual_percentual: map('margemAtualPerc'), margem_atual_valor: map('margemAtualValor'),
-                investimento_perdas: map('investimentoPerdas'), investimento_comercial: map('investimentoComercial'),
-                investimento_erro_produto: map('investimentoErroProduto'), projeto_em_perda: map('projetoEmPerda'),
-                data_inicio: map('dataInicio'), go_live_previsao: map('goLivePrevisao'), duracao: map('duracaoMeses'),
-                pos_producao_meses: map('posProducaoMeses'), encerramento: map('dataEncerramento'),
-                descricao_escopo: map('itemEscopo'), observacoes: map('observacoesGerais'), payload: raw
-            };
         }
         const normalizeKey = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
         function tapToEntry(rows, projectId){
