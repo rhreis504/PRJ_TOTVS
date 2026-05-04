@@ -323,6 +323,14 @@
     return rows;
   }
 
+  function parseHtmlTable(text){
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const trs = Array.from(doc.querySelectorAll('table tr'));
+    return trs
+      .map(tr => Array.from(tr.querySelectorAll('th,td')).map(td => (td.textContent || '').trim()))
+      .filter(r => r.some(v => v !== ''));
+  }
+
   function resolveUrl(source){
     if(!source?.url) return '';
     let url = source.url.trim();
@@ -414,7 +422,8 @@
     const url = resolveUrl(tapSource);
     const resp = await fetch(url + (url.includes('?')?'&':'?') + 't=' + Date.now());
     const text = await resp.text();
-    const rows = parseCsv(text);
+    const mode = tapSource.sourceType || 'csv';
+    const rows = mode === 'web' ? parseHtmlTable(text) : parseCsv(text);
     const raw = buildRawValues(rows, tapSource.hasHeader !== false);
     const mapped = mapToTemplateValues(raw);
     mapped.datageracaodocumento = mapped.datageracaodocumento || fallbackDate;
