@@ -254,67 +254,107 @@
 (function(){
   const PLACEHOLDER_RE = /\{\{\s*([^}]+?)\s*\}\}/g;
   const norm = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
-  const alias = {
-    nomeprojeto:['nomeprojeto','projeto','projectname'],
-    codcliente:['codcliente','codigocliente','clientecodigo'],
-    database:['database','data_base'],
-    driverepositorio:['driverepositorio','drive/repositorio','repositorio','drive'],
-    produtoscontratados:['produtoscontratados','produto(s)contratado(s)','produtos'],
-    coordenadorcp:['coordenadorcp','coordenador(cp)','cp'],
-    gpp:['gpp'], esn:['esn'], arquitetototvs:['arquitetototvs','arquiteto'],
-    criticidadecliente:['criticidadecliente'], criticidadetotvs:['criticidadetotvs'],
-    valorprojeto:['valorprojeto'], receitaatual:['receitaatual'], margemvendaperc:['margemvendaperc'], margematualperc:['margematualperc'],
-    margemvendavalor:['margemvendavalor'], margematualvalor:['margematualvalor'], mrrmensal:['mrrmensal'], mrrtotal:['mrrtotal'],
-    psaplanejado:['psaplanejado'], diferencapsa:['diferencapsa'], investimentocomercial:['investimentocomercial'], investimentoerroproduto:['investimentoerroproduto'],
-    projetoemperda:['projetoemperda'], investimentoperdas:['investimentoperdas'],
-    datainicio:['datainicio'], goliveprevisao:['goliveprevisao'], statusgolive:['statusgolive'], duracaomeses:['duracaomeses'], posproducaomeses:['posproducaomeses'], dataencerramento:['dataencerramento'], statusencerramento:['statusencerramento'],
-    itemescopo:['itemescopo'], observacoesgerais:['observacoesgerais'], datageracaodocumento:['datageracaodocumento']
+
+  // Mapeamento explícito: campo da SHEET -> variável do template TAP.
+  const fieldMap = {
+    nomeProjeto: ['nomeprojeto','projeto','projectname'],
+    codCliente: ['codcliente','codigocliente','clientecodigo'],
+    dataBase: ['database','data_base','data','datareferencia'],
+    driveRepositorio: ['driverepositorio','drive/repositorio','repositorio','drive'],
+    produtosContratados: ['produtoscontratados','produto(s)contratado(s)','produtos','produto'],
+    coordenadorCP: ['coordenadorcp','coordenador(cp)','coordenadorprojeto','cp'],
+    gpp: ['gpp'],
+    esn: ['esn'],
+    arquitetoTotvs: ['arquitetototvs','arquiteto'],
+    criticidadeCliente: ['criticidadecliente'],
+    criticidadeTotvs: ['criticidadetotvs'],
+    valorProjeto: ['valorprojeto'],
+    receitaAtual: ['receitaatual'],
+    margemVendaPerc: ['margemvendaperc'],
+    margemAtualPerc: ['margematualperc'],
+    margemVendaValor: ['margemvendavalor'],
+    margemAtualValor: ['margematualvalor'],
+    mrrMensal: ['mrrmensal'],
+    mrrTotal: ['mrrtotal'],
+    psaPlanejado: ['psaplanejado'],
+    diferencaPsa: ['diferencapsa'],
+    investimentoComercial: ['investimentocomercial'],
+    investimentoErroProduto: ['investimentoerroproduto'],
+    projetoEmPerda: ['projetoemperda'],
+    investimentoPerdas: ['investimentoperdas'],
+    dataInicio: ['datainicio'],
+    goLivePrevisao: ['goliveprevisao'],
+    statusGoLive: ['statusgolive'],
+    duracaoMeses: ['duracaomeses'],
+    posProducaoMeses: ['posproducaomeses'],
+    dataEncerramento: ['dataencerramento'],
+    statusEncerramento: ['statusencerramento'],
+    itemEscopo: ['itemescopo','descricaoescopo','escopo'],
+    observacoesGerais: ['observacoesgerais','observacoes'],
+    dataGeracaoDocumento: ['datageracaodocumento']
   };
 
   function parseCsv(text){
     const rows=[]; let row=[]; let cur=''; let q=false;
-    for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];
-      if(c==='"'){ if(q && n==='"'){cur+='"';i++;} else q=!q; }
-      else if(c===',' && !q){row.push(cur.trim());cur='';}
-      else if((c==='
-    const sources = project?.sources || {};
-    if(sources.tap) return sources.tap;
-    const entries = Object.entries(sources);
-    return entries.find(([k,v]) => norm(k)==='tap' || norm(v.label).includes('tap'))?.[1] || null;
-'&&n==='
-') i++; row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row); row=[]; cur=''; }
-      else cur+=c;
+    for(let i=0;i<text.length;i++){
+      const c=text[i], n=text[i+1];
+      if(c==='"'){
+        if(q && n==='"'){ cur+='"'; i++; }
+        else q=!q;
+      } else if(c===',' && !q){
+        row.push(cur.trim()); cur='';
+      } else if((c==='\n' || c==='\r') && !q){
+        if(c==='\r' && n==='\n') i++;
+        row.push(cur.trim());
+        if(row.some(v=>v!=='')) rows.push(row);
+        row=[]; cur='';
+      } else cur+=c;
     }
-    row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row);
+    row.push(cur.trim());
+    if(row.some(v=>v!=='')) rows.push(row);
     return rows;
   }
-  function resolveUrl(s){
-    if(!s?.url) return '';
-    let url = s.url.includes('spreadsheets/d/') && !s.url.includes('format=csv') ? s.url.replace(/\/edit.*$/, '/export?format=csv') : s.url;
-    if(s.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(s.sheet)}`;
+
+  function resolveUrl(source){
+    if(!source?.url) return '';
+    let url = source.url;
+    if(url.includes('spreadsheets/d/') && !url.includes('format=csv')) url = url.replace(/\/edit.*$/, '/export?format=csv');
+    if(source.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
     return url;
   }
+
   function findTapSource(project){
-    const entries = Object.entries(project?.sources||{});
-    return entries.find(([,v])=>norm(v.label).includes('tap'))?.[1] || null;
+    const entries = Object.entries(project?.sources || {});
+    return entries.find(([,v]) => norm(v.label || '').includes('tap') || norm(v.key || '') === 'tap')?.[1] || project?.sources?.tap || null;
   }
-  function toKeyValue(rows, hasHeader){
-    const out={};
-    const data = hasHeader ? rows.slice(1) : rows;
-    data.forEach(r=>{ if(r.length<2) return; out[norm(r[0])] = r[1] ?? ''; });
+
+  function buildRawValues(rows, hasHeader){
+    // Formato 1 (legado): chave/valor por linha (A:B)
+    const kv = {};
+    rows.forEach(r => { if(r.length >= 2) kv[norm(r[0])] = r[1] ?? ''; });
+
+    // Formato 2: cabeçalho na primeira linha + dados na segunda
+    if(hasHeader && rows.length >= 2 && rows[0].length > 2){
+      const headers = rows[0].map(h => norm(h));
+      const values = rows[1] || [];
+      headers.forEach((h, idx) => { if(h) kv[h] = values[idx] ?? ''; });
+    }
+    return kv;
+  }
+
+  function mapToTemplateValues(raw){
+    const out = {};
+    Object.entries(fieldMap).forEach(([tplKey, aliases]) => {
+      const candidates = [norm(tplKey), ...aliases.map(norm)];
+      out[norm(tplKey)] = candidates.map(k => raw[k]).find(v => v !== undefined && v !== '') ?? '';
+    });
     return out;
   }
-  function getVal(raw, key){
-    const nk=norm(key);
-    if(raw[nk]!==undefined) return raw[nk];
-    const list=alias[nk]||[];
-    for(const a of list){ const v=raw[norm(a)]; if(v!==undefined) return v; }
-    return '';
-  }
+
   function apply(values){
     const walker=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
-    nodes.forEach(n=>{ n.textContent = n.textContent.replace(PLACEHOLDER_RE,(_,k)=> getVal(values,k)||'-');});
+    nodes.forEach(n=>{ n.textContent = n.textContent.replace(PLACEHOLDER_RE,(_,k)=> values[norm(k)] || '-'); });
   }
 
   (async function init(){
@@ -325,11 +365,15 @@
     const tapSource = findTapSource(project);
     const fallbackDate = new Date().toLocaleDateString('pt-BR');
     if(!tapSource){ apply({datageracaodocumento:fallbackDate}); return; }
-    const resp = await fetch(resolveUrl(tapSource) + (resolveUrl(tapSource).includes('?')?'&':'?') + 't=' + Date.now());
+
+    const url = resolveUrl(tapSource);
+    const resp = await fetch(url + (url.includes('?')?'&':'?') + 't=' + Date.now());
     const text = await resp.text();
-    const raw = toKeyValue(parseCsv(text), tapSource.hasHeader !== false);
-    raw.datageracaodocumento = raw.datageracaodocumento || fallbackDate;
-    apply(raw);
+    const rows = parseCsv(text);
+    const raw = buildRawValues(rows, tapSource.hasHeader !== false);
+    const mapped = mapToTemplateValues(raw);
+    mapped.datageracaodocumento = mapped.datageracaodocumento || fallbackDate;
+    apply(mapped);
   })().catch(()=>apply({datageracaodocumento:new Date().toLocaleDateString('pt-BR')}));
 })();
 </script>
