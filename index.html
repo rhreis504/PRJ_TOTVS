@@ -716,11 +716,11 @@
     <script>
         // --- CONFIG & STATE ---
         const defaultSources = () => ({
-            stakeholders: { label: 'Stakeholders', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
-            pendencias: { label: 'Pendências', url: '', range: 'A1:Z100', hasHeader: true, icon: 'check-square' },
-            riscos: { label: 'Riscos', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
-            gaps: { label: 'Gaps', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-branch' },
-            tap: { label: 'TAP', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-text' },
+            stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
+            pendencias: { label: 'Pendências', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'check-square' },
+            riscos: { label: 'Riscos', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
+            gaps: { label: 'Gaps', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-branch' },
+            tap: { label: 'TAP', sourceType: 'csv', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-text' },
         });
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
         let lastSyncStatus = {};
@@ -1040,15 +1040,21 @@
             if(source.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
             return url;
         }
-        async function fetchCSV(key) {
+        function parseHtmlTable(text){
+            const doc = new DOMParser().parseFromString(text, "text/html");
+            const rows = Array.from(doc.querySelectorAll("table tr"));
+            return rows.map(tr => Array.from(tr.querySelectorAll("th,td")).map(td => (td.textContent || "").trim())).filter(r => r.some(v => v !== ""));
+        }
+        async function fetchSourceRows(key) {
             const s = getActiveProject().sources[key]; if(!s || !s.url) return [];
-            let url = resolveCsvUrl(s);
+            const mode = s.sourceType || "csv";
+            let url = mode === "csv" ? resolveCsvUrl(s) : (s.url || "").trim();
             try {
                 const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
                 if(!r.ok) throw new Error(`Fonte retornou HTTP ${r.status}`);
                 const t = await r.text();
                 if(/<html/i.test(t) && /404|File not found|Page not found/i.test(t)) throw new Error('URL da planilha inválida (404). Para links /d/e/ use /pub?output=csv');
-                const rows = parseCsv(t);
+                const rows = mode === "web" ? parseHtmlTable(t) : parseCsv(t);
                 const parsedRows = s.hasHeader ? rows.slice(1) : rows;
                 lastFetchErrors[key] = '';
                 return parsedRows;
@@ -1086,7 +1092,7 @@
             for(const project of selectedProjects) {
                 config.activeProjectId = project.id;
                 const projectKeys = Object.keys(project.sources || {});
-                const results = await Promise.all(projectKeys.map(k => fetchCSV(k)));
+                const results = await Promise.all(projectKeys.map(k => fetchSourceRows(k)));
                 const rowsByKey = Object.fromEntries(projectKeys.map((k, i) => [k, results[i] || []]));
                 projectKeys.forEach((k, i) => {
                     aggregatedStore[k] = aggregatedStore[k].concat(results[i]);
@@ -1216,6 +1222,7 @@
             const active = getActiveProject();
             Object.keys(active.sources).forEach(k => {
                 active.sources[k].label = document.getElementById(`label-${k}`).value || 'Nova Fonte';
+                active.sources[k].sourceType = document.getElementById(`sourceType-${k}`)?.value || 'csv';
                 active.sources[k].url = document.getElementById(`url-${k}`).value;
                 active.sources[k].range = document.getElementById(`range-${k}`).value;
                 active.sources[k].sheet = document.getElementById(`sheet-${k}`).value;
@@ -1240,6 +1247,7 @@
                 url: '',
                 range: 'A1:Z100',
                 sheet: '',
+                sourceType: 'csv',
                 hasHeader: true,
                 icon: 'sheet'
             };
@@ -1299,7 +1307,14 @@
                             <input type="text" id="label-${k}" value="${it.label || ''}" placeholder="Ex: Financeiro">
                         </div>
                         <div class="config-input-group">
-                            <label>URL do CSV (Google Sheets)</label>
+                            <label>Tipo de Integração</label>
+                            <select id="sourceType-${k}">
+                                <option value="csv" ${(it.sourceType || 'csv') === 'csv' ? 'selected' : ''}>CSV</option>
+                                <option value="web" ${(it.sourceType || 'csv') === 'web' ? 'selected' : ''}>Web HTML</option>
+                            </select>
+                        </div>
+                        <div class="config-input-group">
+                            <label>URL da Fonte</label>
                             <input type="text" id="url-${k}" value="${it.url || ''}" placeholder="https://docs.google.com/spreadsheets/d/...">
                         </div>
                         <div class="config-input-group">
