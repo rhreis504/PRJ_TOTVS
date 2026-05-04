@@ -1,1 +1,421 @@
+import React, { useState } from 'react';
+import { 
+  Building2, 
+  CalendarDays, 
+  CircleDollarSign, 
+  Target, 
+  AlignLeft,
+  ChevronDown,
+  User,
+  Tag,
+  AlertCircle,
+  CheckCircle2,
+  Clock
+} from 'lucide-react';
 
+// --- MOCK DATA ---
+// Simulando uma base de dados de projetos para o seletor funcionar
+const projectsData = [
+  {
+    id: 'p1',
+    name: 'SUPERMERCADO ROSSI NEW LTDA',
+    identificacao: {
+      data: '31/03/2026',
+      codCliente: 'TDC0CC',
+      coordenador: 'Regis Reis',
+      gpp: 'Fábio Daumichen',
+      esn: 'Daniel Abdalla',
+      produto: 'RM Folha (TOTVS), Ahgora, ATS (Atração de Talentos), Admissão Digital (Digte), Quirons (NG), ACT (Horas mensais), LMS, Feedz',
+      criticidadeCliente: 'ALTA',
+      arquiteto: '-',
+      criticidadeTotvs: 'ALTA',
+      drive: '-'
+    },
+    financeiro: {
+      valorProjeto: 0.00,
+      receitaAtual: 0.00,
+      margemVendaPerc: 0.00,
+      margemAtualPerc: 0.00,
+      margemVendaValor: 0.00,
+      margemAtualValor: 0.00,
+      mrrMensal: 0.00,
+      investimentoPerdas: 0.00,
+      mrrTotal: 0.00,
+      investimentoComercial: 0.00,
+      psaPlanejado: 0.00,
+      investimentoErroProduto: 0.00,
+      diferencaPsaProjeto: 0.00,
+      projetoEmPerda: 'Não'
+    },
+    timeline: {
+      dataInicio: '31/03/2026',
+      goLivePrevisao: '01/08/2026',
+      duracaoMeses: 0,
+      posProducaoMeses: 5,
+      encerramento: '31/12/2026',
+      statusGoLive: 'atrasado', // mock status: 'no_prazo', 'atrasado', 'concluido'
+      statusEncerramento: 'atrasado'
+    },
+    escopo: [
+      'Implantação do sistema de Folha de Pagamento (RM TOTVS), incluindo Cargos e Salários e App Meu RH',
+      'Implantação do Ahgora para controle de ponto',
+      'Implantação do Quirons',
+      'Implantação do ATS (Atração de Talentos)',
+      'Implantação do Feedz para gestão de desempenho e engajamento',
+      'Implantação do LMS + LXP (Afferolab) para treinamentos',
+      'Implantação da Admissão Digital (Digte)',
+      'Integração entre as soluções conforme dependências do projeto'
+    ],
+    observacoes: ''
+  },
+  {
+    id: 'p2',
+    name: 'INDÚSTRIA DE BEBIDAS NOVA ERA S.A.',
+    identificacao: {
+      data: '15/04/2026',
+      codCliente: 'BNE55A',
+      coordenador: 'Ana Silva',
+      gpp: 'Carlos Mendes',
+      esn: 'Roberto Justus',
+      produto: 'Protheus Backoffice, WMS, Automação de Força de Vendas',
+      criticidadeCliente: 'MÉDIA',
+      arquiteto: 'João Souza',
+      criticidadeTotvs: 'MÉDIA',
+      drive: 'Link Externo'
+    },
+    financeiro: {
+      valorProjeto: 150000.00,
+      receitaAtual: 50000.00,
+      margemVendaPerc: 35.00,
+      margemAtualPerc: 32.50,
+      margemVendaValor: 52500.00,
+      margemAtualValor: 48750.00,
+      mrrMensal: 5000.00,
+      investimentoPerdas: 0.00,
+      mrrTotal: 60000.00,
+      investimentoComercial: 2000.00,
+      psaPlanejado: 10000.00,
+      investimentoErroProduto: 0.00,
+      diferencaPsaProjeto: 0.00,
+      projetoEmPerda: 'Não'
+    },
+    timeline: {
+      dataInicio: '10/01/2026',
+      goLivePrevisao: '10/06/2026',
+      duracaoMeses: 5,
+      posProducaoMeses: 2,
+      encerramento: '10/08/2026',
+      statusGoLive: 'no_prazo',
+      statusEncerramento: 'no_prazo'
+    },
+    escopo: [
+      'Configuração do Backoffice Protheus (Faturamento, Financeiro, Contábil)',
+      'Implantação do módulo WMS para controle de estoque avançado',
+      'Treinamento da equipe de vendas no novo App',
+      'Migração de dados do sistema legado'
+    ],
+    observacoes: 'Cliente solicitou adiantamento da fase 2. Avaliando capacidade da equipe.'
+  }
+];
+
+// --- COMPONENTES AUXILIARES ---
+
+// Formata moeda para BRL
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+// Formata porcentagem
+const formatPercent = (value) => {
+  return new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2 }).format(value / 100);
+};
+
+// Componente para exibir um campo de dado (Label + Valor)
+const DataField = ({ label, value, isCurrency, isPercent, isHighlight, highlightColor }) => {
+  let displayValue = value || '-';
+  if (value !== '-' && value !== undefined) {
+    if (isCurrency) displayValue = formatCurrency(value);
+    if (isPercent) displayValue = formatPercent(value);
+  }
+
+  return (
+    <div className="flex flex-col mb-4">
+      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{label}</span>
+      <span className={`text-sm md:text-base font-medium ${isHighlight ? highlightColor : 'text-slate-800'}`}>
+        {displayValue}
+      </span>
+    </div>
+  );
+};
+
+// Componente de Card (Container para cada seção)
+const SectionCard = ({ title, icon: Icon, children, className = "" }) => (
+  <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 ${className}`}>
+    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-3">
+      <div className="p-2 bg-white rounded-lg shadow-sm text-cyan-600">
+        <Icon size={20} />
+      </div>
+      <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+    </div>
+    <div className="p-6">
+      {children}
+    </div>
+  </div>
+);
+
+// Badge de criticidade
+const CriticalityBadge = ({ level }) => {
+  const colors = {
+    'ALTA': 'bg-red-100 text-red-700 border-red-200',
+    'MÉDIA': 'bg-amber-100 text-amber-700 border-amber-200',
+    'BAIXA': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  };
+  const colorClass = colors[level?.toUpperCase()] || 'bg-slate-100 text-slate-700 border-slate-200';
+  
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colorClass}`}>
+      {level || '-'}
+    </span>
+  );
+};
+
+// --- COMPONENTE PRINCIPAL ---
+
+export default function App() {
+  const [selectedProjectId, setSelectedProjectId] = useState(projectsData[0].id);
+  
+  const project = projectsData.find(p => p.id === selectedProjectId);
+
+  if (!project) return <div>Erro: Projeto não encontrado.</div>;
+
+  return (
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-900">
+      
+      {/* HEADER (Estilo TOTVS - Escuro/Corporativo) */}
+      <header className="bg-slate-900 text-white shadow-md sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Simulação do Logo TOTVS */}
+            <div className="flex items-center gap-2">
+               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                 <div className="w-4 h-4 border-4 border-slate-900 rounded-full border-t-transparent transform rotate-45"></div>
+               </div>
+               <span className="text-2xl font-black tracking-tight">TOTVS</span>
+            </div>
+            <div className="h-6 w-px bg-slate-700 mx-2 hidden sm:block"></div>
+            <span className="text-lg font-light hidden sm:block text-slate-300">TAP (Termo de Abertura do PROJETO)</span>
+          </div>
+          
+          <div className="flex items-center gap-4 text-sm">
+            <span className="hidden md:flex items-center gap-2 text-slate-300">
+              <User size={16} /> Bem-vindo, Usuário
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* SELETOR DE PROJETOS (Avançado UX) */}
+        <div className="mb-8 bg-white p-6 rounded-xl shadow-sm border border-cyan-100 relative z-10 overflow-visible">
+          <label htmlFor="project-selector" className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+            <Target size={18} className="text-cyan-600" />
+            Selecione o Projeto Ativo
+          </label>
+          <div className="relative">
+            <select
+              id="project-selector"
+              className="block w-full pl-4 pr-10 py-3 text-base border-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-lg appearance-none bg-slate-50 border cursor-pointer font-medium text-slate-800 transition-colors hover:bg-slate-100"
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+            >
+              {projectsData.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.identificacao.codCliente} - {p.name}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+              <ChevronDown size={20} />
+            </div>
+          </div>
+        </div>
+
+        {/* --- DADOS DO PROJETO SELECIONADO --- */}
+        <div className="space-y-6 animate-fade-in-up">
+          
+          {/* SEÇÃO: IDENTIFICAÇÃO */}
+          <SectionCard title="Identificação" icon={Building2}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
+              <div className="lg:col-span-2">
+                <DataField label="Nome do Projeto" value={project.name} isHighlight highlightColor="text-cyan-700 text-lg" />
+              </div>
+              <DataField label="Cod. Cliente" value={project.identificacao.codCliente} />
+              <DataField label="Data Base" value={project.identificacao.data} />
+              
+              <div className="lg:col-span-4 mt-2 mb-4 border-t border-slate-100 pt-4">
+                <DataField label="Produto(s)" value={project.identificacao.produto} />
+              </div>
+
+              <DataField label="Coordenador do Projeto (CP)" value={project.identificacao.coordenador} />
+              <DataField label="GPP" value={project.identificacao.gpp} />
+              <DataField label="ESN" value={project.identificacao.esn} />
+              <DataField label="Arquiteto" value={project.identificacao.arquiteto} />
+
+              <div className="flex flex-col mb-4">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Criticidade Cliente</span>
+                <div><CriticalityBadge level={project.identificacao.criticidadeCliente} /></div>
+              </div>
+              
+              <div className="flex flex-col mb-4">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Criticidade TOTVS</span>
+                <div><CriticalityBadge level={project.identificacao.criticidadeTotvs} /></div>
+              </div>
+              
+              <div className="lg:col-span-2">
+                <DataField label="Drive / Repositório" value={project.identificacao.drive} />
+              </div>
+            </div>
+          </SectionCard>
+
+          {/* SEÇÃO: FINANCEIRO */}
+          <SectionCard title="Financeiro" icon={CircleDollarSign}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
+              {/* Bloco Valor / Receita */}
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <DataField label="Valor do Projeto" value={project.financeiro.valorProjeto} isCurrency />
+                <DataField label="Receita Atual" value={project.financeiro.receitaAtual} isCurrency />
+              </div>
+              
+              {/* Bloco Margem */}
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <DataField label="Margem da Venda %" value={project.financeiro.margemVendaPerc} isPercent />
+                <DataField label="Margem Atual %" value={project.financeiro.margemAtualPerc} isPercent />
+              </div>
+              
+              {/* Bloco MRR */}
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <DataField label="MRR - Recorrente Mensal" value={project.financeiro.mrrMensal} isCurrency />
+                <DataField label="MRR Total (Contratados)" value={project.financeiro.mrrTotal} isCurrency />
+              </div>
+
+              {/* Bloco Investimento/Perdas */}
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                 <div className="flex flex-col mb-4">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Projeto em Perda?</span>
+                  <span className={`text-sm md:text-base font-bold ${project.financeiro.projetoEmPerda === 'Sim' ? 'text-red-600' : 'text-emerald-600'}`}>
+                    {project.financeiro.projetoEmPerda}
+                  </span>
+                </div>
+                <DataField label="Investimento Perdas" value={project.financeiro.investimentoPerdas} isCurrency />
+              </div>
+
+              {/* Linha inferior de financeiros */}
+              <DataField label="Margem da Venda (valor)" value={project.financeiro.margemVendaValor} isCurrency />
+              <DataField label="Margem Atual (valor)" value={project.financeiro.margemAtualValor} isCurrency />
+              <DataField label="PSA Planejado" value={project.financeiro.psaPlanejado} isCurrency />
+              <DataField label="Diferença PSA x Projeto" value={project.financeiro.diferencaPsaProjeto} isCurrency />
+              <DataField label="Investimento Comercial" value={project.financeiro.investimentoComercial} isCurrency />
+              <DataField label="Investimento Erro Produto" value={project.financeiro.investimentoErroProduto} isCurrency />
+            </div>
+          </SectionCard>
+
+          {/* SEÇÃO: TIMELINE (UX Melhorado) */}
+          <SectionCard title="Timeline do Projeto" icon={CalendarDays}>
+            {/* Design alternativo para a timeline substituindo as barras vermelhas/grids simples */}
+            <div className="relative">
+              {/* Linha conectora de fundo (escondida no mobile) */}
+              <div className="hidden lg:block absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0"></div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 relative z-10">
+                
+                {/* Milestone 1: Início */}
+                <div className="bg-white lg:bg-transparent border border-slate-200 lg:border-none p-4 lg:p-0 rounded-lg text-center flex flex-col items-center">
+                  <div className="w-12 h-12 bg-slate-100 border-4 border-white rounded-full flex items-center justify-center text-slate-500 shadow-sm mb-3">
+                    <CalendarDays size={20} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Data Início</span>
+                  <span className="text-base font-bold text-slate-800">{project.timeline.dataInicio}</span>
+                </div>
+
+                {/* Milestone 2: Go-live */}
+                <div className="bg-white lg:bg-transparent border border-slate-200 lg:border-none p-4 lg:p-0 rounded-lg text-center flex flex-col items-center">
+                  <div className={`w-12 h-12 rounded-full border-4 border-white flex items-center justify-center text-white shadow-sm mb-3 ${
+                    project.timeline.statusGoLive === 'atrasado' ? 'bg-red-500' : 
+                    project.timeline.statusGoLive === 'no_prazo' ? 'bg-emerald-500' : 'bg-cyan-500'
+                  }`}>
+                    {project.timeline.statusGoLive === 'atrasado' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Go-live (Previsão)</span>
+                  <span className="text-base font-bold text-slate-800">{project.timeline.goLivePrevisao || '-'}</span>
+                </div>
+
+                {/* Info: Duração */}
+                <div className="bg-slate-50 lg:bg-white border border-slate-200 p-4 rounded-lg text-center flex flex-col items-center justify-center">
+                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Duração</span>
+                  <span className="text-2xl font-black text-cyan-600">{project.timeline.duracaoMeses}</span>
+                  <span className="text-xs text-slate-500">meses</span>
+                </div>
+
+                {/* Info: Pós-produção */}
+                <div className="bg-slate-50 lg:bg-white border border-slate-200 p-4 rounded-lg text-center flex flex-col items-center justify-center">
+                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Pós-produção</span>
+                  <span className="text-2xl font-black text-slate-700">{project.timeline.posProducaoMeses}</span>
+                  <span className="text-xs text-slate-500">meses</span>
+                </div>
+
+                {/* Milestone 3: Encerramento */}
+                <div className="bg-white lg:bg-transparent border border-slate-200 lg:border-none p-4 lg:p-0 rounded-lg text-center flex flex-col items-center">
+                  <div className={`w-12 h-12 rounded-full border-4 border-white flex items-center justify-center text-white shadow-sm mb-3 ${
+                    project.timeline.statusEncerramento === 'atrasado' ? 'bg-red-500' : 
+                    project.timeline.statusEncerramento === 'no_prazo' ? 'bg-emerald-500' : 'bg-slate-300'
+                  }`}>
+                     {project.timeline.statusEncerramento === 'atrasado' ? <AlertCircle size={20} /> : <Target size={20} />}
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Encerramento</span>
+                  <span className="text-base font-bold text-slate-800">{project.timeline.encerramento || '-'}</span>
+                </div>
+
+              </div>
+            </div>
+            {/* Legenda Timeline */}
+            <div className="flex gap-4 justify-center mt-6 text-xs text-slate-500">
+              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-red-500"></div> Atenção/Atraso</span>
+              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> No Prazo/OK</span>
+              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-slate-300"></div> Planejado</span>
+            </div>
+          </SectionCard>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* SEÇÃO: ESCOPO E OBJETIVO */}
+            <SectionCard title="Escopo e Objetivo" icon={Target} className="mb-0">
+              <ul className="space-y-3">
+                {project.escopo.map((item, index) => (
+                  <li key={index} className="flex items-start gap-3 bg-slate-50 p-3 rounded border border-slate-100">
+                    <CheckCircle2 size={18} className="text-cyan-600 mt-0.5 shrink-0" />
+                    <span className="text-sm text-slate-700">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+
+            {/* SEÇÃO: OBSERVAÇÕES */}
+            <SectionCard title="Observações Gerais" icon={AlignLeft} className="mb-0">
+              {project.observacoes ? (
+                <p className="text-sm text-slate-700 whitespace-pre-wrap bg-yellow-50 p-4 border border-yellow-200 rounded-lg">
+                  {project.observacoes}
+                </p>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full min-h-[150px] text-slate-400">
+                  <AlignLeft size={32} className="mb-2 opacity-50" />
+                  <p className="text-sm">Nenhuma observação registrada para este projeto.</p>
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  );
+}
