@@ -342,12 +342,32 @@
     return kv;
   }
 
+  function formatDateBr(value){
+    const v = (value || '').toString().trim();
+    if(!v) return '';
+
+    const iso = v.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if(iso) return `${iso[3].padStart(2,'0')}/${iso[2].padStart(2,'0')}/${iso[1]}`;
+
+    const us = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if(us) return `${us[2].padStart(2,'0')}/${us[1].padStart(2,'0')}/${us[3]}`;
+
+    return v;
+  }
+
   function mapToTemplateValues(raw){
     const out = {};
     Object.entries(fieldMap).forEach(([tplKey, aliases]) => {
       const candidates = [norm(tplKey), ...aliases.map(norm)];
       out[norm(tplKey)] = candidates.map(k => raw[k]).find(v => v !== undefined && v !== '') ?? '';
     });
+
+    ['dataBase','dataInicio','goLivePrevisao','dataEncerramento','dataGeracaoDocumento']
+      .forEach((k) => {
+        const nk = norm(k);
+        out[nk] = formatDateBr(out[nk]);
+      });
+
     return out;
   }
 
