@@ -1,421 +1,273 @@
-import React, { useState } from 'react';
-import { 
-  Building2, 
-  CalendarDays, 
-  CircleDollarSign, 
-  Target, 
-  AlignLeft,
-  ChevronDown,
-  User,
-  Tag,
-  AlertCircle,
-  CheckCircle2,
-  Clock
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAP - SUPERMERCADO ROSSI NEW LTDA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos específicos para impressão */
+        @media print {
+            body { background-color: white !important; padding: 0 !important; }
+            .no-print { display: none !important; }
+            .doc-container { box-shadow: none !important; border: none !important; border-radius: 0 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
+            .page-break { page-break-before: always; }
+            .section-card { break-inside: avoid; border: 1px solid #e2e8f0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans py-8 px-4 sm:px-8">
 
-// --- MOCK DATA ---
-// Simulando uma base de dados de projetos para o seletor funcionar
-const projectsData = [
-  {
-    id: 'p1',
-    name: 'SUPERMERCADO ROSSI NEW LTDA',
-    identificacao: {
-      data: '31/03/2026',
-      codCliente: 'TDC0CC',
-      coordenador: 'Regis Reis',
-      gpp: 'Fábio Daumichen',
-      esn: 'Daniel Abdalla',
-      produto: 'RM Folha (TOTVS), Ahgora, ATS (Atração de Talentos), Admissão Digital (Digte), Quirons (NG), ACT (Horas mensais), LMS, Feedz',
-      criticidadeCliente: 'ALTA',
-      arquiteto: '-',
-      criticidadeTotvs: 'ALTA',
-      drive: '-'
-    },
-    financeiro: {
-      valorProjeto: 0.00,
-      receitaAtual: 0.00,
-      margemVendaPerc: 0.00,
-      margemAtualPerc: 0.00,
-      margemVendaValor: 0.00,
-      margemAtualValor: 0.00,
-      mrrMensal: 0.00,
-      investimentoPerdas: 0.00,
-      mrrTotal: 0.00,
-      investimentoComercial: 0.00,
-      psaPlanejado: 0.00,
-      investimentoErroProduto: 0.00,
-      diferencaPsaProjeto: 0.00,
-      projetoEmPerda: 'Não'
-    },
-    timeline: {
-      dataInicio: '31/03/2026',
-      goLivePrevisao: '01/08/2026',
-      duracaoMeses: 0,
-      posProducaoMeses: 5,
-      encerramento: '31/12/2026',
-      statusGoLive: 'atrasado', // mock status: 'no_prazo', 'atrasado', 'concluido'
-      statusEncerramento: 'atrasado'
-    },
-    escopo: [
-      'Implantação do sistema de Folha de Pagamento (RM TOTVS), incluindo Cargos e Salários e App Meu RH',
-      'Implantação do Ahgora para controle de ponto',
-      'Implantação do Quirons',
-      'Implantação do ATS (Atração de Talentos)',
-      'Implantação do Feedz para gestão de desempenho e engajamento',
-      'Implantação do LMS + LXP (Afferolab) para treinamentos',
-      'Implantação da Admissão Digital (Digte)',
-      'Integração entre as soluções conforme dependências do projeto'
-    ],
-    observacoes: ''
-  },
-  {
-    id: 'p2',
-    name: 'INDÚSTRIA DE BEBIDAS NOVA ERA S.A.',
-    identificacao: {
-      data: '15/04/2026',
-      codCliente: 'BNE55A',
-      coordenador: 'Ana Silva',
-      gpp: 'Carlos Mendes',
-      esn: 'Roberto Justus',
-      produto: 'Protheus Backoffice, WMS, Automação de Força de Vendas',
-      criticidadeCliente: 'MÉDIA',
-      arquiteto: 'João Souza',
-      criticidadeTotvs: 'MÉDIA',
-      drive: 'Link Externo'
-    },
-    financeiro: {
-      valorProjeto: 150000.00,
-      receitaAtual: 50000.00,
-      margemVendaPerc: 35.00,
-      margemAtualPerc: 32.50,
-      margemVendaValor: 52500.00,
-      margemAtualValor: 48750.00,
-      mrrMensal: 5000.00,
-      investimentoPerdas: 0.00,
-      mrrTotal: 60000.00,
-      investimentoComercial: 2000.00,
-      psaPlanejado: 10000.00,
-      investimentoErroProduto: 0.00,
-      diferencaPsaProjeto: 0.00,
-      projetoEmPerda: 'Não'
-    },
-    timeline: {
-      dataInicio: '10/01/2026',
-      goLivePrevisao: '10/06/2026',
-      duracaoMeses: 5,
-      posProducaoMeses: 2,
-      encerramento: '10/08/2026',
-      statusGoLive: 'no_prazo',
-      statusEncerramento: 'no_prazo'
-    },
-    escopo: [
-      'Configuração do Backoffice Protheus (Faturamento, Financeiro, Contábil)',
-      'Implantação do módulo WMS para controle de estoque avançado',
-      'Treinamento da equipe de vendas no novo App',
-      'Migração de dados do sistema legado'
-    ],
-    observacoes: 'Cliente solicitou adiantamento da fase 2. Avaliando capacidade da equipe.'
-  }
-];
-
-// --- COMPONENTES AUXILIARES ---
-
-// Formata moeda para BRL
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-};
-
-// Formata porcentagem
-const formatPercent = (value) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2 }).format(value / 100);
-};
-
-// Componente para exibir um campo de dado (Label + Valor)
-const DataField = ({ label, value, isCurrency, isPercent, isHighlight, highlightColor }) => {
-  let displayValue = value || '-';
-  if (value !== '-' && value !== undefined) {
-    if (isCurrency) displayValue = formatCurrency(value);
-    if (isPercent) displayValue = formatPercent(value);
-  }
-
-  return (
-    <div className="flex flex-col mb-4">
-      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{label}</span>
-      <span className={`text-sm md:text-base font-medium ${isHighlight ? highlightColor : 'text-slate-800'}`}>
-        {displayValue}
-      </span>
+    <!-- Botão de Imprimir (Oculto na impressão) -->
+    <div class="max-w-5xl mx-auto mb-4 flex justify-end no-print">
+        <button onclick="window.print()" class="bg-cyan-700 hover:bg-cyan-800 text-white font-semibold py-2 px-4 rounded-lg shadow flex items-center gap-2 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Imprimir / Salvar PDF
+        </button>
     </div>
-  );
-};
 
-// Componente de Card (Container para cada seção)
-const SectionCard = ({ title, icon: Icon, children, className = "" }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 ${className}`}>
-    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-3">
-      <div className="p-2 bg-white rounded-lg shadow-sm text-cyan-600">
-        <Icon size={20} />
-      </div>
-      <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-    </div>
-    <div className="p-6">
-      {children}
-    </div>
-  </div>
-);
-
-// Badge de criticidade
-const CriticalityBadge = ({ level }) => {
-  const colors = {
-    'ALTA': 'bg-red-100 text-red-700 border-red-200',
-    'MÉDIA': 'bg-amber-100 text-amber-700 border-amber-200',
-    'BAIXA': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  };
-  const colorClass = colors[level?.toUpperCase()] || 'bg-slate-100 text-slate-700 border-slate-200';
-  
-  return (
-    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colorClass}`}>
-      {level || '-'}
-    </span>
-  );
-};
-
-// --- COMPONENTE PRINCIPAL ---
-
-export default function App() {
-  const [selectedProjectId, setSelectedProjectId] = useState(projectsData[0].id);
-  
-  const project = projectsData.find(p => p.id === selectedProjectId);
-
-  if (!project) return <div>Erro: Projeto não encontrado.</div>;
-
-  return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-900">
-      
-      {/* HEADER (Estilo TOTVS - Escuro/Corporativo) */}
-      <header className="bg-slate-900 text-white shadow-md sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Simulação do Logo TOTVS */}
-            <div className="flex items-center gap-2">
-               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                 <div className="w-4 h-4 border-4 border-slate-900 rounded-full border-t-transparent transform rotate-45"></div>
-               </div>
-               <span className="text-2xl font-black tracking-tight">TOTVS</span>
-            </div>
-            <div className="h-6 w-px bg-slate-700 mx-2 hidden sm:block"></div>
-            <span className="text-lg font-light hidden sm:block text-slate-300">TAP (Termo de Abertura do PROJETO)</span>
-          </div>
-          
-          <div className="flex items-center gap-4 text-sm">
-            <span className="hidden md:flex items-center gap-2 text-slate-300">
-              <User size={16} /> Bem-vindo, Usuário
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- DOCUMENTO TAP -->
+    <div class="doc-container max-w-5xl mx-auto bg-white shadow-xl rounded-xl border border-slate-200 overflow-hidden">
         
-        {/* SELETOR DE PROJETOS (Avançado UX) */}
-        <div className="mb-8 bg-white p-6 rounded-xl shadow-sm border border-cyan-100 relative z-10 overflow-visible">
-          <label htmlFor="project-selector" className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-            <Target size={18} className="text-cyan-600" />
-            Selecione o Projeto Ativo
-          </label>
-          <div className="relative">
-            <select
-              id="project-selector"
-              className="block w-full pl-4 pr-10 py-3 text-base border-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-lg appearance-none bg-slate-50 border cursor-pointer font-medium text-slate-800 transition-colors hover:bg-slate-100"
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-            >
-              {projectsData.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.identificacao.codCliente} - {p.name}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-              <ChevronDown size={20} />
+        <!-- CABEÇALHO DO DOCUMENTO -->
+        <header class="bg-slate-900 text-white p-8 border-b-4 border-cyan-500">
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <!-- Logo TOTVS Simulado -->
+                        <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                            <div class="w-4 h-4 border-4 border-slate-900 rounded-full border-t-transparent transform rotate-45"></div>
+                        </div>
+                        <h1 class="text-2xl font-black tracking-tight">TOTVS</h1>
+                    </div>
+                    <h2 class="text-xl font-light text-slate-300">TAP (Termo de Abertura do PROJETO)</h2>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Projeto Relativo</p>
+                    <h3 class="text-2xl font-bold text-cyan-400">SUPERMERCADO ROSSI NEW LTDA</h3>
+                    <p class="text-sm mt-1 text-slate-300">Cód. Cliente: <span class="font-mono text-white bg-slate-800 px-2 py-0.5 rounded">TDC0CC</span></p>
+                </div>
             </div>
-          </div>
+        </header>
+
+        <div class="p-8 space-y-8">
+
+            <!-- 1. IDENTIFICAÇÃO -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Identificação</h3>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Data Base</p>
+                        <p class="text-sm font-medium text-slate-800">31/03/2026</p>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Drive / Repositório</p>
+                        <p class="text-sm font-medium text-slate-400 italic">Não informado</p>
+                    </div>
+
+                    <div class="col-span-1 md:col-span-4 border-t border-slate-100 pt-4">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Produto(s) Contratado(s)</p>
+                        <p class="text-sm font-bold text-slate-800">RM Folha (TOTVS), Ahgora, ATS (Atração de Talentos), Admissão Digital (Digte), Quirons (NG), ACT (Horas mensais), LMS, Feedz</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Coordenador (CP)</p>
+                        <p class="text-sm font-medium text-slate-800">Regis Reis</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">GPP</p>
+                        <p class="text-sm font-medium text-slate-800">Fábio Daumichen</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">ESN</p>
+                        <p class="text-sm font-medium text-slate-800">Daniel Abdalla</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Arquiteto TOTVS</p>
+                        <p class="text-sm font-medium text-slate-400 italic">-</p>
+                    </div>
+
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Criticidade Cliente</p>
+                        <span class="inline-block px-3 py-1 rounded border bg-red-100 text-red-800 border-red-200 text-xs font-bold mt-1">ALTA</span>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Criticidade TOTVS</p>
+                        <span class="inline-block px-3 py-1 rounded border bg-red-100 text-red-800 border-red-200 text-xs font-bold mt-1">ALTA</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. FINANCEIRO -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 18V6"></path></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Financeiro</h3>
+                </div>
+                <div class="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-6">
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Valor do Projeto</p>
+                        <p class="text-base font-bold text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Receita Atual</p>
+                        <p class="text-base font-bold text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem da Venda %</p>
+                        <p class="text-base font-bold text-slate-800">0,00%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Atual %</p>
+                        <p class="text-base font-bold text-slate-800">0,00%</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Venda (R$)</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Atual (R$)</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MRR Mensal</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MRR Total</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PSA Planejado</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Diferença PSA</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Invest. Comercial</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Invest. Erro Produto</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+
+                    <div class="col-span-1 md:col-span-2 bg-emerald-50 p-3 rounded border border-emerald-100 flex items-center gap-4">
+                        <div>
+                            <p class="text-xs font-semibold text-emerald-800 uppercase tracking-wider mb-1">Projeto em Perda?</p>
+                            <p class="text-lg font-black text-emerald-600 uppercase">Não</p>
+                        </div>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Investimento Perdas</p>
+                        <p class="text-sm font-medium text-slate-800">R$ 0,00</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. TIMELINE -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Timeline do Projeto</h3>
+                </div>
+                <div class="p-5">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                        <div class="p-4 border border-slate-200 rounded-lg">
+                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Data Início</p>
+                            <p class="text-base font-bold text-slate-800">31/03/2026</p>
+                        </div>
+                        <div class="p-4 border border-red-200 bg-red-50 rounded-lg">
+                            <p class="text-xs font-bold text-red-600 uppercase mb-1">Go-live (Previsão)</p>
+                            <p class="text-base font-bold text-red-800">01/08/2026</p>
+                            <p class="text-[10px] text-red-500 font-bold uppercase mt-1">Atrasado</p>
+                        </div>
+                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
+                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Duração</p>
+                            <p class="text-xl font-black text-cyan-700">0 <span class="text-xs font-normal text-slate-500">meses</span></p>
+                        </div>
+                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
+                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Pós-produção</p>
+                            <p class="text-xl font-black text-slate-700">5 <span class="text-xs font-normal text-slate-500">meses</span></p>
+                        </div>
+                        <div class="p-4 border border-red-200 bg-red-50 rounded-lg col-span-2 md:col-span-1">
+                            <p class="text-xs font-bold text-red-600 uppercase mb-1">Encerramento</p>
+                            <p class="text-base font-bold text-red-800">31/12/2026</p>
+                            <p class="text-[10px] text-red-500 font-bold uppercase mt-1">Atrasado</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. ESCOPO E OBJETIVO -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Escopo e Objetivo</h3>
+                </div>
+                <div class="p-5">
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Implantação do sistema de Folha de Pagamento (RM TOTVS), incluindo Cargos e Salários e App Meu RH</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Implantação do Ahgora para controle de ponto</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Implantação do Quirons</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Implantação do ATS (Atração de Talentos)</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Implantação do Feedz para gestão de desempenho e engajamento</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Implantação do LMS + LXP (Afferolab) para treinamentos</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Implantação da Admissão Digital (Digte)</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">Integração entre as soluções conforme dependências do projeto</span>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 5. OBSERVAÇÕES -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Observações Gerais</h3>
+                </div>
+                <div class="p-5">
+                    <p class="text-sm text-slate-500 italic">Nenhuma observação adicional registrada para este projeto.</p>
+                </div>
+            </section>
+
         </div>
-
-        {/* --- DADOS DO PROJETO SELECIONADO --- */}
-        <div className="space-y-6 animate-fade-in-up">
-          
-          {/* SEÇÃO: IDENTIFICAÇÃO */}
-          <SectionCard title="Identificação" icon={Building2}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
-              <div className="lg:col-span-2">
-                <DataField label="Nome do Projeto" value={project.name} isHighlight highlightColor="text-cyan-700 text-lg" />
-              </div>
-              <DataField label="Cod. Cliente" value={project.identificacao.codCliente} />
-              <DataField label="Data Base" value={project.identificacao.data} />
-              
-              <div className="lg:col-span-4 mt-2 mb-4 border-t border-slate-100 pt-4">
-                <DataField label="Produto(s)" value={project.identificacao.produto} />
-              </div>
-
-              <DataField label="Coordenador do Projeto (CP)" value={project.identificacao.coordenador} />
-              <DataField label="GPP" value={project.identificacao.gpp} />
-              <DataField label="ESN" value={project.identificacao.esn} />
-              <DataField label="Arquiteto" value={project.identificacao.arquiteto} />
-
-              <div className="flex flex-col mb-4">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Criticidade Cliente</span>
-                <div><CriticalityBadge level={project.identificacao.criticidadeCliente} /></div>
-              </div>
-              
-              <div className="flex flex-col mb-4">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Criticidade TOTVS</span>
-                <div><CriticalityBadge level={project.identificacao.criticidadeTotvs} /></div>
-              </div>
-              
-              <div className="lg:col-span-2">
-                <DataField label="Drive / Repositório" value={project.identificacao.drive} />
-              </div>
-            </div>
-          </SectionCard>
-
-          {/* SEÇÃO: FINANCEIRO */}
-          <SectionCard title="Financeiro" icon={CircleDollarSign}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
-              {/* Bloco Valor / Receita */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <DataField label="Valor do Projeto" value={project.financeiro.valorProjeto} isCurrency />
-                <DataField label="Receita Atual" value={project.financeiro.receitaAtual} isCurrency />
-              </div>
-              
-              {/* Bloco Margem */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <DataField label="Margem da Venda %" value={project.financeiro.margemVendaPerc} isPercent />
-                <DataField label="Margem Atual %" value={project.financeiro.margemAtualPerc} isPercent />
-              </div>
-              
-              {/* Bloco MRR */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <DataField label="MRR - Recorrente Mensal" value={project.financeiro.mrrMensal} isCurrency />
-                <DataField label="MRR Total (Contratados)" value={project.financeiro.mrrTotal} isCurrency />
-              </div>
-
-              {/* Bloco Investimento/Perdas */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                 <div className="flex flex-col mb-4">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Projeto em Perda?</span>
-                  <span className={`text-sm md:text-base font-bold ${project.financeiro.projetoEmPerda === 'Sim' ? 'text-red-600' : 'text-emerald-600'}`}>
-                    {project.financeiro.projetoEmPerda}
-                  </span>
-                </div>
-                <DataField label="Investimento Perdas" value={project.financeiro.investimentoPerdas} isCurrency />
-              </div>
-
-              {/* Linha inferior de financeiros */}
-              <DataField label="Margem da Venda (valor)" value={project.financeiro.margemVendaValor} isCurrency />
-              <DataField label="Margem Atual (valor)" value={project.financeiro.margemAtualValor} isCurrency />
-              <DataField label="PSA Planejado" value={project.financeiro.psaPlanejado} isCurrency />
-              <DataField label="Diferença PSA x Projeto" value={project.financeiro.diferencaPsaProjeto} isCurrency />
-              <DataField label="Investimento Comercial" value={project.financeiro.investimentoComercial} isCurrency />
-              <DataField label="Investimento Erro Produto" value={project.financeiro.investimentoErroProduto} isCurrency />
-            </div>
-          </SectionCard>
-
-          {/* SEÇÃO: TIMELINE (UX Melhorado) */}
-          <SectionCard title="Timeline do Projeto" icon={CalendarDays}>
-            {/* Design alternativo para a timeline substituindo as barras vermelhas/grids simples */}
-            <div className="relative">
-              {/* Linha conectora de fundo (escondida no mobile) */}
-              <div className="hidden lg:block absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0"></div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 relative z-10">
-                
-                {/* Milestone 1: Início */}
-                <div className="bg-white lg:bg-transparent border border-slate-200 lg:border-none p-4 lg:p-0 rounded-lg text-center flex flex-col items-center">
-                  <div className="w-12 h-12 bg-slate-100 border-4 border-white rounded-full flex items-center justify-center text-slate-500 shadow-sm mb-3">
-                    <CalendarDays size={20} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Data Início</span>
-                  <span className="text-base font-bold text-slate-800">{project.timeline.dataInicio}</span>
-                </div>
-
-                {/* Milestone 2: Go-live */}
-                <div className="bg-white lg:bg-transparent border border-slate-200 lg:border-none p-4 lg:p-0 rounded-lg text-center flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full border-4 border-white flex items-center justify-center text-white shadow-sm mb-3 ${
-                    project.timeline.statusGoLive === 'atrasado' ? 'bg-red-500' : 
-                    project.timeline.statusGoLive === 'no_prazo' ? 'bg-emerald-500' : 'bg-cyan-500'
-                  }`}>
-                    {project.timeline.statusGoLive === 'atrasado' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
-                  </div>
-                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Go-live (Previsão)</span>
-                  <span className="text-base font-bold text-slate-800">{project.timeline.goLivePrevisao || '-'}</span>
-                </div>
-
-                {/* Info: Duração */}
-                <div className="bg-slate-50 lg:bg-white border border-slate-200 p-4 rounded-lg text-center flex flex-col items-center justify-center">
-                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Duração</span>
-                  <span className="text-2xl font-black text-cyan-600">{project.timeline.duracaoMeses}</span>
-                  <span className="text-xs text-slate-500">meses</span>
-                </div>
-
-                {/* Info: Pós-produção */}
-                <div className="bg-slate-50 lg:bg-white border border-slate-200 p-4 rounded-lg text-center flex flex-col items-center justify-center">
-                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Pós-produção</span>
-                  <span className="text-2xl font-black text-slate-700">{project.timeline.posProducaoMeses}</span>
-                  <span className="text-xs text-slate-500">meses</span>
-                </div>
-
-                {/* Milestone 3: Encerramento */}
-                <div className="bg-white lg:bg-transparent border border-slate-200 lg:border-none p-4 lg:p-0 rounded-lg text-center flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full border-4 border-white flex items-center justify-center text-white shadow-sm mb-3 ${
-                    project.timeline.statusEncerramento === 'atrasado' ? 'bg-red-500' : 
-                    project.timeline.statusEncerramento === 'no_prazo' ? 'bg-emerald-500' : 'bg-slate-300'
-                  }`}>
-                     {project.timeline.statusEncerramento === 'atrasado' ? <AlertCircle size={20} /> : <Target size={20} />}
-                  </div>
-                  <span className="text-xs font-bold text-slate-500 uppercase mb-1">Encerramento</span>
-                  <span className="text-base font-bold text-slate-800">{project.timeline.encerramento || '-'}</span>
-                </div>
-
-              </div>
-            </div>
-            {/* Legenda Timeline */}
-            <div className="flex gap-4 justify-center mt-6 text-xs text-slate-500">
-              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-red-500"></div> Atenção/Atraso</span>
-              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> No Prazo/OK</span>
-              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-slate-300"></div> Planejado</span>
-            </div>
-          </SectionCard>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* SEÇÃO: ESCOPO E OBJETIVO */}
-            <SectionCard title="Escopo e Objetivo" icon={Target} className="mb-0">
-              <ul className="space-y-3">
-                {project.escopo.map((item, index) => (
-                  <li key={index} className="flex items-start gap-3 bg-slate-50 p-3 rounded border border-slate-100">
-                    <CheckCircle2 size={18} className="text-cyan-600 mt-0.5 shrink-0" />
-                    <span className="text-sm text-slate-700">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </SectionCard>
-
-            {/* SEÇÃO: OBSERVAÇÕES */}
-            <SectionCard title="Observações Gerais" icon={AlignLeft} className="mb-0">
-              {project.observacoes ? (
-                <p className="text-sm text-slate-700 whitespace-pre-wrap bg-yellow-50 p-4 border border-yellow-200 rounded-lg">
-                  {project.observacoes}
-                </p>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full min-h-[150px] text-slate-400">
-                  <AlignLeft size={32} className="mb-2 opacity-50" />
-                  <p className="text-sm">Nenhuma observação registrada para este projeto.</p>
-                </div>
-              )}
-            </SectionCard>
-          </div>
-
-        </div>
-      </main>
+        
+        <!-- RODAPÉ DO DOCUMENTO -->
+        <footer class="bg-slate-50 border-t border-slate-200 p-6 text-center text-xs text-slate-400">
+            Documento gerado pelo sistema de Portfólio de Projetos TOTVS em 31/03/2026.
+        </footer>
     </div>
-  );
-}
+
+</body>
+</html>
