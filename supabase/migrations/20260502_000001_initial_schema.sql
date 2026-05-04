@@ -131,6 +131,12 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_projects_updated on public.projects;
+drop trigger if exists trg_issues_updated on public.issues;
+drop trigger if exists trg_risks_updated on public.risks;
+drop trigger if exists trg_gaps_updated on public.gaps;
+drop trigger if exists trg_activities_updated on public.activities;
+
 create trigger trg_projects_updated before update on public.projects for each row execute function public.touch_updated_at();
 create trigger trg_issues_updated before update on public.issues for each row execute function public.touch_updated_at();
 create trigger trg_risks_updated before update on public.risks for each row execute function public.touch_updated_at();

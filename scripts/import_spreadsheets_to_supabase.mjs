@@ -17,13 +17,48 @@ const sources = {
   geral: process.env.SHEET_URL_GERAL
 };
 
+function parseCSVRow(line, delimiter) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === delimiter && !inQuotes) {
+      out.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
 function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  const headers = lines[0].split(';').map(s => s.trim());
-  return lines.slice(1).map(line => {
-    const values = line.split(';');
-    return Object.fromEntries(headers.map((h, i) => [h, (values[i] || '').trim()]));
-  });
+  const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (!lines.length) return [];
+
+  const headerIdx = lines.findIndex(l => /\bID\b/i.test(l) && /(Categoria|Descri|Area|Área)/i.test(l));
+  if (headerIdx < 0) return [];
+
+  const headerLine = lines[headerIdx];
+  const delimiter = (headerLine.split(';').length > headerLine.split(',').length) ? ';' : ',';
+  const headers = parseCSVRow(headerLine, delimiter).map(s => s.trim());
+
+  return lines.slice(headerIdx + 1)
+    .map(line => parseCSVRow(line, delimiter))
+    .map(values => Object.fromEntries(headers.map((h, i) => [h, (values[i] || '').trim()])))
+    .filter(row => Object.values(row).some(v => v));
 }
 
 async function supabase(path, method = 'GET', body) {
