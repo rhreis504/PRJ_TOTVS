@@ -150,7 +150,11 @@
             position: fixed; height: 100vh; padding: 30px 20px;
             display: flex; flex-direction: column; z-index: 100;
         }
-        .sidebar .logo { font-size: 22px; font-weight: 900; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .sidebar .logo { font-size: 22px; font-weight: 900; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .project-selector { margin-bottom: 14px; }
+        .project-selector label { display:block; font-size:11px; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,0.75); margin-bottom: 6px; font-weight: 700; }
+        .project-selector select { width: 100%; min-height: 78px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); background: rgba(5,35,82,0.65); color: #fff; padding: 8px; font-size: 12px; }
+        .project-selector small { display:block; margin-top: 6px; color: rgba(255,255,255,0.7); font-size: 11px; }
         .nav-item {
             display: flex; align-items: center; gap: 12px; padding: 12px 16px;
             border-radius: 10px; cursor: pointer; margin-bottom: 5px;
@@ -409,6 +413,11 @@
     <div id="main-app">
         <aside class="sidebar">
             <div class="logo"><i data-lucide="gauge"></i> COCKPIT</div>
+            <div class="project-selector">
+                <label for="sidebar-project-select">Projetos em foco</label>
+                <select id="sidebar-project-select" multiple></select>
+                <small>O primeiro selecionado será o projeto principal.</small>
+            </div>
             <nav>
                 <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="pie-chart"></i> Visão Geral</div>
                 <div class="nav-separator"></div>
@@ -709,7 +718,7 @@
             riscos: { label: 'Riscos', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
             gaps: { label: 'Gaps', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-branch' },
         });
-        let config = { password: 'admin', interval: 5, activeProjectId: 'default', projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
+        let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
 
         let roadmaps = [];
         let agenda = [];
@@ -726,8 +735,10 @@
         loadSavedData();
         if(!Array.isArray(config.projects) || !config.projects.length) config.projects = [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }];
         if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
+        if(!Array.isArray(config.selectedProjectIds) || !config.selectedProjectIds.length) config.selectedProjectIds = [config.activeProjectId];
         if(!config.supabase) config.supabase = { url: '', secret: '' };
         const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0];
+        const getSelectedProjects = () => config.projects.filter(p => config.selectedProjectIds.includes(p.id));
 
         // --- AUTH ---
         function handleLogin() {
@@ -785,8 +796,12 @@
 
         function openStaticPage(pageId, fileName, el) {
             const iframe = document.querySelector(`#page-${pageId} iframe`);
-            if (iframe && iframe.getAttribute('src') !== fileName) {
-                iframe.setAttribute('src', fileName);
+            const params = new URLSearchParams();
+            params.set('primaryProject', config.activeProjectId);
+            params.set('projects', (config.selectedProjectIds || []).join(','));
+            const srcWithProjects = `${fileName}?${params.toString()}`;
+            if (iframe && iframe.getAttribute('src') !== srcWithProjects) {
+                iframe.setAttribute('src', srcWithProjects);
             }
             showPage(pageId, el);
         }
@@ -971,6 +986,7 @@
             const id = `proj_${Date.now()}`;
             config.projects.push({ id, name, sources: defaultSources() });
             config.activeProjectId = id;
+            config.selectedProjectIds = [id];
             document.getElementById('new-project-name').value = '';
             generateConfigRows();
             showToast('Projeto cadastrado.');
@@ -990,11 +1006,26 @@
             } catch { return []; }
         }
         async function syncAll() {
-            const project = getActiveProject();
-            const keys = Object.keys(project.sources);
-            const results = await Promise.all(keys.map(k => fetchCSV(k)));
-            keys.forEach((k, i) => dataStore[k] = results[i]);
-            await syncProjectToSupabase(project, keys);
+            const selectedProjects = getSelectedProjects();
+            if(!selectedProjects.length) return;
+            const allKeys = new Set();
+            selectedProjects.forEach(project => Object.keys(project.sources || {}).forEach(k => allKeys.add(k)));
+            const keys = [...allKeys];
+            const aggregatedStore = Object.fromEntries(keys.map(k => [k, []]));
+
+            for(const project of selectedProjects) {
+                config.activeProjectId = project.id;
+                const projectKeys = Object.keys(project.sources || {});
+                const results = await Promise.all(projectKeys.map(k => fetchCSV(k)));
+                projectKeys.forEach((k, i) => {
+                    aggregatedStore[k] = aggregatedStore[k].concat(results[i]);
+                });
+                await syncProjectToSupabase(project, projectKeys);
+            }
+
+            const primaryProject = selectedProjects[0];
+            if(primaryProject) config.activeProjectId = primaryProject.id;
+            keys.forEach(k => dataStore[k] = aggregatedStore[k] || []);
             document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString();
             updateDashboardStats();
         }
@@ -1036,6 +1067,12 @@
                 active.sources[k].hasHeader = document.getElementById(`header-${k}`).checked;
             });
             config.activeProjectId = document.getElementById('active-project-select').value;
+            const sidebarSelect = document.getElementById('sidebar-project-select');
+            if(sidebarSelect) {
+                const selectedIds = Array.from(sidebarSelect.selectedOptions).map(o => o.value);
+                config.selectedProjectIds = selectedIds.length ? selectedIds : [config.activeProjectId];
+                config.activeProjectId = config.selectedProjectIds[0];
+            }
             config.supabase.url = document.getElementById('supabase-url').value.trim();
             config.supabase.secret = document.getElementById('supabase-secret').value.trim();
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
@@ -1074,6 +1111,28 @@
                     startSync();
                 };
             }
+
+            const sidebarSelect = document.getElementById('sidebar-project-select');
+            if(sidebarSelect) {
+                sidebarSelect.innerHTML = config.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                const selectedIds = (config.selectedProjectIds || []).filter(id => config.projects.some(p => p.id === id));
+                config.selectedProjectIds = selectedIds.length ? selectedIds : [config.activeProjectId];
+                Array.from(sidebarSelect.options).forEach(opt => { opt.selected = config.selectedProjectIds.includes(opt.value); });
+                sidebarSelect.onchange = async () => {
+                    const ids = Array.from(sidebarSelect.selectedOptions).map(o => o.value);
+                    if(!ids.length) {
+                        sidebarSelect.options[0].selected = true;
+                        config.selectedProjectIds = [sidebarSelect.options[0].value];
+                    } else {
+                        config.selectedProjectIds = ids;
+                    }
+                    config.activeProjectId = config.selectedProjectIds[0];
+                    localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+                    generateConfigRows();
+                    await syncAll();
+                };
+            }
+
             const supaUrl = document.getElementById('supabase-url'); if(supaUrl) supaUrl.value = config.supabase?.url || '';
             const supaSecret = document.getElementById('supabase-secret'); if(supaSecret) supaSecret.value = config.supabase?.secret || '';
             container.innerHTML = Object.entries(active.sources).map(([k, it]) => `
