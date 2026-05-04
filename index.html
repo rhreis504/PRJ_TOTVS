@@ -1109,16 +1109,42 @@
             }
             showToast('Projetos em foco carregados.');
         }
+        function normalizeSupabaseBaseUrl(rawUrl = '') {
+            const input = rawUrl.trim();
+            if(!input) return '';
+            try {
+                const parsed = new URL(input);
+                if(parsed.hostname.endsWith('supabase.co')) {
+                    const hostParts = parsed.hostname.split('.');
+                    if(hostParts[0] === 'app') throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não app.supabase.com.');
+                    return `${parsed.protocol}//${parsed.hostname}`;
+                }
+                if(parsed.hostname.endsWith('supabase.com')) {
+                    throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não a URL do dashboard.');
+                }
+                return `${parsed.protocol}//${parsed.hostname}`;
+            } catch (e) {
+                throw new Error(`URL do Supabase inválida: ${e.message || e}`);
+            }
+        }
         async function supabaseRequest(path, method='GET', body) {
-            const url = config.supabase?.url, secret = config.supabase?.secret;
-            if(!url || !secret) return [];
-            const res = await fetch(`${url}/rest/v1/${path}`, {
+            const baseUrl = normalizeSupabaseBaseUrl(config.supabase?.url || ''), secret = config.supabase?.secret;
+            if(!baseUrl || !secret) return [];
+            const res = await fetch(`${baseUrl}/rest/v1/${path}`, {
                 method,
                 headers: { apikey: secret, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=merge-duplicates' },
                 body: body ? JSON.stringify(body) : undefined
             });
-            if(!res.ok) throw new Error(await res.text());
-            return res.status === 204 ? [] : await res.json();
+            const text = await res.text();
+            if(!res.ok) {
+                const contentType = res.headers.get('content-type') || '';
+                if(contentType.includes('text/html') || /^\s*<!doctype html>/i.test(text)) {
+                    throw new Error('Resposta HTML recebida do Supabase. Verifique se a URL está no formato https://<project-ref>.supabase.co e se a chave é service_role.');
+                }
+                throw new Error(text);
+            }
+            if(res.status === 204 || !text) return [];
+            return JSON.parse(text);
         }
         async function syncProjectToSupabase(project, keys, rowsByKey = {}) {
             if(!config.supabase?.url || !config.supabase?.secret) {
