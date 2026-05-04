@@ -550,6 +550,14 @@
                         <p style="color: var(--totvs-text-muted); font-size: 14px;">Gerencie a integração com suas planilhas do Google Sheets.</p>
                     </div>
                 </div>
+                <div class="card">
+                    <h3 class="section-title">Cadastro de Projetos</h3>
+                    <div class="config-grid">
+                        <div class="config-input-group"><label>Projeto Ativo</label><select id="active-project-select"></select></div>
+                        <div class="config-input-group"><label>Novo Projeto</label><input type="text" id="new-project-name" placeholder="Ex: Implantação Protheus"></div>
+                    </div>
+                    <div style="margin-top: 12px;"><button class="btn-ghost" onclick="createProject()"><i data-lucide="folder-plus"></i> Cadastrar Projeto</button></div>
+                </div>
                 
                 <div class="card">
                     <h3 class="section-title">Ajustes Globais</h3>
@@ -562,6 +570,13 @@
                 <h3 class="section-title">Fontes de Dados (CSV)</h3>
                 <div id="config-rows-container">
                     <!-- Cards de configuração gerados via JS -->
+                </div>
+                <div class="card">
+                    <h3 class="section-title">Supabase</h3>
+                    <div class="config-grid">
+                        <div class="config-input-group"><label>URL</label><input type="text" id="supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
+                        <div class="config-input-group"><label>Service Role Key</label><input type="password" id="supabase-secret" placeholder="sb_secret_..."></div>
+                    </div>
                 </div>
                 
                 <div style="margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap;">
@@ -655,16 +670,14 @@
 
     <script>
         // --- CONFIG & STATE ---
-        let config = {
-            password: 'admin',
-            interval: 5,
-            sources: {
-                stakeholders: { label: 'Stakeholders', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
-                pendencias: { label: 'Pendências', url: '', range: 'A1:Z100', hasHeader: true, icon: 'check-square' },
-                riscos: { label: 'Riscos', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
-                gaps: { label: 'Gaps', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-branch' }
-            }
-        };
+        const defaultSources = () => ({
+            stakeholders: { label: 'Stakeholders', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
+            pendencias: { label: 'Pendências', url: '', range: 'A1:Z100', hasHeader: true, icon: 'check-square' },
+            riscos: { label: 'Riscos', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
+            gaps: { label: 'Gaps', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-branch' },
+            tap: { label: 'TAP', url: '', range: 'A1:Z300', hasHeader: true, icon: 'file-text' }
+        });
+        let config = { password: 'admin', interval: 5, activeProjectId: 'default', projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
 
         let roadmaps = [];
         let agenda = [];
@@ -679,6 +692,10 @@
             const sa = localStorage.getItem('totvs_agenda'); if(sa) agenda = JSON.parse(sa);
         };
         loadSavedData();
+        if(!Array.isArray(config.projects) || !config.projects.length) config.projects = [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }];
+        if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
+        if(!config.supabase) config.supabase = { url: '', secret: '' };
+        const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0];
 
         // --- AUTH ---
         function handleLogin() {
@@ -919,8 +936,18 @@
         function closeEditor() { document.getElementById('roadmap-editor').style.display = 'none'; }
 
         // --- DATA SYNC ---
+        function createProject() {
+            const name = (document.getElementById('new-project-name')?.value || '').trim();
+            if(!name) return showToast('Informe o nome do projeto.');
+            const id = `proj_${Date.now()}`;
+            config.projects.push({ id, name, sources: defaultSources() });
+            config.activeProjectId = id;
+            document.getElementById('new-project-name').value = '';
+            generateConfigRows();
+            showToast('Projeto cadastrado.');
+        }
         async function fetchCSV(key) {
-            const s = config.sources[key]; if(!s.url) return [];
+            const s = getActiveProject().sources[key]; if(!s || !s.url) return [];
             let url = s.url.includes('spreadsheets/d/') && !s.url.includes('format=csv') ? s.url.replace(/\/edit.*$/, '/export?format=csv') : s.url;
             if(s.sheet) {
                 url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(s.sheet)}`;
@@ -933,11 +960,38 @@
             } catch { return []; }
         }
         async function syncAll() {
-            const keys = Object.keys(config.sources);
+            const project = getActiveProject();
+            const keys = Object.keys(project.sources);
             const results = await Promise.all(keys.map(k => fetchCSV(k)));
             keys.forEach((k, i) => dataStore[k] = results[i]);
+            await syncProjectToSupabase(project, keys);
             document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString();
             updateDashboardStats();
+        }
+        async function supabaseRequest(path, method='GET', body) {
+            const url = config.supabase?.url, secret = config.supabase?.secret;
+            if(!url || !secret) return [];
+            const res = await fetch(`${url}/rest/v1/${path}`, {
+                method,
+                headers: { apikey: secret, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=merge-duplicates' },
+                body: body ? JSON.stringify(body) : undefined
+            });
+            if(!res.ok) throw new Error(await res.text());
+            return res.status === 204 ? [] : await res.json();
+        }
+        async function syncProjectToSupabase(project, keys) {
+            if(!config.supabase?.url || !config.supabase?.secret) return;
+            const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
+            let projectId = existing[0]?.id;
+            if(!projectId) {
+                const created = await supabaseRequest('projects', 'POST', [{ code: project.id, name: project.name }]);
+                projectId = created[0]?.id;
+            }
+            const sourceRows = keys.flatMap(k => (dataStore[k] || []).map(row => ({ project_id: projectId, source_type: k, row_data: row })));
+            if(sourceRows.length) await supabaseRequest('source_rows', 'POST', sourceRows);
+            if(dataStore.tap?.length) {
+                await supabaseRequest('tap_entries', 'POST', [{ project_id: projectId, nome_projeto: project.name, payload: { rows: dataStore.tap } }]);
+            }
         }
         function startSync() {
             clearInterval(timerInterval);
@@ -946,19 +1000,23 @@
         }
         function saveConfig() {
             config.interval = parseInt(document.getElementById('update-interval').value) || 5;
-            Object.keys(config.sources).forEach(k => {
-                config.sources[k].label = document.getElementById(`label-${k}`).value || 'Nova Fonte';
-                config.sources[k].url = document.getElementById(`url-${k}`).value;
-                config.sources[k].range = document.getElementById(`range-${k}`).value;
-                config.sources[k].sheet = document.getElementById(`sheet-${k}`).value;
-                config.sources[k].hasHeader = document.getElementById(`header-${k}`).checked;
+            const active = getActiveProject();
+            Object.keys(active.sources).forEach(k => {
+                active.sources[k].label = document.getElementById(`label-${k}`).value || 'Nova Fonte';
+                active.sources[k].url = document.getElementById(`url-${k}`).value;
+                active.sources[k].range = document.getElementById(`range-${k}`).value;
+                active.sources[k].sheet = document.getElementById(`sheet-${k}`).value;
+                active.sources[k].hasHeader = document.getElementById(`header-${k}`).checked;
             });
+            config.activeProjectId = document.getElementById('active-project-select').value;
+            config.supabase.url = document.getElementById('supabase-url').value.trim();
+            config.supabase.secret = document.getElementById('supabase-secret').value.trim();
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
             showToast("Configurações aplicadas."); startSync();
         }
         function addConfigSource() {
             const key = `custom_${Date.now()}`;
-            config.sources[key] = {
+            getActiveProject().sources[key] = {
                 label: 'Nova Fonte',
                 url: '',
                 range: 'A1:Z100',
@@ -977,7 +1035,16 @@
             const intervalInput = document.getElementById('update-interval');
             if(intervalInput) intervalInput.value = config.interval;
 
-            container.innerHTML = Object.entries(config.sources).map(([k, it]) => `
+            const active = getActiveProject();
+            const select = document.getElementById('active-project-select');
+            if(select) {
+                select.innerHTML = config.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                select.value = config.activeProjectId;
+                select.onchange = () => { config.activeProjectId = select.value; generateConfigRows(); };
+            }
+            const supaUrl = document.getElementById('supabase-url'); if(supaUrl) supaUrl.value = config.supabase?.url || '';
+            const supaSecret = document.getElementById('supabase-secret'); if(supaSecret) supaSecret.value = config.supabase?.secret || '';
+            container.innerHTML = Object.entries(active.sources).map(([k, it]) => `
                 <div class="config-source-card">
                     <h4><i data-lucide="${it.icon || 'link-2'}"></i> FONTE: ${it.label}</h4>
                     <div class="config-grid">
@@ -1004,11 +1071,11 @@
                     </div>
                 </div>
             `).join('');
-            Object.keys(config.sources).forEach(k => {
+            Object.keys(active.sources).forEach(k => {
                 const labelEl = document.getElementById(`label-${k}`);
                 if(labelEl) {
                     labelEl.addEventListener('input', (e) => {
-                        config.sources[k].label = e.target.value || 'Nova Fonte';
+                        active.sources[k].label = e.target.value || 'Nova Fonte';
                     });
                 }
             });
