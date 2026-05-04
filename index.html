@@ -723,6 +723,7 @@
             tap: { label: 'TAP', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-text' },
         });
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
+        let lastSyncStatus = {};
 
         let roadmaps = [];
         let agenda = [];
@@ -995,6 +996,22 @@
             generateConfigRows();
             showToast('Projeto cadastrado.');
         }
+        function parseCsv(text){
+            const rows=[]; let row=[]; let cur=''; let q=false;
+            for(let i=0;i<text.length;i++){
+                const c=text[i], n=text[i+1];
+                if(c==='"'){ if(q && n==='"'){ cur+='"'; i++; } else q=!q; }
+                else if(c===',' && !q){ row.push(cur.trim()); cur=''; }
+                else if((c==='\n' || c==='\r') && !q){
+                    if(c==='\r' && n==='\n') i++;
+                    row.push(cur.trim());
+                    if(row.some(v=>v!=='')) rows.push(row);
+                    row=[]; cur='';
+                } else cur+=c;
+            }
+            row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row);
+            return rows;
+        }
         async function fetchCSV(key) {
             const s = getActiveProject().sources[key]; if(!s || !s.url) return [];
             let url = s.url.includes('spreadsheets/d/') && !s.url.includes('format=csv') ? s.url.replace(/\/edit.*$/, '/export?format=csv') : s.url;
@@ -1004,10 +1021,31 @@
             try {
                 const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
                 const t = await r.text();
-                const rows = t.split(/\r?\n/).map(l => l.split(',').map(c => c.replace(/^\"(.*)\"$/, '$1').trim())).filter(row => row.some(cell => cell !== ""));
+                const rows = parseCsv(t);
                 const parsedRows = s.hasHeader ? rows.slice(1) : rows;
                 return parsedRows;
             } catch { return []; }
+        }
+        const normalizeKey = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+        function tapToEntry(rows, projectId){
+            const raw = {};
+            rows.forEach(r => { if(r.length >= 2) raw[normalizeKey(r[0])] = r[1] ?? ''; });
+            const map = (k, aliases=[]) => raw[normalizeKey(k)] ?? aliases.map(a => raw[normalizeKey(a)]).find(v => v!==undefined) ?? '';
+            return {
+                project_id: projectId, identificacao: map('identificacao'), data_referencia: map('dataBase', ['data', 'datareferencia']),
+                nome_projeto: map('nomeProjeto'), coordenador_projeto: map('coordenadorCP', ['coordenadorprojeto', 'cp']), esn: map('esn'),
+                criticidade_cliente: map('criticidadeCliente'), drive: map('driveRepositorio', ['drive']), cod_cliente: map('codCliente'),
+                gpp: map('gpp'), produto: map('produtosContratados', ['produto']), arquiteto: map('arquitetoTotvs', ['arquiteto']),
+                criticidade_totvs: map('criticidadeTotvs'), valor_projeto: map('valorProjeto'), margem_venda_percentual: map('margemVendaPerc'),
+                margem_venda_valor: map('margemVendaValor'), mrr_recorrente_mensal: map('mrrMensal'), mrr_total_contratados: map('mrrTotal'),
+                psa_planejado: map('psaPlanejado'), diferenca_psa_projeto: map('diferencaPsa'), receita_atual: map('receitaAtual'),
+                margem_atual_percentual: map('margemAtualPerc'), margem_atual_valor: map('margemAtualValor'),
+                investimento_perdas: map('investimentoPerdas'), investimento_comercial: map('investimentoComercial'),
+                investimento_erro_produto: map('investimentoErroProduto'), projeto_em_perda: map('projetoEmPerda'),
+                data_inicio: map('dataInicio'), go_live_previsao: map('goLivePrevisao'), duracao: map('duracaoMeses'),
+                pos_producao_meses: map('posProducaoMeses'), encerramento: map('dataEncerramento'),
+                descricao_escopo: map('itemEscopo'), observacoes: map('observacoesGerais'), payload: raw
+            };
         }
         async function syncAll() {
             const selectedProjects = getSelectedProjects();
@@ -1021,10 +1059,11 @@
                 config.activeProjectId = project.id;
                 const projectKeys = Object.keys(project.sources || {});
                 const results = await Promise.all(projectKeys.map(k => fetchCSV(k)));
+                const rowsByKey = Object.fromEntries(projectKeys.map((k, i) => [k, results[i] || []]));
                 projectKeys.forEach((k, i) => {
                     aggregatedStore[k] = aggregatedStore[k].concat(results[i]);
                 });
-                await syncProjectToSupabase(project, projectKeys);
+                await syncProjectToSupabase(project, projectKeys, rowsByKey);
             }
 
             const primaryProject = selectedProjects[0];
@@ -1053,16 +1092,58 @@
             if(!res.ok) throw new Error(await res.text());
             return res.status === 204 ? [] : await res.json();
         }
-        async function syncProjectToSupabase(project, keys) {
-            if(!config.supabase?.url || !config.supabase?.secret) return;
-            const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
-            let projectId = existing[0]?.id;
-            if(!projectId) {
-                const created = await supabaseRequest('projects', 'POST', [{ code: project.id, name: project.name }]);
-                projectId = created[0]?.id;
+        async function syncProjectToSupabase(project, keys, rowsByKey = {}) {
+            if(!config.supabase?.url || !config.supabase?.secret) {
+                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: 0, error: 'Supabase não configurado' });
+                renderSyncStatus();
+                return;
             }
-            const sourceRows = keys.flatMap(k => (dataStore[k] || []).map(row => ({ project_id: projectId, source_type: k, row_data: row })));
-            if(sourceRows.length) await supabaseRequest('source_rows', 'POST', sourceRows);
+            let projectId = null;
+            try {
+                const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
+                projectId = existing[0]?.id;
+                if(!projectId) {
+                    const created = await supabaseRequest('projects', 'POST', [{ code: project.id, name: project.name }]);
+                    projectId = created[0]?.id;
+                }
+            } catch (e) {
+                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: (rowsByKey[k] || []).length, error: String(e.message || e) });
+                renderSyncStatus();
+                return;
+            }
+            const sourceRows = keys.flatMap(k => (rowsByKey[k] || []).map(row => ({ project_id: projectId, source_type: k, row_data: row })));
+            try {
+                if(sourceRows.length) await supabaseRequest('source_rows', 'POST', sourceRows);
+            } catch (e) {
+                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: (rowsByKey[k] || []).length, error: String(e.message || e) });
+                renderSyncStatus();
+                return;
+            }
+            for(const sourceKey of keys){
+                const total = (rowsByKey[sourceKey] || []).length;
+                try {
+                    if(sourceKey === 'tap'){
+                        await supabaseRequest(`tap_entries?project_id=eq.${projectId}`, 'DELETE');
+                        if(total) await supabaseRequest('tap_entries', 'POST', [tapToEntry(rowsByKey.tap || [], projectId)]);
+                    }
+                    lastSyncStatus[sourceKey] = { ok: true, total };
+                } catch (e) {
+                    lastSyncStatus[sourceKey] = { ok: false, total, error: String(e.message || e) };
+                }
+            }
+            renderSyncStatus();
+        }
+        function renderSyncStatus(){
+            const active = getActiveProject();
+            if(!active?.sources) return;
+            Object.keys(active.sources).forEach((k) => {
+                const el = document.getElementById(`sync-status-${k}`);
+                if(!el) return;
+                const st = lastSyncStatus[k];
+                if(!st) { el.textContent = 'Aguardando sincronização...'; el.style.color = 'var(--totvs-text-muted)'; return; }
+                if(st.ok) { el.textContent = `✅ Carregado no Supabase (${st.total} registros)`; el.style.color = '#22c55e'; }
+                else { el.textContent = `❌ Falha: ${st.error || 'erro desconhecido'} (${st.total} registros lidos)`; el.style.color = '#ef4444'; }
+            });
         }
         function startSync() {
             clearInterval(timerInterval);
@@ -1172,6 +1253,10 @@
                             <input type="checkbox" id="header-${k}" ${it.hasHeader ? 'checked' : ''}>
                             <span>Contém Cabeçalho</span>
                         </label>
+                        <div class="config-input-group">
+                            <label>Status da Carga</label>
+                            <div id="sync-status-${k}" style="font-size:12px; font-weight:700; margin-top:8px; color: var(--totvs-text-muted);">Aguardando sincronização...</div>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -1184,6 +1269,7 @@
                 }
             });
             lucide.createIcons();
+            renderSyncStatus();
         }
 
         // --- UTILS ---
