@@ -294,14 +294,22 @@
     dataGeracaoDocumento: ['datageracaodocumento']
   };
 
+  function detectDelimiter(text){
+    const firstLine = (text || '').split(/\r?\n/, 1)[0] || '';
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    return semicolonCount > commaCount ? ';' : ',';
+  }
+
   function parseCsv(text){
+    const delimiter = detectDelimiter(text);
     const rows=[]; let row=[]; let cur=''; let q=false;
     for(let i=0;i<text.length;i++){
       const c=text[i], n=text[i+1];
       if(c==='"'){
         if(q && n==='"'){ cur+='"'; i++; }
         else q=!q;
-      } else if(c===',' && !q){
+      } else if(c===delimiter && !q){
         row.push(cur.trim()); cur='';
       } else if((c==='\n' || c==='\r') && !q){
         if(c==='\r' && n==='\n') i++;
