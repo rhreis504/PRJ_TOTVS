@@ -1059,10 +1059,11 @@
                 config.activeProjectId = project.id;
                 const projectKeys = Object.keys(project.sources || {});
                 const results = await Promise.all(projectKeys.map(k => fetchCSV(k)));
+                const rowsByKey = Object.fromEntries(projectKeys.map((k, i) => [k, results[i] || []]));
                 projectKeys.forEach((k, i) => {
                     aggregatedStore[k] = aggregatedStore[k].concat(results[i]);
                 });
-                await syncProjectToSupabase(project, projectKeys);
+                await syncProjectToSupabase(project, projectKeys, rowsByKey);
             }
 
             const primaryProject = selectedProjects[0];
@@ -1091,22 +1092,39 @@
             if(!res.ok) throw new Error(await res.text());
             return res.status === 204 ? [] : await res.json();
         }
-        async function syncProjectToSupabase(project, keys) {
-            if(!config.supabase?.url || !config.supabase?.secret) return;
-            const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
-            let projectId = existing[0]?.id;
-            if(!projectId) {
-                const created = await supabaseRequest('projects', 'POST', [{ code: project.id, name: project.name }]);
-                projectId = created[0]?.id;
+        async function syncProjectToSupabase(project, keys, rowsByKey = {}) {
+            if(!config.supabase?.url || !config.supabase?.secret) {
+                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: 0, error: 'Supabase não configurado' });
+                renderSyncStatus();
+                return;
             }
-            const sourceRows = keys.flatMap(k => (dataStore[k] || []).map(row => ({ project_id: projectId, source_type: k, row_data: row })));
-            if(sourceRows.length) await supabaseRequest('source_rows', 'POST', sourceRows);
+            let projectId = null;
+            try {
+                const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
+                projectId = existing[0]?.id;
+                if(!projectId) {
+                    const created = await supabaseRequest('projects', 'POST', [{ code: project.id, name: project.name }]);
+                    projectId = created[0]?.id;
+                }
+            } catch (e) {
+                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: (rowsByKey[k] || []).length, error: String(e.message || e) });
+                renderSyncStatus();
+                return;
+            }
+            const sourceRows = keys.flatMap(k => (rowsByKey[k] || []).map(row => ({ project_id: projectId, source_type: k, row_data: row })));
+            try {
+                if(sourceRows.length) await supabaseRequest('source_rows', 'POST', sourceRows);
+            } catch (e) {
+                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: (rowsByKey[k] || []).length, error: String(e.message || e) });
+                renderSyncStatus();
+                return;
+            }
             for(const sourceKey of keys){
-                const total = (dataStore[sourceKey] || []).length;
+                const total = (rowsByKey[sourceKey] || []).length;
                 try {
                     if(sourceKey === 'tap'){
                         await supabaseRequest(`tap_entries?project_id=eq.${projectId}`, 'DELETE');
-                        if(total) await supabaseRequest('tap_entries', 'POST', [tapToEntry(dataStore.tap, projectId)]);
+                        if(total) await supabaseRequest('tap_entries', 'POST', [tapToEntry(rowsByKey.tap || [], projectId)]);
                     }
                     lastSyncStatus[sourceKey] = { ok: true, total };
                 } catch (e) {
@@ -1124,7 +1142,7 @@
                 const st = lastSyncStatus[k];
                 if(!st) { el.textContent = 'Aguardando sincronização...'; el.style.color = 'var(--totvs-text-muted)'; return; }
                 if(st.ok) { el.textContent = `✅ Carregado no Supabase (${st.total} registros)`; el.style.color = '#22c55e'; }
-                else { el.textContent = `❌ Falha ao carregar (${st.total} registros lidos)`; el.style.color = '#ef4444'; }
+                else { el.textContent = `❌ Falha: ${st.error || 'erro desconhecido'} (${st.total} registros lidos)`; el.style.color = '#ef4444'; }
             });
         }
         function startSync() {
