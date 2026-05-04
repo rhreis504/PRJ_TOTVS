@@ -192,6 +192,30 @@
             border: 1px solid var(--glass-border);
         }
 
+
+        .tap-shell {
+            background: #ebebeb;
+            border: 1px solid #d7d7d7;
+            padding: 0;
+            overflow: hidden;
+        }
+        .tap-header {
+            background: #454545;
+            color: #ffffff;
+            font-size: 34px;
+            font-weight: 800;
+            padding: 12px 18px;
+            line-height: 1.1;
+        }
+        .tap-header span { color: #21a5f5; }
+        .tap-subtitle {
+            color: #4b5563 !important;
+            margin: 8px 16px 14px !important;
+            font-size: 12px !important;
+        }
+        .tap-grid-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .tap-grid-table td { border: 1px solid #dfdfdf; padding: 4px 8px; background: #f5f5f5; }
+        .tap-grid-table td:first-child { width: 30%; font-weight: 700; color: #1f2937; background: #efefef; }
         /* --- DASHBOARD & TIMELINE --- */
         .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
         .page-header h2 { color: #fff; font-size: 32px; font-weight: 800; line-height: 1.2; }
@@ -413,11 +437,11 @@
                 <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="pie-chart"></i> Visão Geral</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" onclick="openStaticPage('status_report.html')"><i data-lucide="clipboard-list"></i> Status Report</div>
+                <div class="nav-item" id="nav-tap" onclick="showPage('tap', this)"><i data-lucide="file-text"></i> TAP do Projeto</div>
                 <div class="nav-item" onclick="openStaticPage('pendencias.html')"><i data-lucide="check-square"></i> Pendências</div>
                 <div class="nav-item" onclick="openStaticPage('riscos.html')"><i data-lucide="alert-triangle"></i> Riscos</div>
                 <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-pull-request"></i> Gaps e Mudanças</div>
                 <div class="nav-item" id="nav-stakeholders" onclick="showPage('stakeholders', this)"><i data-lucide="users"></i> Stakeholders</div>
-                <div class="nav-item" id="nav-tap" onclick="showPage('tap', this)"><i data-lucide="file-text"></i> TAP do Projeto</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Treinamentos</div>
                 <div class="nav-item" id="nav-agenda" onclick="showPage('agenda', this)"><i data-lucide="calendar"></i> Agenda de Treinos</div>
@@ -545,9 +569,9 @@
 
             <!-- TAP -->
             <div id="page-tap" class="hidden">
-                <div class="card">
-                    <h3 class="section-title">TAP do Projeto</h3>
-                    <p style="color: var(--totvs-text-muted); margin-bottom: 16px; font-size: 13px;">Dados carregados automaticamente da URL configurada em <b>Configurações &gt; TAP</b>.</p>
+                <div class="page-shell tap-shell">
+                    <div class="tap-header">Dados do <span>Projeto</span></div>
+                    <p class="tap-subtitle">Dados carregados automaticamente da URL configurada em <b>Configurações &gt; TAP</b>.</p>
                     <div id="tap-table-container" style="overflow-x: auto;"></div>
                 </div>
             </div>
@@ -1154,8 +1178,8 @@
 
             const isCellValuePairs = tapRows.every(r => Array.isArray(r) && r.length === 2 && /^([A-Z]+\d+|\d+:\d+)$/.test(String(r[0]).toUpperCase()));
             if(isCellValuePairs) {
-                let html = "<table class='roadmap-table' style='margin-top:0;'><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>";
-                html += tapRows.map(([campo, valor]) => `<tr><td style="font-weight:700;">${campo}</td><td>${valor ?? ''}</td></tr>`).join('');
+                let html = "<table class='tap-grid-table'><tbody>";
+                html += tapRows.map(([campo, valor]) => `<tr><td>${campo}</td><td>${valor ?? ''}</td></tr>`).join('');
                 html += "</tbody></table>";
                 c.innerHTML = html;
                 return;
