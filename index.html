@@ -412,10 +412,10 @@
             <nav>
                 <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="pie-chart"></i> Visão Geral</div>
                 <div class="nav-separator"></div>
-                <div class="nav-item" onclick="openStaticPage('status_report.html')"><i data-lucide="clipboard-list"></i> Status Report</div>
+                <div class="nav-item" onclick="openStaticPage('status', 'status_report.html', this)"><i data-lucide="clipboard-list"></i> Status Report</div>
                 <div class="nav-item" onclick="showTapPage(this)"><i data-lucide="file-text"></i> TAP do Projeto</div>
-                <div class="nav-item" onclick="openStaticPage('pendencias.html')"><i data-lucide="check-square"></i> Pendências</div>
-                <div class="nav-item" onclick="openStaticPage('riscos.html')"><i data-lucide="alert-triangle"></i> Riscos</div>
+                <div class="nav-item" onclick="openStaticPage('pendencias', 'pendencias.html', this)"><i data-lucide="check-square"></i> Pendências</div>
+                <div class="nav-item" onclick="openStaticPage('riscos', 'riscos.html', this)"><i data-lucide="alert-triangle"></i> Riscos</div>
                 <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-pull-request"></i> Gaps e Mudanças</div>
                 <div class="nav-item" id="nav-stakeholders" onclick="showPage('stakeholders', this)"><i data-lucide="users"></i> Stakeholders</div>
                 <div class="nav-separator"></div>
@@ -549,6 +549,27 @@
                     class="embedded-page-frame"
                     src="tap.html"
                     title="TAP do Projeto"
+                    loading="lazy">
+                </iframe>
+            </div>
+
+
+            <!-- PENDÊNCIAS -->
+            <div id="page-pendencias" class="hidden">
+                <iframe
+                    class="embedded-page-frame"
+                    src="pendencias.html"
+                    title="Pendências"
+                    loading="lazy">
+                </iframe>
+            </div>
+
+            <!-- RISCOS -->
+            <div id="page-riscos" class="hidden">
+                <iframe
+                    class="embedded-page-frame"
+                    src="riscos.html"
+                    title="Riscos"
                     loading="lazy">
                 </iframe>
             </div>
@@ -762,19 +783,12 @@
         }
 
 
-        function openStaticPage(fileName) {
-            const host = window.location.hostname;
-            const path = window.location.pathname;
-
-            // Se estiver na visualização de código do GitHub, força abertura via GitHub Pages.
-            if (host === 'github.com') {
-                window.location.href = `https://rhreis504.github.io/PRJ_ROSSI_SUPERMERCADOS/${fileName}`;
-                return;
+        function openStaticPage(pageId, fileName, el) {
+            const iframe = document.querySelector(`#page-${pageId} iframe`);
+            if (iframe && iframe.getAttribute('src') !== fileName) {
+                iframe.setAttribute('src', fileName);
             }
-
-            // Em ambientes locais/publicados, mantém navegação relativa.
-            const basePath = path.endsWith('/') ? path : path.substring(0, path.lastIndexOf('/') + 1);
-            window.location.href = `${basePath}${fileName}`;
+            showPage(pageId, el);
         }
 
         // --- DASHBOARD ---
