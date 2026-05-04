@@ -413,7 +413,7 @@
                 <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="pie-chart"></i> Visão Geral</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" onclick="openStaticPage('status_report.html')"><i data-lucide="clipboard-list"></i> Status Report</div>
-                <div class="nav-item" onclick="openStaticPage('tap.html')"><i data-lucide="file-text"></i> TAP do Projeto</div>
+                <div class="nav-item" onclick="showTapPage(this)"><i data-lucide="file-text"></i> TAP do Projeto</div>
                 <div class="nav-item" onclick="openStaticPage('pendencias.html')"><i data-lucide="check-square"></i> Pendências</div>
                 <div class="nav-item" onclick="openStaticPage('riscos.html')"><i data-lucide="alert-triangle"></i> Riscos</div>
                 <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-pull-request"></i> Gaps e Mudanças</div>
@@ -544,7 +544,14 @@
 
 
             <!-- TAP -->
-            <div id="page-tap" class="hidden"></div>
+            <div id="page-tap" class="hidden">
+                <iframe
+                    class="embedded-page-frame"
+                    src="tap.html"
+                    title="TAP do Projeto"
+                    loading="lazy">
+                </iframe>
+            </div>
 
             <!-- CONFIGURAÇÕES (UPGRADED LAYOUT) -->
             <div id="page-config" class="hidden">
@@ -734,7 +741,7 @@
 
         // --- NAVIGATION ---
         function showPage(id, el) {
-            ['cockpit', 'status', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'config'].forEach(p => {
+            ['cockpit', 'status', 'tap', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'config'].forEach(p => {
                 const element = document.getElementById('page-' + p);
                 if(element) element.classList.add('hidden');
             });
@@ -748,6 +755,10 @@
             if(id === 'cockpit') updateDashboardStats();
             if(id === 'stakeholders') renderStkTable();
             if(id === 'config') generateConfigRows();
+        }
+
+        function showTapPage(el) {
+            showPage('tap', el);
         }
 
 
@@ -1042,7 +1053,12 @@
             if(select) {
                 select.innerHTML = config.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
                 select.value = config.activeProjectId;
-                select.onchange = () => { config.activeProjectId = select.value; generateConfigRows(); };
+                select.onchange = () => {
+                    config.activeProjectId = select.value;
+                    localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+                    generateConfigRows();
+                    startSync();
+                };
             }
             const supaUrl = document.getElementById('supabase-url'); if(supaUrl) supaUrl.value = config.supabase?.url || '';
             const supaSecret = document.getElementById('supabase-secret'); if(supaSecret) supaSecret.value = config.supabase?.secret || '';
