@@ -277,7 +277,11 @@
       if(c==='"'){ if(q && n==='"'){cur+='"';i++;} else q=!q; }
       else if(c===',' && !q){row.push(cur.trim());cur='';}
       else if((c==='
-' || c==='') && !q){ if(c===''&&n==='
+    const sources = project?.sources || {};
+    if(sources.tap) return sources.tap;
+    const entries = Object.entries(sources);
+    return entries.find(([k,v]) => norm(k)==='tap' || norm(v.label).includes('tap'))?.[1] || null;
+'&&n==='
 ') i++; row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row); row=[]; cur=''; }
       else cur+=c;
     }
