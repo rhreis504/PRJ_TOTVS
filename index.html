@@ -417,6 +417,7 @@
                 <div class="nav-item" onclick="openStaticPage('riscos.html')"><i data-lucide="alert-triangle"></i> Riscos</div>
                 <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-pull-request"></i> Gaps e Mudanças</div>
                 <div class="nav-item" id="nav-stakeholders" onclick="showPage('stakeholders', this)"><i data-lucide="users"></i> Stakeholders</div>
+                <div class="nav-item" id="nav-tap" onclick="showPage('tap', this)"><i data-lucide="file-text"></i> TAP do Projeto</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Treinamentos</div>
                 <div class="nav-item" id="nav-agenda" onclick="showPage('agenda', this)"><i data-lucide="calendar"></i> Agenda de Treinos</div>
@@ -538,6 +539,16 @@
                 <div class="card">
                     <h3 class="section-title">Mapa de Stakeholders</h3>
                     <div id="stk-table-container" style="overflow-x: auto;"></div>
+                </div>
+            </div>
+
+
+            <!-- TAP -->
+            <div id="page-tap" class="hidden">
+                <div class="card">
+                    <h3 class="section-title">TAP do Projeto</h3>
+                    <p style="color: var(--totvs-text-muted); margin-bottom: 16px; font-size: 13px;">Dados carregados automaticamente da URL configurada em <b>Configurações &gt; TAP</b>.</p>
+                    <div id="tap-table-container" style="overflow-x: auto;"></div>
                 </div>
             </div>
 
@@ -730,7 +741,7 @@
 
         // --- NAVIGATION ---
         function showPage(id, el) {
-            ['cockpit', 'status', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'config'].forEach(p => {
+            ['cockpit', 'status', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'tap', 'treinamentos', 'agenda', 'config'].forEach(p => {
                 const element = document.getElementById('page-' + p);
                 if(element) element.classList.add('hidden');
             });
@@ -743,6 +754,7 @@
             if(id === 'agenda') renderAgendaList();
             if(id === 'cockpit') updateDashboardStats();
             if(id === 'stakeholders') renderStkTable();
+            if(id === 'tap') renderTapTable();
             if(id === 'config') generateConfigRows();
         }
 
@@ -1128,6 +1140,34 @@
             let h = "<table class='roadmap-table' style='margin-top:0;'><thead><tr>" + dataStore.stakeholders[0].map((_, i) => `<th>Col ${i+1}</th>`).join('') + "</tr></thead><tbody>";
             h += dataStore.stakeholders.map(r => "<tr>" + r.map(v => `<td>${v}</td>`).join('') + "</tr>").join('') + "</tbody></table>";
             c.innerHTML = h;
+        }
+
+
+        function renderTapTable() {
+            const c = document.getElementById('tap-table-container');
+            if(!c) return;
+            const tapRows = dataStore.tap || [];
+            if(!tapRows.length) {
+                c.innerHTML = "<p style='padding: 20px; color: var(--totvs-text-muted);'>Nenhum dado TAP sincronizado. Configure a URL da fonte TAP na página de Configurações e salve para sincronizar.</p>";
+                return;
+            }
+
+            const isCellValuePairs = tapRows.every(r => Array.isArray(r) && r.length === 2 && /^([A-Z]+\d+|\d+:\d+)$/.test(String(r[0]).toUpperCase()));
+            if(isCellValuePairs) {
+                let html = "<table class='roadmap-table' style='margin-top:0;'><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>";
+                html += tapRows.map(([campo, valor]) => `<tr><td style="font-weight:700;">${campo}</td><td>${valor ?? ''}</td></tr>`).join('');
+                html += "</tbody></table>";
+                c.innerHTML = html;
+                return;
+            }
+
+            const colCount = Math.max(...tapRows.map(r => Array.isArray(r) ? r.length : 0), 0);
+            let html = "<table class='roadmap-table' style='margin-top:0;'><thead><tr>";
+            html += Array.from({ length: colCount }).map((_, i) => `<th>Col ${i+1}</th>`).join('');
+            html += "</tr></thead><tbody>";
+            html += tapRows.map(r => `<tr>${Array.from({ length: colCount }).map((_, i) => `<td>${(r && r[i]) ?? ''}</td>`).join('')}</tr>`).join('');
+            html += "</tbody></table>";
+            c.innerHTML = html;
         }
 
         function initApp() {
