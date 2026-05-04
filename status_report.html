@@ -441,19 +441,36 @@
         function renderActivities(){ const renderList=(acts,id)=>{const el=document.getElementById(id);acts.forEach(a=>el.innerHTML+=`<div class="bg-white border border-slate-200 p-2.5 rounded shadow-sm text-sm border-l-4 border-l-slate-400 fade-in"><p class="font-semibold text-slate-800">${a.desc}</p><div class="flex justify-between items-center mt-2"><span class="text-xs text-slate-500"><i class="fa-regular fa-user mr-1"></i>${a.resp}</span><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(a.status)}">${a.status}</span></div></div>`)};renderList(data.activities.past,'act-past');renderList(data.activities.present,'act-present');renderList(data.activities.future,'act-future'); }
         function renderTables(){document.getElementById('count-issues').innerText=`${data.issues.length} Críticas`;const tI=document.getElementById('table-issues');data.issues.forEach(i=>tI.innerHTML+=`<tr><td class="p-2">${i.id}</td><td class="p-2">${i.desc}</td><td class="p-2">${i.resp}</td><td class="p-2">${i.due}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${i.status}</span></td></tr>`);document.getElementById('count-risks').innerText=`${data.risks.length} Ações Requeridas`;const tR=document.getElementById('table-risks');data.risks.forEach(r=>tR.innerHTML+=`<tr><td class="p-2">${r.id} - ${r.desc}</td><td class="p-2">${r.exp}</td><td class="p-2">${r.action}</td></tr>`);const tG=document.getElementById('table-gaps');data.gaps.forEach(g=>tG.innerHTML+=`<tr><td class="p-2">${g.id} - ${g.desc}</td><td class="p-2">${g.impact}</td><td class="p-2">${g.est}</td><td class="p-2">${g.action}</td></tr>`);}
         
+
+        function normalizeSupabaseBaseUrl(raw=''){
+            const value=(raw||'').trim();
+            if(!value) return '';
+            try{
+                const parsed=new URL(value.startsWith('http')?value:`https://${value}`);
+                if(parsed.hostname.endsWith('supabase.com')) throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não a URL do dashboard.');
+                if(parsed.hostname.endsWith('supabase.co')){
+                    const hostParts=parsed.hostname.split('.');
+                    if(hostParts[0]==='app') throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não app.supabase.com.');
+                }
+                return `${parsed.protocol}//${parsed.host}`;
+            }catch(e){
+                throw new Error(`URL do Supabase inválida: ${e.message || e}`);
+            }
+        }
+
         async function supabaseRequest(path, method='GET', body){
-            const url=localStorage.getItem('supabaseUrl');
+            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||'');
             const secret=localStorage.getItem('supabaseSecret');
-            if(!url || !secret) return null;
-            const res=await fetch(`${url}/rest/v1/${path}`,{method,headers:{apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body: body?JSON.stringify(body):undefined});
+            if(!baseUrl || !secret) return null;
+            const res=await fetch(`${baseUrl}/rest/v1/${path}`,{method,headers:{apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body: body?JSON.stringify(body):undefined});
             if(!res.ok) throw new Error(`Supabase ${method} ${path} -> ${res.status}`);
             return res.json();
         }
 
         async function migrateToSupabase(){
-            const url=localStorage.getItem('supabaseUrl');
+            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||'');
             const secret=localStorage.getItem('supabaseSecret');
-            if(!url || !secret) return null;
+            if(!baseUrl || !secret) return null;
             const projectCode='ROSSI-PMO';
             const projectName=data.projectInfo.name||'Rossi Supermercados';
             const existing=await supabaseRequest(`projects?code=eq.${encodeURIComponent(projectCode)}`);
