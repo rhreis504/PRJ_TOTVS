@@ -675,7 +675,7 @@
             pendencias: { label: 'Pendências', url: '', range: 'A1:Z100', hasHeader: true, icon: 'check-square' },
             riscos: { label: 'Riscos', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
             gaps: { label: 'Gaps', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-branch' },
-            tap: { label: 'TAP', url: '', range: 'A1:Z300', hasHeader: true, icon: 'file-text' }
+            tap: { label: 'TAP', url: '', range: 'A1:Z300', hasHeader: true, icon: 'file-text', fields: '' }
         });
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
 
@@ -946,6 +946,36 @@
             generateConfigRows();
             showToast('Projeto cadastrado.');
         }
+        function cellToIndex(cellRef) {
+            const m = String(cellRef || '').trim().toUpperCase().match(/^([A-Z]+)(\d+)$/);
+            if(!m) return null;
+            const col = m[1].split('').reduce((n, ch) => n * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
+            const row = parseInt(m[2], 10) - 1;
+            return { row, col };
+        }
+        function extractTapFields(rows, fieldsText) {
+            const fields = String(fieldsText || '').split(/[;,\n]/).map(v => v.trim()).filter(Boolean);
+            if(!fields.length) return rows;
+            const output = [];
+            fields.forEach(field => {
+                if(field.includes(':')) {
+                    const [start, end] = field.split(':').map(v => v.trim());
+                    const a = cellToIndex(start), b = cellToIndex(end);
+                    if(!a || !b) return;
+                    for(let r=Math.min(a.row,b.row); r<=Math.max(a.row,b.row); r++) {
+                        for(let c=Math.min(a.col,b.col); c<=Math.max(a.col,b.col); c++) {
+                            output.push([`${r+1}:${c+1}`, rows[r]?.[c] ?? '']);
+                        }
+                    }
+                    return;
+                }
+                const pos = cellToIndex(field);
+                if(!pos) return;
+                output.push([field.toUpperCase(), rows[pos.row]?.[pos.col] ?? '']);
+            });
+            return output;
+        }
+
         async function fetchCSV(key) {
             const s = getActiveProject().sources[key]; if(!s || !s.url) return [];
             let url = s.url.includes('spreadsheets/d/') && !s.url.includes('format=csv') ? s.url.replace(/\/edit.*$/, '/export?format=csv') : s.url;
@@ -955,8 +985,9 @@
             try {
                 const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
                 const t = await r.text();
-                const rows = t.split(/\r?\n/).map(l => l.split(',').map(c => c.replace(/^"(.*)"$/, '$1').trim())).filter(row => row.some(cell => cell !== ""));
-                return s.hasHeader ? rows.slice(1) : rows;
+                const rows = t.split(/\r?\n/).map(l => l.split(',').map(c => c.replace(/^\"(.*)\"$/, '$1').trim())).filter(row => row.some(cell => cell !== ""));
+                const parsedRows = s.hasHeader ? rows.slice(1) : rows;
+                return key === 'tap' ? extractTapFields(parsedRows, s.fields) : parsedRows;
             } catch { return []; }
         }
         async function syncAll() {
@@ -1007,6 +1038,7 @@
                 active.sources[k].range = document.getElementById(`range-${k}`).value;
                 active.sources[k].sheet = document.getElementById(`sheet-${k}`).value;
                 active.sources[k].hasHeader = document.getElementById(`header-${k}`).checked;
+                active.sources[k].fields = document.getElementById(`fields-${k}`)?.value || '';
             });
             config.activeProjectId = document.getElementById('active-project-select').value;
             config.supabase.url = document.getElementById('supabase-url').value.trim();
@@ -1064,6 +1096,11 @@
                             <label>Range (Opcional)</label>
                             <input type="text" id="range-${k}" value="${it.range || ''}" placeholder="Ex: A1:Z500">
                         </div>
+
+                        ${k === 'tap' ? `<div class="config-input-group" style="grid-column: span 2;">
+                            <label>Buscar dados nos campos (TAP)</label>
+                            <input type="text" id="fields-${k}" value="${it.fields || ''}" placeholder="Ex: B4; H47; C10:D12">
+                        </div>` : ''}
                         <label class="config-checkbox">
                             <input type="checkbox" id="header-${k}" ${it.hasHeader ? 'checked' : ''}>
                             <span>Contém Cabeçalho</span>
