@@ -325,9 +325,26 @@
 
   function resolveUrl(source){
     if(!source?.url) return '';
-    let url = source.url;
-    if(url.includes('spreadsheets/d/') && !url.includes('format=csv')) url = url.replace(/\/edit.*$/, '/export?format=csv');
-    if(source.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
+    let url = source.url.trim();
+
+    // Link de publicação web do Google Sheets (pubhtml#gid=...)
+    if(url.includes('/pubhtml')){
+      const gidFromHash = (url.match(/#gid=(\d+)/) || [])[1];
+      url = url.replace('/pubhtml', '/pub?output=csv').replace(/#.*$/, '');
+      if(gidFromHash && !/[?&]gid=/.test(url)) {
+        url += (url.includes('?') ? '&' : '?') + `gid=${gidFromHash}`;
+      }
+    }
+
+    // Link de edição padrão do Google Sheets
+    if(url.includes('spreadsheets/d/') && !/output=csv|format=csv/.test(url)) {
+      url = url.replace(/\/edit.*$/, '/export?format=csv');
+    }
+
+    if(source.sheet && !/[?&]sheet=/.test(url)) {
+      url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
+    }
+
     return url;
   }
 
