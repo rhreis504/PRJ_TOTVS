@@ -724,6 +724,7 @@
         });
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
         let lastSyncStatus = {};
+        let lastFetchErrors = {};
 
         let roadmaps = [];
         let agenda = [];
@@ -1012,19 +1013,57 @@
             row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row);
             return rows;
         }
+        function resolveCsvUrl(source){
+            if(!source?.url) return '';
+            let url = source.url.trim();
+            if(url.includes('/spreadsheets/d/e/')){
+                if(url.includes('/pub?')) {
+                    if(!url.includes('output=csv')) url += (url.includes('?') ? '&' : '?') + 'output=csv';
+                } else if(url.includes('/pubhtml')) {
+                    url = url.replace('/pubhtml', '/pub?output=csv');
+                } else {
+                    url = url.replace(/\/?$/, '/pub?output=csv');
+                }
+            } else if(url.includes('spreadsheets/d/') && !url.includes('format=csv')) {
+                url = url.replace(/\/edit.*$/, '/export?format=csv');
+            }
+            if(source.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
+            return url;
+        }
         async function fetchCSV(key) {
             const s = getActiveProject().sources[key]; if(!s || !s.url) return [];
-            let url = s.url.includes('spreadsheets/d/') && !s.url.includes('format=csv') ? s.url.replace(/\/edit.*$/, '/export?format=csv') : s.url;
-            if(s.sheet) {
-                url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(s.sheet)}`;
-            }
+            let url = resolveCsvUrl(s);
             try {
                 const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+                if(!r.ok) throw new Error(`Fonte retornou HTTP ${r.status}`);
                 const t = await r.text();
+                if(/<html/i.test(t) && /404|File not found|Page not found/i.test(t)) throw new Error('URL da planilha inválida (404). Para links /d/e/ use /pub?output=csv');
                 const rows = parseCsv(t);
                 const parsedRows = s.hasHeader ? rows.slice(1) : rows;
+                lastFetchErrors[key] = '';
                 return parsedRows;
-            } catch { return []; }
+            } catch (e) { lastFetchErrors[key] = String(e.message || e); return []; }
+        }
+        const normalizeKey = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+        function tapToEntry(rows, projectId){
+            const raw = {};
+            rows.forEach(r => { if(r.length >= 2) raw[normalizeKey(r[0])] = r[1] ?? ''; });
+            const map = (k, aliases=[]) => raw[normalizeKey(k)] ?? aliases.map(a => raw[normalizeKey(a)]).find(v => v!==undefined) ?? '';
+            return {
+                project_id: projectId, identificacao: map('identificacao'), data_referencia: map('dataBase', ['data', 'datareferencia']),
+                nome_projeto: map('nomeProjeto'), coordenador_projeto: map('coordenadorCP', ['coordenadorprojeto', 'cp']), esn: map('esn'),
+                criticidade_cliente: map('criticidadeCliente'), drive: map('driveRepositorio', ['drive']), cod_cliente: map('codCliente'),
+                gpp: map('gpp'), produto: map('produtosContratados', ['produto']), arquiteto: map('arquitetoTotvs', ['arquiteto']),
+                criticidade_totvs: map('criticidadeTotvs'), valor_projeto: map('valorProjeto'), margem_venda_percentual: map('margemVendaPerc'),
+                margem_venda_valor: map('margemVendaValor'), mrr_recorrente_mensal: map('mrrMensal'), mrr_total_contratados: map('mrrTotal'),
+                psa_planejado: map('psaPlanejado'), diferenca_psa_projeto: map('diferencaPsa'), receita_atual: map('receitaAtual'),
+                margem_atual_percentual: map('margemAtualPerc'), margem_atual_valor: map('margemAtualValor'),
+                investimento_perdas: map('investimentoPerdas'), investimento_comercial: map('investimentoComercial'),
+                investimento_erro_produto: map('investimentoErroProduto'), projeto_em_perda: map('projetoEmPerda'),
+                data_inicio: map('dataInicio'), go_live_previsao: map('goLivePrevisao'), duracao: map('duracaoMeses'),
+                pos_producao_meses: map('posProducaoMeses'), encerramento: map('dataEncerramento'),
+                descricao_escopo: map('itemEscopo'), observacoes: map('observacoesGerais'), payload: raw
+            };
         }
         const normalizeKey = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
         function tapToEntry(rows, projectId){
@@ -1122,6 +1161,7 @@
             for(const sourceKey of keys){
                 const total = (rowsByKey[sourceKey] || []).length;
                 try {
+                    if(lastFetchErrors[sourceKey]) throw new Error(lastFetchErrors[sourceKey]);
                     if(sourceKey === 'tap'){
                         await supabaseRequest(`tap_entries?project_id=eq.${projectId}`, 'DELETE');
                         if(total) await supabaseRequest('tap_entries', 'POST', [tapToEntry(rowsByKey.tap || [], projectId)]);
@@ -1142,7 +1182,11 @@
                 const st = lastSyncStatus[k];
                 if(!st) { el.textContent = 'Aguardando sincronização...'; el.style.color = 'var(--totvs-text-muted)'; return; }
                 if(st.ok) { el.textContent = `✅ Carregado no Supabase (${st.total} registros)`; el.style.color = '#22c55e'; }
-                else { el.textContent = `❌ Falha: ${st.error || 'erro desconhecido'} (${st.total} registros lidos)`; el.style.color = '#ef4444'; }
+                else {
+                    const msg = (st.error || 'erro desconhecido').replace(/\s+/g, ' ').slice(0, 180);
+                    el.textContent = `❌ Falha: ${msg} (${st.total} registros lidos)`;
+                    el.style.color = '#ef4444';
+                }
             });
         }
         function startSync() {
