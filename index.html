@@ -975,7 +975,26 @@
     <!-- ========== SCRIPTS MANTIDOS INTEGRALMENTE ========== -->
     <script>
         // --- CONFIG & STATE ---
-        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v2';
+        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v5';
+        const SUPABASE_DEFAULT_CONFIG = Object.freeze({
+            url: 'https://xkhgjfjipkhrbkjltcgp.supabase.co',
+            apiUrl: 'https://xkhgjfjipkhrbkjltcgp.supabase.co/rest/v1/',
+            projectRef: 'xkhgjfjipkhrbkjltcgp',
+            schema: 'public',
+            projectsTable: 'projects',
+            tapTable: 'tap_entries',
+            publishableKey: '',
+            anonKey: '',
+            secret: '',
+            serviceRole: '',
+            currentKey: '',
+            previousKey: '',
+            configVersion: 'dbconf-2026-05-05-v5'
+        });
+        const LEGACY_SUPABASE_PROJECT_REFS = ['xkhgjfjjpkhrbkjltcgp'];
+        function isLegacySupabaseProjectRef(value = '') {
+            return LEGACY_SUPABASE_PROJECT_REFS.includes((value || '').trim().toLowerCase());
+        }
         const defaultSources = () => ({
             stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
             pendencias: { label: 'Pendências', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
@@ -983,7 +1002,7 @@
             gaps: { label: 'Gaps', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
             tap: { label: 'TAP', sourceType: 'csv', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-signature' },
         });
-        let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', apiUrl: '', projectRef: '', publishableKey: '', anonKey: '', secret: '', serviceRole: '', currentKey: '', previousKey: '' } };
+        let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
         let lastSyncStatus = {};
         let lastFetchErrors = {};
 
@@ -1013,12 +1032,28 @@
                 if(sReunioes) reunioes = JSON.parse(sReunioes);
             } catch { reunioes = []; }
         };
+        function normalizePersistedConfig() {
+            if(!config || typeof config !== 'object') config = {};
+            if(!config.password || typeof config.password !== 'string') config.password = 'admin';
+            if(!Array.isArray(config.projects) || !config.projects.length) config.projects = [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }];
+            if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
+            if(!Array.isArray(config.selectedProjectIds) || !config.selectedProjectIds.length) config.selectedProjectIds = [config.activeProjectId];
+            config.supabase = { ...SUPABASE_DEFAULT_CONFIG, ...(config.supabase || {}) };
+            const persistedUrlRef = extractProjectRefFromUrl(config.supabase.url) || '';
+            const persistedFieldRef = config.supabase.projectRef || '';
+            const persistedApiRef = extractProjectRefFromUrl(config.supabase.apiUrl) || '';
+            const hasLegacyProjectRef = [persistedUrlRef, persistedFieldRef, persistedApiRef].some(isLegacySupabaseProjectRef);
+            if(!config.supabase.url || hasLegacyProjectRef) config.supabase.url = SUPABASE_DEFAULT_CONFIG.url;
+            if(!config.supabase.projectRef || hasLegacyProjectRef) config.supabase.projectRef = extractProjectRefFromUrl(config.supabase.url) || SUPABASE_DEFAULT_CONFIG.projectRef;
+            if(!config.supabase.apiUrl || hasLegacyProjectRef) config.supabase.apiUrl = `${config.supabase.url.replace(/\/$/, '')}/rest/v1/`;
+            config.supabase.schema = config.supabase.schema || SUPABASE_DEFAULT_CONFIG.schema;
+            config.supabase.projectsTable = config.supabase.projectsTable || SUPABASE_DEFAULT_CONFIG.projectsTable;
+            config.supabase.tapTable = config.supabase.tapTable || SUPABASE_DEFAULT_CONFIG.tapTable;
+            config.supabase.configVersion = DB_CONFIGURATOR_BUILD_VERSION;
+        }
         loadSavedData();
-        if(!config.password || typeof config.password !== 'string') config.password = 'admin';
-        if(!Array.isArray(config.projects) || !config.projects.length) config.projects = [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }];
-        if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
-        if(!Array.isArray(config.selectedProjectIds) || !config.selectedProjectIds.length) config.selectedProjectIds = [config.activeProjectId];
-        if(!config.supabase) config.supabase = { url: '', secret: '' };
+        normalizePersistedConfig();
+        try { localStorage.setItem('totvs_cockpit_config', JSON.stringify(config)); } catch (_e) {}
         const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0];
         const getSelectedProjects = () => config.projects.filter(p => config.selectedProjectIds.includes(p.id));
 
@@ -1471,7 +1506,7 @@
             showToast('Dados corporativos carregados na memória.');
         }
         function normalizeSupabaseBaseUrl(rawUrl = '') {
-            const input = rawUrl.trim();
+            const input = (rawUrl || '').trim();
             if(!input) return '';
             const candidate = /^https?:\/\//i.test(input) ? input : `https://${input}`;
             try {
@@ -1490,14 +1525,99 @@
                 throw new Error(`URL do Supabase inválida: ${e.message || e}`);
             }
         }
-        async function supabaseRequest(path, method='GET', body) {
-            const baseUrl = normalizeSupabaseBaseUrl(config.supabase?.url || ''), secret = config.supabase?.secret;
-            if(!baseUrl || !secret) return [];
-            const res = await fetch(`${baseUrl}/rest/v1/${path}`, {
-                method,
-                headers: { apikey: secret, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=merge-duplicates' },
-                body: body ? JSON.stringify(body) : undefined
+        function classifySupabaseKey(value = '') {
+            const key = (value || '').trim();
+            if(!key) return 'empty';
+            if(/^sb_publishable_/i.test(key)) return 'publishable';
+            if(/^sb_secret_/i.test(key)) return 'secret';
+            if(/^eyJ/i.test(key)) return 'legacy_jwt';
+            return 'unknown';
+        }
+        function canUseSupabaseKeyInBrowserUrl(credential) {
+            if(credential?.keyType === 'publishable') return true;
+            return credential?.keyType === 'legacy_jwt' && /anon|publishable/i.test(credential?.label || '');
+        }
+        function appendSupabaseApiKeyParam(endpoint, credential) {
+            const parsed = new URL(endpoint);
+            parsed.searchParams.set('apikey', credential.value);
+            return parsed.toString();
+        }
+        function getSupabaseCredentialCandidates(source = config.supabase || {}) {
+            const seen = new Set();
+            return [
+                { label: 'publishable', value: source.publishableKey },
+                { label: 'anon', value: source.anonKey },
+                { label: 'currentKey', value: source.currentKey },
+                { label: 'service_role', value: source.secret || source.serviceRole },
+                { label: 'previousKey', value: source.previousKey }
+            ].filter((item) => {
+                const value = (item.value || '').trim();
+                if(!value || seen.has(value)) return false;
+                seen.add(value);
+                item.value = value;
+                item.keyType = classifySupabaseKey(value);
+                item.browserUrlFallback = canUseSupabaseKeyInBrowserUrl(item);
+                return true;
             });
+        }
+        function getSupabaseRuntimeConfig(source = config.supabase || {}) {
+            const merged = { ...SUPABASE_DEFAULT_CONFIG, ...(source || {}) };
+            let baseUrl = '';
+            try { baseUrl = normalizeSupabaseBaseUrl(merged.url || ''); } catch (_e) {}
+            if(!baseUrl) baseUrl = resolveSupabaseBaseUrl({ rawUrl: merged.url, projectRef: merged.projectRef, apiUrl: merged.apiUrl });
+            if(!baseUrl && SUPABASE_DEFAULT_CONFIG.projectRef) baseUrl = `https://${SUPABASE_DEFAULT_CONFIG.projectRef}.supabase.co`;
+            baseUrl = (baseUrl || '').replace(/\/$/, '');
+            const credentials = getSupabaseCredentialCandidates(merged);
+            return {
+                baseUrl,
+                apiUrl: `${baseUrl}/rest/v1/`,
+                schema: merged.schema || SUPABASE_DEFAULT_CONFIG.schema,
+                projectsTable: merged.projectsTable || SUPABASE_DEFAULT_CONFIG.projectsTable,
+                tapTable: merged.tapTable || SUPABASE_DEFAULT_CONFIG.tapTable,
+                credentials,
+                credential: credentials[0] || null
+            };
+        }
+        function buildSupabaseHeaders(credential, extraHeaders = {}, options = {}) {
+            if(!credential?.value) throw new Error('Nenhuma chave Supabase configurada. Informe uma chave no Configurador de Banco.');
+            const headers = { apikey: credential.value };
+            if(credential.keyType === 'legacy_jwt') headers.Authorization = `Bearer ${credential.value}`;
+            if(options.includeJson !== false) headers['Content-Type'] = 'application/json';
+            if(options.includePrefer !== false) headers.Prefer = 'return=representation,resolution=merge-duplicates';
+            return { ...headers, ...extraHeaders };
+        }
+        async function fetchSupabaseGetWithFallback(endpoint, credential, headerOptions = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: buildSupabaseHeaders(credential, headerOptions, { includeJson: false, includePrefer: false })
+                });
+                return { response, mode: 'headers' };
+            } catch (headerError) {
+                if(!canUseSupabaseKeyInBrowserUrl(credential)) throw headerError;
+                const fallbackEndpoint = appendSupabaseApiKeyParam(endpoint, credential);
+                const response = await fetch(fallbackEndpoint, { method: 'GET', cache: 'no-store' });
+                return { response, mode: 'query-param-fallback', headerError };
+            }
+        }
+        async function supabaseRequest(path, method='GET', body) {
+            const runtime = getSupabaseRuntimeConfig();
+            if(!runtime.baseUrl) throw new Error('URL do Supabase não configurada.');
+            if(!runtime.credential) throw new Error('Nenhuma chave Supabase configurada. Informe Service Role, Publishable ou Anon.');
+            const endpoint = `${runtime.baseUrl}/rest/v1/${path}`;
+            const requestMethod = method.toUpperCase();
+            let res;
+            if(requestMethod === 'GET') {
+                const result = await fetchSupabaseGetWithFallback(endpoint, runtime.credential);
+                res = result.response;
+            } else {
+                res = await fetch(endpoint, {
+                    method,
+                    headers: buildSupabaseHeaders(runtime.credential),
+                    body: body ? JSON.stringify(body) : undefined
+                });
+            }
             const text = await res.text();
             if(!res.ok) {
                 const contentType = res.headers.get('content-type') || '';
@@ -1510,8 +1630,9 @@
             return JSON.parse(text);
         }
         async function syncProjectToSupabase(project, keys, rowsByKey = {}) {
-            if(!config.supabase?.url || !config.supabase?.secret) {
-                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: 0, error: 'Supabase não configurado' });
+            const runtime = getSupabaseRuntimeConfig();
+            if(!runtime.baseUrl || !runtime.credential) {
+                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: 0, error: 'Supabase não configurado: informe URL e ao menos uma chave no Configurador de Banco.' });
                 renderSyncStatus();
                 return;
             }
@@ -1675,35 +1796,42 @@
         }
         async function testDbConfiguratorConnection() {
             const testBtn = document.getElementById('dbconf-test-connection-btn');
-            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
-            const projectRef = (document.getElementById('dbconf-project-ref')?.value || '').trim();
+            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim() || SUPABASE_DEFAULT_CONFIG.url;
+            const projectRef = (document.getElementById('dbconf-project-ref')?.value || '').trim() || SUPABASE_DEFAULT_CONFIG.projectRef;
             const apiUrl = (document.getElementById('dbconf-api-url')?.value || '').trim();
-            const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
-            const publishableKey = (document.getElementById('dbconf-publishable-key')?.value || '').trim();
-            const anonKey = (document.getElementById('dbconf-anon-key')?.value || '').trim();
-            const projectsTable = (document.getElementById('dbconf-projects-table')?.value || 'projects').trim();
-            const resolvedBaseUrl = resolveSupabaseBaseUrl({ rawUrl: url, projectRef, apiUrl });
-            const validation = validateDbConfiguratorUrl(resolvedBaseUrl || url);
+            const formSupabaseConfig = {
+                ...SUPABASE_DEFAULT_CONFIG,
+                ...(config.supabase || {}),
+                url,
+                projectRef,
+                apiUrl,
+                schema: (document.getElementById('dbconf-rest-schema')?.value || 'public').trim(),
+                projectsTable: (document.getElementById('dbconf-projects-table')?.value || 'projects').trim(),
+                tapTable: (document.getElementById('dbconf-tap-table')?.value || 'tap_entries').trim(),
+                secret: (document.getElementById('dbconf-supabase-secret')?.value || '').trim(),
+                serviceRole: (document.getElementById('dbconf-supabase-secret')?.value || '').trim(),
+                publishableKey: (document.getElementById('dbconf-publishable-key')?.value || '').trim(),
+                anonKey: (document.getElementById('dbconf-anon-key')?.value || '').trim(),
+                currentKey: (document.getElementById('dbconf-current-key')?.value || '').trim(),
+                previousKey: (document.getElementById('dbconf-previous-key')?.value || '').trim()
+            };
+            const runtime = getSupabaseRuntimeConfig(formSupabaseConfig);
+            const validation = validateDbConfiguratorUrl(runtime.baseUrl || url);
             if(!validation.ok) {
                 setDbConfiguratorConnectionLog(`[ERRO DE VALIDAÇÃO]
 ${validation.message}`);
                 showToast(validation.message);
                 return;
             }
-            const credentialsToTest = [
-                { label: 'service_role', value: secret },
-                { label: 'publishable', value: publishableKey },
-                { label: 'anon', value: anonKey }
-            ].filter(item => item.value);
-            if(!credentialsToTest.length) {
-                const msg = 'Informe ao menos uma chave: Service Role, Publishable ou Anon.';
+            if(!runtime.credentials.length) {
+                const msg = 'Informe ao menos uma chave: Service Role, Publishable ou Anon. A URL do projeto já foi fixada no código para eliminar dependência de cache.';
                 setDbConfiguratorConnectionLog(`[ERRO DE VALIDAÇÃO]
 ${msg}`);
                 showToast(msg);
                 return;
             }
-            const baseUrl = (resolvedBaseUrl || validation.normalized || '').replace(/\/$/, '');
-            const endpoint = `${baseUrl}/rest/v1/${encodeURIComponent(projectsTable)}?select=id&limit=1`;
+            const baseUrl = (runtime.baseUrl || validation.normalized || '').replace(/\/$/, '');
+            const endpoint = `${baseUrl}/rest/v1/${encodeURIComponent(runtime.projectsTable)}?select=id&limit=1`;
             const healthEndpoint = `${baseUrl}/auth/v1/health`;
             const originalLabel = testBtn ? testBtn.textContent : '';
             if(testBtn) {
@@ -1717,31 +1845,57 @@ Horário: ${startedAt}
 Base URL resolvida: ${baseUrl}
 Endpoint REST: ${endpoint}
 Endpoint Health: ${healthEndpoint}
-Tabela: ${projectsTable}`);
+Tabela: ${runtime.projectsTable}
+Credenciais encontradas: ${runtime.credentials.map(c => `${c.label}/${c.keyType}`).join(', ')}
+Cache local: a URL/ref do projeto agora são normalizados pelo código antes do teste.`);
             try {
-                try { await fetch(healthEndpoint, { method: 'GET' }); } catch (_healthErr) {}
+                const networkNotes = [];
+                try {
+                    const healthResponse = await fetch(healthEndpoint, { method: 'GET', cache: 'no-store' });
+                    const healthNote = healthResponse.status === 401
+                        ? 'HTTP 401 (normal no /auth/v1/health sem sessão; a validação real é o REST abaixo)'
+                        : `HTTP ${healthResponse.status} ${healthResponse.statusText || ''}`.trim();
+                    networkNotes.push(`- Health: ${healthNote}`);
+                } catch (healthErr) {
+                    networkNotes.push(`- Health: falhou antes de resposta HTTP (${healthErr?.name || 'erro'}: ${healthErr?.message || healthErr})`);
+                }
                 const attempts = [];
                 let validated = false;
-                for (const cred of credentialsToTest) {
-                    const response = await fetch(endpoint, {
-                        method: 'GET',
-                        headers: {
-                            apikey: cred.value,
-                            Authorization: `Bearer ${cred.value}`
+                for (const cred of runtime.credentials) {
+                    let response;
+                    let mode = 'headers';
+                    try {
+                        const result = await fetchSupabaseGetWithFallback(endpoint, cred, { Prefer: 'return=minimal' });
+                        response = result.response;
+                        mode = result.mode;
+                        if(result.headerError) {
+                            attempts.push(`- ${cred.label}/${cred.keyType}: headers falharam (${result.headerError?.name || 'erro'}: ${result.headerError?.message || result.headerError}); tentando fallback por query param.`);
                         }
-                    });
+                    } catch (fetchErr) {
+                        attempts.push(`- ${cred.label}/${cred.keyType}: falhou antes de resposta HTTP (${fetchErr?.name || 'erro'}: ${fetchErr?.message || fetchErr})`);
+                        throw fetchErr;
+                    }
                     if(response.ok) {
                         validated = true;
                         setDbConfiguratorConnectionLog(`[SUCESSO]
 Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
 Conexão validada com sucesso.
-Credencial aprovada: ${cred.label}
-Endpoint: ${endpoint}`);
+Credencial aprovada: ${cred.label}/${cred.keyType}
+Modo de acesso: ${mode === 'query-param-fallback' ? 'fallback sem headers customizados no navegador' : 'headers REST padrão'}
+Endpoint: ${endpoint}
+Diagnóstico de rede:
+${networkNotes.join('\n')}`);
                         showToast(`Conexão com Supabase validada com sucesso (${cred.label}).`);
                         break;
                     }
-                    const details = (await response.text()).slice(0, 400);
-                    attempts.push(`- ${cred.label}: ${response.status} ${response.statusText} | ${details || 'sem detalhes'}`);
+                    const details = (await response.text()).slice(0, 500);
+                    attempts.push(`- ${cred.label}/${cred.keyType} via ${mode}: ${response.status} ${response.statusText} | ${details || 'sem detalhes'}`);
+                    if(response.status === 401 && cred.keyType === 'secret') {
+                        attempts.push('  Observação: chaves sb_secret_* são bloqueadas em navegador pelo Supabase. Use Publishable/Anon no front-end ou um backend/Edge Function para operações administrativas.');
+                    }
+                    if(response.status === 404) {
+                        attempts.push(`  Observação: a tabela "${runtime.projectsTable}" pode não existir ou não estar exposta no schema REST.`);
+                    }
                     if(![401, 403].includes(response.status)) break;
                 }
                 if(!validated) {
@@ -1749,8 +1903,14 @@ Endpoint: ${endpoint}`);
 Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
 Nenhuma credencial foi aceita.
 Endpoint: ${endpoint}
+Diagnóstico de rede:
+${networkNotes.join('\n')}
 Tentativas:
-${attempts.join('\n')}`;
+${attempts.join('\n')}
+
+[PRÓXIMA AÇÃO]
+Se Health respondeu HTTP, a rede chegou no Supabase e o erro está em chave, tabela, schema ou RLS.
+Se Health também falhou antes de HTTP, é bloqueio de rede/CORS/proxy/extensão/firewall.`;
                     setDbConfiguratorConnectionLog(logMessage);
                     showToast('Falha no teste: nenhuma credencial validou a conexão.');
                     return;
@@ -1760,7 +1920,9 @@ ${attempts.join('\n')}`;
                 const errorMessage = error?.message || String(error);
                 const errorStack = error?.stack ? `
 Stack: ${error.stack}` : '';
-                const hints = buildDbConfiguratorNetworkHints({ rawUrl: url, normalizedUrl: baseUrl, endpoint, errorName, errorMessage }) + `\n7. Project Ref informado: ${projectRef || 'não informado'}`;
+                const hints = buildDbConfiguratorNetworkHints({ rawUrl: url, normalizedUrl: baseUrl, endpoint, errorName, errorMessage }) + `
+7. Project Ref informado: ${projectRef || 'não informado'}
+8. URL/ref padrão em hardcode: ${SUPABASE_DEFAULT_CONFIG.url}`;
                 setDbConfiguratorConnectionLog(`[ERRO DE REDE]
 Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
 Tipo: ${errorName}
@@ -1778,8 +1940,8 @@ ${hints}`);
             }
         }
         function saveDbConfigurator() {
-            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
-            const projectRef = (document.getElementById('dbconf-project-ref')?.value || '').trim();
+            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim() || SUPABASE_DEFAULT_CONFIG.url;
+            const projectRef = (document.getElementById('dbconf-project-ref')?.value || '').trim() || SUPABASE_DEFAULT_CONFIG.projectRef;
             const schema = (document.getElementById('dbconf-rest-schema')?.value || 'public').trim();
             const projectsTable = (document.getElementById('dbconf-projects-table')?.value || 'projects').trim();
             const tapTable = (document.getElementById('dbconf-tap-table')?.value || 'tap_entries').trim();
@@ -1789,25 +1951,31 @@ ${hints}`);
             const currentKey = (document.getElementById('dbconf-current-key')?.value || '').trim();
             const previousKey = (document.getElementById('dbconf-previous-key')?.value || '').trim();
             const apiUrl = (document.getElementById('dbconf-api-url')?.value || '').trim();
-            const normalizedProjectRef = projectRef || extractProjectRefFromUrl(url);
-            if(!projectRef && normalizedProjectRef) document.getElementById('dbconf-project-ref').value = normalizedProjectRef;
+            const normalizedProjectRef = projectRef || extractProjectRefFromUrl(url) || SUPABASE_DEFAULT_CONFIG.projectRef;
+            if(normalizedProjectRef) document.getElementById('dbconf-project-ref').value = normalizedProjectRef;
             const validation = validateDbConfiguratorUrl(url);
             if(!validation.ok) { showToast(validation.message); return; }
-            config.supabase.url = url;
-            config.supabase.projectRef = normalizedProjectRef;
-            config.supabase.schema = schema || 'public';
-            config.supabase.projectsTable = projectsTable || 'projects';
-            config.supabase.tapTable = tapTable || 'tap_entries';
-            config.supabase.anonKey = anonKey;
-            config.supabase.secret = secret;
-            config.supabase.publishableKey = publishableKey;
-            config.supabase.currentKey = currentKey;
-            config.supabase.previousKey = previousKey;
-            config.supabase.apiUrl = apiUrl || `${(validation.normalized || '').replace(/\/$/, '')}/rest/v1/`; 
-            const oldUrl = document.getElementById('supabase-url'); if(oldUrl) oldUrl.value = url;
+            config.supabase = {
+                ...SUPABASE_DEFAULT_CONFIG,
+                ...(config.supabase || {}),
+                url: validation.normalized || url,
+                projectRef: normalizedProjectRef,
+                schema: schema || SUPABASE_DEFAULT_CONFIG.schema,
+                projectsTable: projectsTable || SUPABASE_DEFAULT_CONFIG.projectsTable,
+                tapTable: tapTable || SUPABASE_DEFAULT_CONFIG.tapTable,
+                anonKey,
+                secret,
+                serviceRole: secret,
+                publishableKey,
+                currentKey,
+                previousKey,
+                apiUrl: apiUrl || `${(validation.normalized || '').replace(/\/$/, '')}/rest/v1/`,
+                configVersion: DB_CONFIGURATOR_BUILD_VERSION
+            };
+            const oldUrl = document.getElementById('supabase-url'); if(oldUrl) oldUrl.value = config.supabase.url;
             const oldSecret = document.getElementById('supabase-secret'); if(oldSecret) oldSecret.value = secret;
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
-            showToast('Configuração de banco atualizada com sucesso.');
+            showToast('Configuração de banco atualizada com sucesso. Cache local normalizado.');
         }
         function validateDbConfiguratorUrl(rawUrl = '') {
             const input = rawUrl.trim();
