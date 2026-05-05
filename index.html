@@ -350,17 +350,26 @@
             border-top: 4px solid var(--totvs-brand);
             border-radius: var(--radius-lg);
             padding: 24px;
-            cursor: pointer;
             transition: var(--transition);
             box-shadow: var(--shadow-sm);
             display: flex; flex-direction: column;
         }
         .training-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: #cbd5e1; }
-        .training-card .badge { 
+        
+        /* Badges base */
+        .badge { 
             font-size: 11px; font-weight: 700; text-transform: uppercase; 
             background: var(--input-bg); color: var(--text-muted); 
             padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-color);
+            display: inline-block;
         }
+        
+        /* Status Badges para Reuniões */
+        .badge-agendado { background: #e0f2fe; color: #0284c7; border-color: rgba(2, 132, 199, 0.2); }
+        .badge-finalizado { background: var(--totvs-success-light); color: #065f46; border-color: rgba(16, 185, 129, 0.2); }
+        .badge-reagendado { background: var(--totvs-warning-light); color: #b45309; border-color: rgba(245, 158, 11, 0.2); }
+        .badge-cancelado { background: var(--totvs-danger-light); color: var(--totvs-danger); border-color: rgba(239, 68, 68, 0.2); }
+
         .training-card h4 { font-size: 20px; font-weight: 700; margin: 16px 0 8px; color: var(--totvs-brand); }
         .training-card p { font-size: 14px; color: var(--text-muted); }
         .card-actions { display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px; }
@@ -392,7 +401,7 @@
         table.roadmap-table select[multiple] { height: auto; min-height: 60px; border: 1px solid var(--border-color); background: white; }
 
         /* --- EDITOR & MODALS --- */
-        .roadmap-editor { 
+        .roadmap-editor, .generic-modal { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: var(--bg-body); z-index: 1000; overflow-y: auto; display: none; 
         }
@@ -407,10 +416,10 @@
             background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); 
             padding: 10px 14px; border-radius: var(--radius-md); outline: none; font-size: 14px; transition: var(--transition);
         }
-        .editor-field input:focus { border-color: var(--totvs-primary); box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.15); }
+        .editor-field input:focus, .editor-field select:focus { border-color: var(--totvs-primary); box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.15); }
 
-        #agenda-modal { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
-        #agenda-modal .card { 
+        #agenda-modal, #reuniao-modal { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        #agenda-modal .card, #reuniao-modal .card { 
             width: 100%; max-width: 650px; padding: 0; overflow: hidden; 
             border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             animation: fadeIn 0.3s ease-out;
@@ -511,6 +520,7 @@
                 <div class="nav-separator"></div>
                 <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Roteiros de Treino</div>
                 <div class="nav-item" id="nav-agenda" onclick="showPage('agenda', this)"><i data-lucide="calendar-days"></i> Agenda de Capacitação</div>
+                <div class="nav-item" id="nav-reunioes" onclick="showPage('reunioes', this)"><i data-lucide="presentation"></i> Agenda de Reuniões</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" id="nav-config" onclick="showPage('config', this)"><i data-lucide="settings"></i> Configurações do Sistema</div>
             </nav>
@@ -618,6 +628,18 @@
                 <iframe class="embedded-page-frame" src="status_report.html" title="Status Report" loading="lazy"></iframe>
             </div>
 
+            <!-- AGENDA DE REUNIÕES -->
+            <div id="page-reunioes" class="hidden">
+                <div class="page-header">
+                    <div class="page-header-text">
+                        <h2>Agenda de Status e Reuniões</h2>
+                        <p>Gerenciamento de comitês, status report e alinhamentos do projeto.</p>
+                    </div>
+                    <button class="btn-primary" onclick="openReuniaoModal()"><i data-lucide="calendar-plus" size="18"></i> Agendar Reunião</button>
+                </div>
+                <div id="reunioes-grid" class="section-grid"></div>
+            </div>
+
             <!-- TREINAMENTOS -->
             <div id="page-treinamentos" class="hidden">
                 <div class="page-header">
@@ -630,7 +652,7 @@
                 <div id="roadmap-list-container" class="section-grid"></div>
             </div>
 
-            <!-- AGENDA -->
+            <!-- AGENDA CAPACITAÇÃO-->
             <div id="page-agenda" class="hidden">
                 <div class="page-header">
                     <div class="page-header-text">
@@ -764,8 +786,52 @@
         </div>
     </div>
 
-    <!-- MODAL DE AGENDA -->
-    <div id="agenda-modal" class="roadmap-editor" style="display: none; align-items: center; justify-content: center; padding: 20px;">
+    <!-- MODAL DE REUNIÕES -->
+    <div id="reuniao-modal" class="generic-modal" style="display: none; align-items: center; justify-content: center; padding: 20px;">
+        <div class="card">
+            <div class="modal-header">
+                <h3>Agendar/Editar Reunião</h3>
+                <button class="modal-close" onclick="closeReuniaoModal()"><i data-lucide="x" size="24"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="reuniao-form" onsubmit="saveReuniao(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <input type="hidden" id="re-id">
+                    
+                    <div class="editor-field" style="grid-column: span 2;"><label>Título da Reunião</label><input type="text" id="re-title" required placeholder="Ex: Comitê Executivo Semanal"></div>
+                    <div class="editor-field"><label>Tipo de Reunião</label>
+                        <select id="re-type" required style="width: 100%;">
+                            <option value="Status Report">Status Report</option>
+                            <option value="Comitê Executivo">Comitê Executivo</option>
+                            <option value="Alinhamento Técnico">Alinhamento Técnico</option>
+                            <option value="Kick-off">Kick-off</option>
+                        </select>
+                    </div>
+                    <div class="editor-field"><label>Responsável / Host</label><input type="text" id="re-host" required placeholder="Nome do organizador"></div>
+                    
+                    <!-- NOVO CAMPO DE STATUS -->
+                    <div class="editor-field" style="grid-column: span 2;"><label>Status da Reunião</label>
+                        <select id="re-status" required style="width: 100%;">
+                            <option value="Agendado">Agendado</option>
+                            <option value="Finalizado">Finalizado</option>
+                            <option value="Reagendado">Reagendado</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                    </div>
+
+                    <div class="editor-field"><label>Data da Sessão</label><input type="date" id="re-date" required></div>
+                    <div class="editor-field"><label>Horário (De - Até)</label><input type="text" id="re-time" placeholder="10:00 - 11:00" required></div>
+                    <div class="editor-field" style="grid-column: span 2;"><label>Link da Reunião (Teams/Meet)</label><input type="url" id="re-link" required placeholder="https://meet.google.com/..."></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" type="button" onclick="closeReuniaoModal()">Cancelar</button>
+                <button type="submit" form="reuniao-form" class="btn-primary"><i data-lucide="check" size="18"></i> Salvar Reunião</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE AGENDA DE TREINAMENTOS -->
+    <div id="agenda-modal" class="generic-modal" style="display: none; align-items: center; justify-content: center; padding: 20px;">
         <div class="card">
             <div class="modal-header">
                 <h3>Agendar Sessão de Treinamento</h3>
@@ -783,7 +849,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn-ghost" onclick="closeAgendaModal()">Cancelar</button>
+                <button class="btn-ghost" type="button" onclick="closeAgendaModal()">Cancelar</button>
                 <button type="submit" form="agenda-form" class="btn-primary"><i data-lucide="check" size="18"></i> Confirmar Agendamento</button>
             </div>
         </div>
@@ -808,6 +874,7 @@
 
         let roadmaps = [];
         let agenda = [];
+        let reunioes = [];
         let dataStore = { stakeholders: [], pendencias: [], riscos: [], gaps: [] };
         let currentRoadmapId = null;
         let timerInterval;
@@ -826,6 +893,10 @@
                 const sa = localStorage.getItem('totvs_agenda');
                 if(sa) agenda = JSON.parse(sa);
             } catch { agenda = []; }
+            try {
+                const sReunioes = localStorage.getItem('totvs_reunioes');
+                if(sReunioes) reunioes = JSON.parse(sReunioes);
+            } catch { reunioes = []; }
         };
         loadSavedData();
         if(!config.password || typeof config.password !== 'string') config.password = 'admin';
@@ -869,7 +940,7 @@
 
         // --- NAVIGATION ---
         function showPage(id, el) {
-            ['cockpit', 'status', 'tap', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'config'].forEach(p => {
+            ['cockpit', 'status', 'tap', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'reunioes', 'config'].forEach(p => {
                 const element = document.getElementById('page-' + p);
                 if(element) element.classList.add('hidden');
             });
@@ -880,6 +951,7 @@
             
             if(id === 'treinamentos') renderRoadmapList();
             if(id === 'agenda') renderAgendaList();
+            if(id === 'reunioes') renderReunioesList();
             if(id === 'cockpit') updateDashboardStats();
             if(id === 'stakeholders') renderStkTable();
             if(id === 'config') generateConfigRows();
@@ -917,7 +989,6 @@
 
             const healthBadge = document.getElementById('health-badge');
             if(healthBadge) {
-                // Manter logica visual
                 healthBadge.style.background = 'var(--totvs-success-light)';
                 healthBadge.style.color = '#065f46';
                 healthBadge.innerHTML = '<i data-lucide="shield-check" size="16"></i> PROJETO DENTRO DA NORMALIDADE';
@@ -925,7 +996,93 @@
             lucide.createIcons();
         }
 
-        // --- AGENDA ---
+        // --- AGENDA DE REUNIÕES ---
+        function renderReunioesList() {
+            const grid = document.getElementById('reunioes-grid');
+            if(!grid) return;
+            
+            grid.innerHTML = reunioes.map(r => {
+                const status = r.status || 'Agendado';
+                const badgeClass = `badge-${status.toLowerCase()}`;
+                
+                return `
+                    <div class="training-card agenda-card">
+                        <div class="card-actions">
+                            <span class="badge ${badgeClass}">${status}</span>
+                        </div>
+                        <h4 class="agenda-title">${r.title}</h4>
+                        <p class="agenda-subtitle">${r.type} | Responsável: ${r.host}</p>
+                        <div class="agenda-meta" style="grid-template-columns: 1fr;">
+                            <span><i data-lucide="calendar-clock" size="18" style="color: var(--totvs-primary)"></i> ${r.date} às ${r.time}</span>
+                        </div>
+                        <div class="agenda-actions">
+                            <a href="${r.link}" target="_blank" class="btn-primary" style="flex:1; justify-content:center;"><i data-lucide="video" size="18"></i> Ingressar</a>
+                            <button class="btn-ghost" onclick="editReuniao('${r.id}')"><i data-lucide="edit-3" size="18"></i> Editar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function openReuniaoModal() { 
+            document.getElementById('reuniao-form').reset();
+            document.getElementById('re-id').value = '';
+            document.getElementById('re-status').value = 'Agendado';
+            document.getElementById('reuniao-modal').style.display = 'flex'; 
+            lucide.createIcons(); 
+        }
+
+        function editReuniao(id) {
+            const r = reunioes.find(x => x.id == id);
+            if(!r) return;
+            
+            document.getElementById('re-id').value = r.id;
+            document.getElementById('re-title').value = r.title;
+            document.getElementById('re-type').value = r.type;
+            document.getElementById('re-host').value = r.host;
+            document.getElementById('re-status').value = r.status || 'Agendado';
+            document.getElementById('re-date').value = r.date;
+            document.getElementById('re-time').value = r.time;
+            document.getElementById('re-link').value = r.link;
+            
+            document.getElementById('reuniao-modal').style.display = 'flex';
+            lucide.createIcons();
+        }
+
+        function closeReuniaoModal() { 
+            document.getElementById('reuniao-modal').style.display = 'none'; 
+        }
+
+        function saveReuniao(e) {
+            e.preventDefault();
+            const id = document.getElementById('re-id').value;
+            
+            const rData = {
+                id: id ? parseInt(id) : Date.now(),
+                title: document.getElementById('re-title').value,
+                type: document.getElementById('re-type').value,
+                host: document.getElementById('re-host').value,
+                status: document.getElementById('re-status').value,
+                date: document.getElementById('re-date').value,
+                time: document.getElementById('re-time').value,
+                link: document.getElementById('re-link').value
+            };
+            
+            if(id) {
+                const idx = reunioes.findIndex(x => x.id == id);
+                if(idx > -1) reunioes[idx] = rData;
+            } else {
+                reunioes.push(rData);
+            }
+
+            localStorage.setItem('totvs_reunioes', JSON.stringify(reunioes));
+            showToast(id ? "Reunião atualizada!" : "Reunião agendada com sucesso!"); 
+            closeReuniaoModal(); 
+            renderReunioesList();
+        }
+
+        // --- AGENDA DE TREINAMENTOS ---
         function renderAgendaList() {
             const grid = document.getElementById('agenda-grid');
             if(!grid) return;
@@ -962,7 +1119,7 @@
             };
             agenda.push(a);
             localStorage.setItem('totvs_agenda', JSON.stringify(agenda));
-            showToast("Agendamento concluído com sucesso!"); closeAgendaModal(); renderAgendaList();
+            showToast("Agendamento de treinamento concluído!"); closeAgendaModal(); renderAgendaList();
         }
         function deleteAgenda(id) { agenda = agenda.filter(a => a.id != id); localStorage.setItem('totvs_agenda', JSON.stringify(agenda)); renderAgendaList(); }
 
