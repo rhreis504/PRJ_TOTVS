@@ -804,7 +804,8 @@
                     </button>
                 </div>
                 <div style="display:flex; gap:12px;">
-                                        <button class="btn-ghost" onclick="closeDbConfigurator()">Fechar</button>
+                    <button class="btn-ghost" id="dbconf-test-connection-btn" onclick="testDbConfiguratorConnection()">Testar Conexão</button>
+                    <button class="btn-ghost" onclick="closeDbConfigurator()">Fechar</button>
                     <button class="btn-primary" onclick="saveDbConfigurator()"><i data-lucide="save" size="18"></i> Salvar Conexão</button>
                 </div>
             </div>
@@ -1620,6 +1621,44 @@
         function closeDbConfigurator() {
             const modal = document.getElementById('db-config-modal');
             if(modal) modal.style.display = 'none';
+        }
+        async function testDbConfiguratorConnection() {
+            const testBtn = document.getElementById('dbconf-test-connection-btn');
+            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
+            const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
+            const projectsTable = (document.getElementById('dbconf-projects-table')?.value || 'projects').trim();
+            const validation = validateDbConfiguratorUrl(url);
+            if(!validation.ok) { showToast(validation.message); return; }
+            if(!secret) { showToast('Informe a Service Role Key para testar a conexão.'); return; }
+            const baseUrl = (validation.normalized || '').replace(/\/$/, '');
+            const endpoint = `${baseUrl}/rest/v1/${encodeURIComponent(projectsTable)}?select=id&limit=1`;
+            const originalLabel = testBtn ? testBtn.textContent : '';
+            if(testBtn) {
+                testBtn.disabled = true;
+                testBtn.textContent = 'Testando...';
+            }
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: {
+                        apikey: secret,
+                        Authorization: `Bearer ${secret}`
+                    }
+                });
+                if(!response.ok) {
+                    const details = (await response.text()).slice(0, 180);
+                    showToast(`Falha no teste (${response.status}): ${details || 'não foi possível conectar.'}`);
+                    return;
+                }
+                showToast('Conexão com Supabase validada com sucesso.');
+            } catch (error) {
+                showToast(`Erro ao testar conexão: ${error?.message || error}`);
+            } finally {
+                if(testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.textContent = originalLabel || 'Testar Conexão';
+                }
+            }
         }
         function saveDbConfigurator() {
             const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
