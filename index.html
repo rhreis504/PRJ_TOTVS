@@ -804,8 +804,7 @@
                     </button>
                 </div>
                 <div style="display:flex; gap:12px;">
-                    <button class="btn-ghost" onclick="testDbConfiguratorConnection()"><i data-lucide="plug-zap" size="18"></i> Testar Conexão</button>
-                    <button class="btn-ghost" onclick="closeDbConfigurator()">Fechar</button>
+                                        <button class="btn-ghost" onclick="closeDbConfigurator()">Fechar</button>
                     <button class="btn-primary" onclick="saveDbConfigurator()"><i data-lucide="save" size="18"></i> Salvar Conexão</button>
                 </div>
             </div>
@@ -818,7 +817,7 @@
                     <li>Use <em>Schema REST</em> como <strong>public</strong> (ou o schema customizado da API).</li>
                     <li>Em <strong>Project Settings → API Keys</strong>, copie <strong>anon public</strong> (opcional) e <strong>service_role</strong>.</li>
                     <li>Confirme os nomes das tabelas no <strong>Table Editor</strong>: normalmente <strong>projects</strong> e <strong>tap_entries</strong>.</li>
-                    <li>Clique em <strong>Testar Conexão</strong> e depois em <strong>Salvar Conexão</strong>.</li>
+                    <li>Revise os dados e clique em <strong>Salvar Conexão</strong>.</li>
                 </ol>
             </div>
             <div class="editor-grid">
@@ -829,6 +828,10 @@
                 <div class="editor-field"><label>Tabela TAP</label><input type="text" id="dbconf-tap-table" placeholder="tap_entries"></div>
                 <div class="editor-field" style="grid-column: span 4;"><label>Anon Key (opcional)</label><input type="password" id="dbconf-anon-key" placeholder="eyJhbGci..."></div>
                 <div class="editor-field" style="grid-column: span 4;"><label>Service Role Key</label><input type="password" id="dbconf-supabase-secret" placeholder="sb_secret_..."></div>
+                <div class="editor-field" style="grid-column: span 4;"><label>Publishable Key</label><input type="password" id="dbconf-publishable-key" placeholder="sb_publishable_..."></div>
+                <div class="editor-field" style="grid-column: span 4;"><label>Current Key</label><input type="text" id="dbconf-current-key" placeholder="UUID da chave atual"></div>
+                <div class="editor-field" style="grid-column: span 4;"><label>Previously Used Key</label><input type="text" id="dbconf-previous-key" placeholder="UUID da chave anterior"></div>
+                <div class="editor-field" style="grid-column: span 4;"><label>REST API URL</label><input type="text" id="dbconf-api-url" placeholder="https://SEU-PROJETO.supabase.co/rest/v1/"></div>
             </div>
             <p style="margin-top:8px; color: var(--text-muted); font-size:12px;">Acesso protegido por senha mestre.</p>
         </div>
@@ -968,7 +971,7 @@
             gaps: { label: 'Gaps', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
             tap: { label: 'TAP', sourceType: 'csv', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-signature' },
         });
-        let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', secret: '' } };
+        let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { url: '', apiUrl: '', projectRef: '', publishableKey: '', anonKey: '', secret: '', serviceRole: '', currentKey: '', previousKey: '' } };
         let lastSyncStatus = {};
         let lastFetchErrors = {};
 
@@ -1607,6 +1610,10 @@
             document.getElementById('dbconf-tap-table').value = config.supabase?.tapTable || 'tap_entries';
             document.getElementById('dbconf-anon-key').value = config.supabase?.anonKey || '';
             document.getElementById('dbconf-supabase-secret').value = config.supabase?.secret || '';
+            document.getElementById('dbconf-publishable-key').value = config.supabase?.publishableKey || '';
+            document.getElementById('dbconf-current-key').value = config.supabase?.currentKey || '';
+            document.getElementById('dbconf-previous-key').value = config.supabase?.previousKey || '';
+            document.getElementById('dbconf-api-url').value = config.supabase?.apiUrl || '';
             modal.style.display = 'block';
             lucide.createIcons();
         }
@@ -1622,6 +1629,10 @@
             const tapTable = (document.getElementById('dbconf-tap-table')?.value || 'tap_entries').trim();
             const anonKey = (document.getElementById('dbconf-anon-key')?.value || '').trim();
             const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
+            const publishableKey = (document.getElementById('dbconf-publishable-key')?.value || '').trim();
+            const currentKey = (document.getElementById('dbconf-current-key')?.value || '').trim();
+            const previousKey = (document.getElementById('dbconf-previous-key')?.value || '').trim();
+            const apiUrl = (document.getElementById('dbconf-api-url')?.value || '').trim();
             const normalizedProjectRef = projectRef || extractProjectRefFromUrl(url);
             if(!projectRef && normalizedProjectRef) document.getElementById('dbconf-project-ref').value = normalizedProjectRef;
             const validation = validateDbConfiguratorUrl(url);
@@ -1633,6 +1644,10 @@
             config.supabase.tapTable = tapTable || 'tap_entries';
             config.supabase.anonKey = anonKey;
             config.supabase.secret = secret;
+            config.supabase.publishableKey = publishableKey;
+            config.supabase.currentKey = currentKey;
+            config.supabase.previousKey = previousKey;
+            config.supabase.apiUrl = apiUrl || `${(validation.normalized || '').replace(/\/$/, '')}/rest/v1/`; 
             const oldUrl = document.getElementById('supabase-url'); if(oldUrl) oldUrl.value = url;
             const oldSecret = document.getElementById('supabase-secret'); if(oldSecret) oldSecret.value = secret;
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
@@ -1651,22 +1666,6 @@
                 return { ok: true, normalized: `${parsed.protocol}//${parsed.hostname}` };
             } catch (e) {
                 return { ok: false, message: `URL inválida: ${e.message || e}` };
-            }
-        }
-        async function testDbConfiguratorConnection() {
-            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
-            const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
-            const validation = validateDbConfiguratorUrl(url);
-            if(!validation.ok) { showToast(validation.message); return; }
-            if(!secret) { showToast('Informe a Service Role Key para testar conexão.'); return; }
-            try {
-                const endpoint = `${validation.normalized.replace(/\/$/, '')}/rest/v1/projects?select=id&limit=1`;
-                const res = await fetch(endpoint, { headers: { apikey: secret, Authorization: `Bearer ${secret}` } });
-                const text = await res.text();
-                if(!res.ok) throw new Error(text || `HTTP ${res.status}`);
-                showToast('Conexão validada com sucesso.');
-            } catch (e) {
-                showToast(`Falha na conexão com Supabase: ${String(e.message || e).slice(0, 200)}`);
             }
         }
         function addConfigSource() {
