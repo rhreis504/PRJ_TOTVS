@@ -1107,18 +1107,24 @@
             return createdId;
         }
 
-        async function resolveTapProjectId() {
+        async function resolveTapProjectId({ createIfMissing = true } = {}) {
             const projectCode = getPrimaryProjectCode();
             if(tapProjectContext.id && tapProjectContext.code === projectCode) return tapProjectContext.id;
             tapProjectContext = { code: projectCode, id: null };
             const projectsTable = getCockpitConfig()?.supabase?.projectsTable || 'projects';
             const rows = await tapSupabaseRequest(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
-            tapProjectContext.id = rows[0]?.id || await ensureTapProject(projectCode, projectsTable);
+            const existingId = rows[0]?.id;
+            if(existingId) {
+                tapProjectContext.id = existingId;
+                return tapProjectContext.id;
+            }
+            if(!createIfMissing) return null;
+            tapProjectContext.id = await ensureTapProject(projectCode, projectsTable);
             return tapProjectContext.id;
         }
 
         async function runSupabaseHealthCheck() {
-            const projectId = await resolveTapProjectId();
+            const projectId = await resolveTapProjectId({ createIfMissing: true });
             const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
             await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id&limit=1`);
             return { projectId };
@@ -1150,7 +1156,12 @@
 
         async function loadTapsFromSupabase() {
             try {
-                const projectId = await resolveTapProjectId();
+                const projectId = await resolveTapProjectId({ createIfMissing: false });
+                if(!projectId) {
+                    taps = [];
+                    renderCards();
+                    return;
+                }
                 const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
                 const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id,payload,updated_at,created_at&order=updated_at.desc.nullslast,created_at.desc.nullslast`);
                 taps = rows.map((r) => {

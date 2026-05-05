@@ -1393,6 +1393,7 @@
             config.projects.push({ id, name, sources: defaultSources() });
             config.activeProjectId = id;
             config.selectedProjectIds = [id];
+            localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
             document.getElementById('new-project-name').value = '';
             generateConfigRows();
             showToast('Projeto cadastrado e ativado.');
