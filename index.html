@@ -750,10 +750,13 @@
                         <h2>Configurações do Sistema</h2>
                         <p>Gerencie as integrações de dados, fontes em CSV e parâmetros globais.</p>
                     </div>
-                    <button class="btn-primary" onclick="saveConfig()"><i data-lucide="save" size="18"></i> Salvar Tudo e Sincronizar</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-ghost" onclick="openDbConfiguratorPrompt()"><i data-lucide="database" size="18"></i> Configurador de Banco</button>
+                        <button class="btn-primary" onclick="saveConfig()"><i data-lucide="save" size="18"></i> Salvar Tudo e Sincronizar</button>
+                    </div>
                 </div>
 
-                <div class="card">
+                <div class="card" id="legacy-supabase-card" style="display:none;">
                     <h3 class="section-title"><i data-lucide="folder-kanban" size="20"></i> Cadastro de Projetos</h3>
                     <div class="config-grid">
                         <div class="config-input-group"><label>Projeto Ativo Atual</label><select id="active-project-select"></select></div>
@@ -788,6 +791,24 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div id="db-config-modal" class="roadmap-editor" style="display:none; z-index:1200;">
+        <div class="editor-header">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1 style="font-size:22px; font-weight:800; color: var(--totvs-brand);">CONFIGURADOR DE BANCO</h1>
+                <div style="display:flex; gap:12px;">
+                    <button class="btn-ghost" onclick="testDbConfiguratorConnection()"><i data-lucide="plug-zap" size="18"></i> Testar Conexão</button>
+                    <button class="btn-ghost" onclick="closeDbConfigurator()">Fechar</button>
+                    <button class="btn-primary" onclick="saveDbConfigurator()"><i data-lucide="save" size="18"></i> Salvar Conexão</button>
+                </div>
+            </div>
+            <div class="editor-grid">
+                <div class="editor-field" style="grid-column: span 4;"><label>URL do Projeto Supabase</label><input type="text" id="dbconf-supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
+                <div class="editor-field" style="grid-column: span 4;"><label>Service Role Key</label><input type="password" id="dbconf-supabase-secret" placeholder="sb_secret_..."></div>
+            </div>
+            <p style="margin-top:8px; color: var(--text-muted); font-size:12px;">Acesso protegido por senha mestre.</p>
+        </div>
     </div>
 
     <!-- EDITOR MODAL (ROTEIROS) -->
@@ -1536,6 +1557,62 @@
             config.supabase.secret = document.getElementById('supabase-secret').value.trim();
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
             showToast("Configurações sistêmicas atualizadas."); startSync();
+        }
+        function openDbConfiguratorPrompt() {
+            const pass = prompt('Informe a senha do Configurador de Banco:');
+            if(pass !== 'Config@Master') { showToast('Acesso negado ao Configurador de Banco.'); return; }
+            const modal = document.getElementById('db-config-modal');
+            document.getElementById('dbconf-supabase-url').value = config.supabase?.url || '';
+            document.getElementById('dbconf-supabase-secret').value = config.supabase?.secret || '';
+            modal.style.display = 'block';
+            lucide.createIcons();
+        }
+        function closeDbConfigurator() {
+            const modal = document.getElementById('db-config-modal');
+            if(modal) modal.style.display = 'none';
+        }
+        function saveDbConfigurator() {
+            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
+            const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
+            const validation = validateDbConfiguratorUrl(url);
+            if(!validation.ok) { showToast(validation.message); return; }
+            config.supabase.url = url;
+            config.supabase.secret = secret;
+            const oldUrl = document.getElementById('supabase-url'); if(oldUrl) oldUrl.value = url;
+            const oldSecret = document.getElementById('supabase-secret'); if(oldSecret) oldSecret.value = secret;
+            localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+            closeDbConfigurator();
+            showToast('Configuração de banco atualizada com sucesso.');
+        }
+        function validateDbConfiguratorUrl(rawUrl = '') {
+            const input = rawUrl.trim();
+            if(!input) return { ok: false, message: 'Informe a URL do projeto Supabase.' };
+            const candidate = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+            try {
+                const parsed = new URL(candidate);
+                const host = (parsed.hostname || '').toLowerCase();
+                if(host === 'app.supabase.com') return { ok: false, message: 'Use a URL do projeto, não app.supabase.com.' };
+                if(!host.includes('supabase')) return { ok: false, message: `Host inválido para Supabase: ${parsed.hostname}` };
+                return { ok: true, normalized: `${parsed.protocol}//${parsed.hostname}` };
+            } catch (e) {
+                return { ok: false, message: `URL inválida: ${e.message || e}` };
+            }
+        }
+        async function testDbConfiguratorConnection() {
+            const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
+            const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
+            const validation = validateDbConfiguratorUrl(url);
+            if(!validation.ok) { showToast(validation.message); return; }
+            if(!secret) { showToast('Informe a Service Role Key para testar conexão.'); return; }
+            try {
+                const endpoint = `${validation.normalized.replace(/\/$/, '')}/rest/v1/projects?select=id&limit=1`;
+                const res = await fetch(endpoint, { headers: { apikey: secret, Authorization: `Bearer ${secret}` } });
+                const text = await res.text();
+                if(!res.ok) throw new Error(text || `HTTP ${res.status}`);
+                showToast('Conexão validada com sucesso.');
+            } catch (e) {
+                showToast(`Falha na conexão com Supabase: ${String(e.message || e).slice(0, 200)}`);
+            }
         }
         function addConfigSource() {
             const key = `custom_${Date.now()}`;
