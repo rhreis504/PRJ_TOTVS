@@ -975,7 +975,7 @@
     <!-- ========== SCRIPTS MANTIDOS INTEGRALMENTE ========== -->
     <script>
         // --- CONFIG & STATE ---
-        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v3';
+        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v4';
         const SUPABASE_DEFAULT_CONFIG = Object.freeze({
             url: 'https://xkhgjfjjpkhrbkjltcgp.supabase.co',
             apiUrl: 'https://xkhgjfjjpkhrbkjltcgp.supabase.co/rest/v1/',
@@ -989,7 +989,7 @@
             serviceRole: '',
             currentKey: '',
             previousKey: '',
-            configVersion: 'dbconf-2026-05-05-v3'
+            configVersion: 'dbconf-2026-05-05-v4'
         });
         const defaultSources = () => ({
             stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
@@ -1517,19 +1517,38 @@
                 throw new Error(`URL do Supabase inválida: ${e.message || e}`);
             }
         }
+        function classifySupabaseKey(value = '') {
+            const key = (value || '').trim();
+            if(!key) return 'empty';
+            if(/^sb_publishable_/i.test(key)) return 'publishable';
+            if(/^sb_secret_/i.test(key)) return 'secret';
+            if(/^eyJ/i.test(key)) return 'legacy_jwt';
+            return 'unknown';
+        }
+        function canUseSupabaseKeyInBrowserUrl(credential) {
+            if(credential?.keyType === 'publishable') return true;
+            return credential?.keyType === 'legacy_jwt' && /anon|publishable/i.test(credential?.label || '');
+        }
+        function appendSupabaseApiKeyParam(endpoint, credential) {
+            const parsed = new URL(endpoint);
+            parsed.searchParams.set('apikey', credential.value);
+            return parsed.toString();
+        }
         function getSupabaseCredentialCandidates(source = config.supabase || {}) {
             const seen = new Set();
             return [
-                { label: 'service_role', value: source.secret || source.serviceRole },
-                { label: 'currentKey', value: source.currentKey },
                 { label: 'publishable', value: source.publishableKey },
                 { label: 'anon', value: source.anonKey },
+                { label: 'currentKey', value: source.currentKey },
+                { label: 'service_role', value: source.secret || source.serviceRole },
                 { label: 'previousKey', value: source.previousKey }
             ].filter((item) => {
                 const value = (item.value || '').trim();
                 if(!value || seen.has(value)) return false;
                 seen.add(value);
                 item.value = value;
+                item.keyType = classifySupabaseKey(value);
+                item.browserUrlFallback = canUseSupabaseKeyInBrowserUrl(item);
                 return true;
             });
         }
@@ -1551,25 +1570,46 @@
                 credential: credentials[0] || null
             };
         }
-        function buildSupabaseHeaders(credential, extraHeaders = {}) {
+        function buildSupabaseHeaders(credential, extraHeaders = {}, options = {}) {
             if(!credential?.value) throw new Error('Nenhuma chave Supabase configurada. Informe uma chave no Configurador de Banco.');
-            return {
-                apikey: credential.value,
-                Authorization: `Bearer ${credential.value}`,
-                'Content-Type': 'application/json',
-                Prefer: 'return=representation,resolution=merge-duplicates',
-                ...extraHeaders
-            };
+            const headers = { apikey: credential.value };
+            if(credential.keyType === 'legacy_jwt') headers.Authorization = `Bearer ${credential.value}`;
+            if(options.includeJson !== false) headers['Content-Type'] = 'application/json';
+            if(options.includePrefer !== false) headers.Prefer = 'return=representation,resolution=merge-duplicates';
+            return { ...headers, ...extraHeaders };
+        }
+        async function fetchSupabaseGetWithFallback(endpoint, credential, headerOptions = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: buildSupabaseHeaders(credential, headerOptions, { includeJson: false, includePrefer: false })
+                });
+                return { response, mode: 'headers' };
+            } catch (headerError) {
+                if(!canUseSupabaseKeyInBrowserUrl(credential)) throw headerError;
+                const fallbackEndpoint = appendSupabaseApiKeyParam(endpoint, credential);
+                const response = await fetch(fallbackEndpoint, { method: 'GET', cache: 'no-store' });
+                return { response, mode: 'query-param-fallback', headerError };
+            }
         }
         async function supabaseRequest(path, method='GET', body) {
             const runtime = getSupabaseRuntimeConfig();
             if(!runtime.baseUrl) throw new Error('URL do Supabase não configurada.');
             if(!runtime.credential) throw new Error('Nenhuma chave Supabase configurada. Informe Service Role, Publishable ou Anon.');
-            const res = await fetch(`${runtime.baseUrl}/rest/v1/${path}`, {
-                method,
-                headers: buildSupabaseHeaders(runtime.credential),
-                body: body ? JSON.stringify(body) : undefined
-            });
+            const endpoint = `${runtime.baseUrl}/rest/v1/${path}`;
+            const requestMethod = method.toUpperCase();
+            let res;
+            if(requestMethod === 'GET') {
+                const result = await fetchSupabaseGetWithFallback(endpoint, runtime.credential);
+                res = result.response;
+            } else {
+                res = await fetch(endpoint, {
+                    method,
+                    headers: buildSupabaseHeaders(runtime.credential),
+                    body: body ? JSON.stringify(body) : undefined
+                });
+            }
             const text = await res.text();
             if(!res.ok) {
                 const contentType = res.headers.get('content-type') || '';
@@ -1798,7 +1838,7 @@ Base URL resolvida: ${baseUrl}
 Endpoint REST: ${endpoint}
 Endpoint Health: ${healthEndpoint}
 Tabela: ${runtime.projectsTable}
-Credenciais encontradas: ${runtime.credentials.map(c => c.label).join(', ')}
+Credenciais encontradas: ${runtime.credentials.map(c => `${c.label}/${c.keyType}`).join(', ')}
 Cache local: a URL/ref do projeto agora são normalizados pelo código antes do teste.`);
             try {
                 const networkNotes = [];
@@ -1812,14 +1852,16 @@ Cache local: a URL/ref do projeto agora são normalizados pelo código antes do 
                 let validated = false;
                 for (const cred of runtime.credentials) {
                     let response;
+                    let mode = 'headers';
                     try {
-                        response = await fetch(endpoint, {
-                            method: 'GET',
-                            cache: 'no-store',
-                            headers: buildSupabaseHeaders(cred, { Prefer: 'return=minimal' })
-                        });
+                        const result = await fetchSupabaseGetWithFallback(endpoint, cred, { Prefer: 'return=minimal' });
+                        response = result.response;
+                        mode = result.mode;
+                        if(result.headerError) {
+                            attempts.push(`- ${cred.label}/${cred.keyType}: headers falharam (${result.headerError?.name || 'erro'}: ${result.headerError?.message || result.headerError}); tentando fallback por query param.`);
+                        }
                     } catch (fetchErr) {
-                        attempts.push(`- ${cred.label}: falhou antes de resposta HTTP (${fetchErr?.name || 'erro'}: ${fetchErr?.message || fetchErr})`);
+                        attempts.push(`- ${cred.label}/${cred.keyType}: falhou antes de resposta HTTP (${fetchErr?.name || 'erro'}: ${fetchErr?.message || fetchErr})`);
                         throw fetchErr;
                     }
                     if(response.ok) {
@@ -1827,7 +1869,8 @@ Cache local: a URL/ref do projeto agora são normalizados pelo código antes do 
                         setDbConfiguratorConnectionLog(`[SUCESSO]
 Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
 Conexão validada com sucesso.
-Credencial aprovada: ${cred.label}
+Credencial aprovada: ${cred.label}/${cred.keyType}
+Modo de acesso: ${mode === 'query-param-fallback' ? 'fallback sem headers customizados no navegador' : 'headers REST padrão'}
 Endpoint: ${endpoint}
 Diagnóstico de rede:
 ${networkNotes.join('\n')}`);
@@ -1835,7 +1878,10 @@ ${networkNotes.join('\n')}`);
                         break;
                     }
                     const details = (await response.text()).slice(0, 500);
-                    attempts.push(`- ${cred.label}: ${response.status} ${response.statusText} | ${details || 'sem detalhes'}`);
+                    attempts.push(`- ${cred.label}/${cred.keyType} via ${mode}: ${response.status} ${response.statusText} | ${details || 'sem detalhes'}`);
+                    if(response.status === 401 && cred.keyType === 'secret') {
+                        attempts.push('  Observação: chaves sb_secret_* são bloqueadas em navegador pelo Supabase. Use Publishable/Anon no front-end ou um backend/Edge Function para operações administrativas.');
+                    }
                     if(response.status === 404) {
                         attempts.push(`  Observação: a tabela "${runtime.projectsTable}" pode não existir ou não estar exposta no schema REST.`);
                     }
