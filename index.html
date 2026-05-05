@@ -975,11 +975,11 @@
     <!-- ========== SCRIPTS MANTIDOS INTEGRALMENTE ========== -->
     <script>
         // --- CONFIG & STATE ---
-        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v4';
+        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v5';
         const SUPABASE_DEFAULT_CONFIG = Object.freeze({
-            url: 'https://xkhgjfjjpkhrbkjltcgp.supabase.co',
-            apiUrl: 'https://xkhgjfjjpkhrbkjltcgp.supabase.co/rest/v1/',
-            projectRef: 'xkhgjfjjpkhrbkjltcgp',
+            url: 'https://xkhgjfjipkhrbkjltcgp.supabase.co',
+            apiUrl: 'https://xkhgjfjipkhrbkjltcgp.supabase.co/rest/v1/',
+            projectRef: 'xkhgjfjipkhrbkjltcgp',
             schema: 'public',
             projectsTable: 'projects',
             tapTable: 'tap_entries',
@@ -989,8 +989,12 @@
             serviceRole: '',
             currentKey: '',
             previousKey: '',
-            configVersion: 'dbconf-2026-05-05-v4'
+            configVersion: 'dbconf-2026-05-05-v5'
         });
+        const LEGACY_SUPABASE_PROJECT_REFS = ['xkhgjfjjpkhrbkjltcgp'];
+        function isLegacySupabaseProjectRef(value = '') {
+            return LEGACY_SUPABASE_PROJECT_REFS.includes((value || '').trim().toLowerCase());
+        }
         const defaultSources = () => ({
             stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
             pendencias: { label: 'Pendências', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
@@ -1035,9 +1039,13 @@
             if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
             if(!Array.isArray(config.selectedProjectIds) || !config.selectedProjectIds.length) config.selectedProjectIds = [config.activeProjectId];
             config.supabase = { ...SUPABASE_DEFAULT_CONFIG, ...(config.supabase || {}) };
-            if(!config.supabase.url) config.supabase.url = SUPABASE_DEFAULT_CONFIG.url;
-            if(!config.supabase.projectRef) config.supabase.projectRef = extractProjectRefFromUrl(config.supabase.url) || SUPABASE_DEFAULT_CONFIG.projectRef;
-            if(!config.supabase.apiUrl) config.supabase.apiUrl = `${config.supabase.url.replace(/\/$/, '')}/rest/v1/`;
+            const persistedUrlRef = extractProjectRefFromUrl(config.supabase.url) || '';
+            const persistedFieldRef = config.supabase.projectRef || '';
+            const persistedApiRef = extractProjectRefFromUrl(config.supabase.apiUrl) || '';
+            const hasLegacyProjectRef = [persistedUrlRef, persistedFieldRef, persistedApiRef].some(isLegacySupabaseProjectRef);
+            if(!config.supabase.url || hasLegacyProjectRef) config.supabase.url = SUPABASE_DEFAULT_CONFIG.url;
+            if(!config.supabase.projectRef || hasLegacyProjectRef) config.supabase.projectRef = extractProjectRefFromUrl(config.supabase.url) || SUPABASE_DEFAULT_CONFIG.projectRef;
+            if(!config.supabase.apiUrl || hasLegacyProjectRef) config.supabase.apiUrl = `${config.supabase.url.replace(/\/$/, '')}/rest/v1/`;
             config.supabase.schema = config.supabase.schema || SUPABASE_DEFAULT_CONFIG.schema;
             config.supabase.projectsTable = config.supabase.projectsTable || SUPABASE_DEFAULT_CONFIG.projectsTable;
             config.supabase.tapTable = config.supabase.tapTable || SUPABASE_DEFAULT_CONFIG.tapTable;
@@ -1844,7 +1852,10 @@ Cache local: a URL/ref do projeto agora são normalizados pelo código antes do 
                 const networkNotes = [];
                 try {
                     const healthResponse = await fetch(healthEndpoint, { method: 'GET', cache: 'no-store' });
-                    networkNotes.push(`- Health: HTTP ${healthResponse.status} ${healthResponse.statusText || ''}`.trim());
+                    const healthNote = healthResponse.status === 401
+                        ? 'HTTP 401 (normal no /auth/v1/health sem sessão; a validação real é o REST abaixo)'
+                        : `HTTP ${healthResponse.status} ${healthResponse.statusText || ''}`.trim();
+                    networkNotes.push(`- Health: ${healthNote}`);
                 } catch (healthErr) {
                     networkNotes.push(`- Health: falhou antes de resposta HTTP (${healthErr?.name || 'erro'}: ${healthErr?.message || healthErr})`);
                 }
