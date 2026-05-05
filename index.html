@@ -975,7 +975,7 @@
     <!-- ========== SCRIPTS MANTIDOS INTEGRALMENTE ========== -->
     <script>
         // --- CONFIG & STATE ---
-        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v5';
+        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v6';
         const SUPABASE_DEFAULT_CONFIG = Object.freeze({
             url: 'https://xkhgjfjipkhrbkjltcgp.supabase.co',
             apiUrl: 'https://xkhgjfjipkhrbkjltcgp.supabase.co/rest/v1/',
@@ -989,7 +989,7 @@
             serviceRole: '',
             currentKey: '',
             previousKey: '',
-            configVersion: 'dbconf-2026-05-05-v5'
+            configVersion: 'dbconf-2026-05-05-v6'
         });
         const LEGACY_SUPABASE_PROJECT_REFS = ['xkhgjfjjpkhrbkjltcgp'];
         function isLegacySupabaseProjectRef(value = '') {
@@ -1877,15 +1877,23 @@ Cache local: a URL/ref do projeto agora são normalizados pelo código antes do 
                     }
                     if(response.ok) {
                         validated = true;
+                        const tapWriteNote = cred.keyType === 'publishable' || /anon|publishable/i.test(cred.label)
+                            ? 'A conexão de leitura está OK. Para salvar TAP, o Supabase ainda precisa permitir INSERT/DELETE nas tabelas projects, source_rows e tap_entries para esta chave via RLS/policies.'
+                            : 'A conexão de leitura está OK. Para salvar TAP, esta mesma credencial precisa conseguir criar/atualizar projects, source_rows e tap_entries.';
                         setDbConfiguratorConnectionLog(`[SUCESSO]
 Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
-Conexão validada com sucesso.
+Conexão de leitura validada com sucesso.
 Credencial aprovada: ${cred.label}/${cred.keyType}
 Modo de acesso: ${mode === 'query-param-fallback' ? 'fallback sem headers customizados no navegador' : 'headers REST padrão'}
 Endpoint: ${endpoint}
+
+[STATUS TAP]
+Ainda não é garantia de gravação da TAP.
+${tapWriteNote}
+
 Diagnóstico de rede:
 ${networkNotes.join('\n')}`);
-                        showToast(`Conexão com Supabase validada com sucesso (${cred.label}).`);
+                        showToast(`Conexão de leitura validada (${cred.label}). Valide permissões de gravação para salvar TAP.`);
                         break;
                     }
                     const details = (await response.text()).slice(0, 500);
