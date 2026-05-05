@@ -505,6 +505,7 @@
     <!-- Script de Lógica -->
     <script>
         let taps = [];
+        let tapProjectContext = { code: null, id: null };
         let currentEditId = null;
         let selectedClientsList = [];
         let selectedProductsList = []; 
@@ -895,7 +896,68 @@
             setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
         }
 
-        function saveTap(event) {
+        function getCockpitConfig() {
+            try {
+                return JSON.parse(localStorage.getItem('totvs_cockpit_config') || '{}');
+            } catch (_) {
+                return {};
+            }
+        }
+
+        function getPrimaryProjectCode() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('primaryProject') || getCockpitConfig()?.activeProjectId || 'default';
+        }
+
+        async function tapSupabaseRequest(path, method='GET', body) {
+            const cfg = getCockpitConfig();
+            const rawUrl = (cfg?.supabase?.url || '').trim();
+            const secret = (cfg?.supabase?.secret || '').trim();
+            if(!rawUrl || !secret) throw new Error('Supabase não configurado no Cockpit.');
+            const baseUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+            const res = await fetch(`${baseUrl.replace(/\/$/, '')}/rest/v1/${path}`, {
+                method,
+                headers: {
+                    apikey: secret,
+                    Authorization: `Bearer ${secret}`,
+                    'Content-Type': 'application/json',
+                    Prefer: 'return=representation,resolution=merge-duplicates'
+                },
+                body: body ? JSON.stringify(body) : undefined
+            });
+            const text = await res.text();
+            if(!res.ok) throw new Error(text || `Erro ${res.status}`);
+            if(res.status === 204 || !text) return [];
+            return JSON.parse(text);
+        }
+
+        async function resolveTapProjectId() {
+            if(tapProjectContext.id) return tapProjectContext.id;
+            const projectCode = getPrimaryProjectCode();
+            tapProjectContext.code = projectCode;
+            const rows = await tapSupabaseRequest(`projects?code=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
+            if(!rows.length) throw new Error(`Projeto '${projectCode}' não encontrado na tabela projects.`);
+            tapProjectContext.id = rows[0].id;
+            return tapProjectContext.id;
+        }
+
+        async function loadTapsFromSupabase() {
+            try {
+                const projectId = await resolveTapProjectId();
+                const rows = await tapSupabaseRequest(`tap_entries?project_id=eq.${projectId}&select=id,payload,updated_at,created_at&order=updated_at.desc.nullslast,created_at.desc.nullslast`);
+                taps = rows.map((r) => {
+                    const base = (r.payload && typeof r.payload === 'object') ? r.payload : {};
+                    return { ...base, id: String(r.id), _dbId: r.id };
+                });
+                renderCards();
+            } catch (e) {
+                taps = [];
+                renderCards();
+                showToast(`Falha ao carregar TAPs: ${e.message || e}`, true);
+            }
+        }
+
+        async function saveTap(event) {
             event.preventDefault();
             
             const tapData = {
@@ -934,17 +996,21 @@
                 observacao: document.getElementById('observacao').value
             };
 
-            if (currentEditId) {
-                const index = taps.findIndex(t => t.id === currentEditId);
-                if (index !== -1) taps[index] = tapData;
-                showToast('TAP atualizada com sucesso!');
-            } else {
-                taps.push(tapData);
-                showToast('Nova TAP criada com sucesso!');
+            try {
+                const projectId = await resolveTapProjectId();
+                if (currentEditId) {
+                    const dbId = Number(currentEditId);
+                    await tapSupabaseRequest(`tap_entries?id=eq.${dbId}`, 'PATCH', { payload: tapData, project_id: projectId });
+                    showToast('TAP atualizada com sucesso!');
+                } else {
+                    await tapSupabaseRequest('tap_entries', 'POST', [{ project_id: projectId, payload: tapData }]);
+                    showToast('Nova TAP criada com sucesso!');
+                }
+                await loadTapsFromSupabase();
+                closeModal();
+            } catch (e) {
+                showToast(`Erro ao salvar TAP: ${e.message || e}`, true);
             }
-
-            renderCards();
-            closeModal();
         }
 
         function editTap(id) {
@@ -990,12 +1056,17 @@
             if(modalContent) modalContent.scrollTop = 0;
         }
 
-        function deleteTap() {
+        async function deleteTap() {
             if (!currentEditId) return;
-            taps = taps.filter(t => t.id !== currentEditId);
-            showToast('TAP excluída com sucesso!');
-            renderCards();
-            closeModal();
+            try {
+                const dbId = Number(currentEditId);
+                await tapSupabaseRequest(`tap_entries?id=eq.${dbId}`, 'DELETE');
+                showToast('TAP excluída com sucesso!');
+                await loadTapsFromSupabase();
+                closeModal();
+            } catch (e) {
+                showToast(`Erro ao excluir TAP: ${e.message || e}`, true);
+            }
         }
 
         function clearFormFields() {
@@ -1095,6 +1166,7 @@
         // Init
         initDynamicSelects();
         renderCards();
+        loadTapsFromSupabase();
 
     </script>
 </body>
