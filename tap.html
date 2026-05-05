@@ -973,14 +973,19 @@
         }
 
         function normalizeSupabaseBaseUrl(rawUrl = '') {
+            if (window.parent && window.parent !== window && typeof window.parent.normalizeSupabaseBaseUrl === 'function') {
+                return window.parent.normalizeSupabaseBaseUrl(rawUrl);
+            }
             const input = (rawUrl || '').trim();
             if(!input) return '';
             const candidate = /^https?:\/\//i.test(input) ? input : `https://${input}`;
             const parsed = new URL(candidate);
-            if(parsed.hostname.endsWith('supabase.co')) return `${parsed.protocol}//${parsed.hostname}`;
-            if(parsed.hostname.endsWith('supabase.com')) throw new Error('Use a URL do projeto (xxxx.supabase.co), não do dashboard.');
-            if(parsed.pathname.includes('/rest/v1')) return `${parsed.protocol}//${parsed.hostname}`;
-            throw new Error('Domínio do Supabase inválido.');
+            const host = (parsed.hostname || '').toLowerCase();
+            if(host === 'app.supabase.com' || host.endsWith('.app.supabase.com')) {
+                throw new Error('Use a URL do projeto (ex.: https://SEU-PROJETO.supabase.co), não a URL do dashboard app.supabase.com.');
+            }
+            if(host.includes('supabase') || parsed.pathname.includes('/rest/v1')) return `${parsed.protocol}//${parsed.hostname}`;
+            throw new Error(`Domínio do Supabase inválido: ${parsed.hostname}`);
         }
 
         async function tapSupabaseRequest(path, method='GET', body) {
