@@ -588,7 +588,7 @@
 
         <main class="content">
             <!-- COCKPIT / DASHBOARD -->
-            <div id="page-cockpit">
+                <div id="page-cockpit">
                 <div class="page-header">
                     <div class="page-header-text">
                         <h2>Dashboard de Gestão Executiva</h2>
@@ -598,6 +598,7 @@
                         <span id="health-badge">
                             <i data-lucide="shield-check" size="16"></i> PROJETO DENTRO DA NORMALIDADE
                         </span>
+                        <button class="btn-ghost" style="margin-left:10px;" onclick="openDbConfiguratorPrompt()"><i data-lucide="database" size="16"></i> SUPABASE</button>
                     </div>
                 </div>
 
@@ -805,6 +806,11 @@
             </div>
             <div class="editor-grid">
                 <div class="editor-field" style="grid-column: span 4;"><label>URL do Projeto Supabase</label><input type="text" id="dbconf-supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
+                <div class="editor-field"><label>Project Ref</label><input type="text" id="dbconf-project-ref" placeholder="abcd1234efgh"></div>
+                <div class="editor-field"><label>Schema REST</label><input type="text" id="dbconf-rest-schema" placeholder="public"></div>
+                <div class="editor-field"><label>Tabela de Projetos</label><input type="text" id="dbconf-projects-table" placeholder="projects"></div>
+                <div class="editor-field"><label>Tabela TAP</label><input type="text" id="dbconf-tap-table" placeholder="tap_entries"></div>
+                <div class="editor-field" style="grid-column: span 4;"><label>Anon Key (opcional)</label><input type="password" id="dbconf-anon-key" placeholder="eyJhbGci..."></div>
                 <div class="editor-field" style="grid-column: span 4;"><label>Service Role Key</label><input type="password" id="dbconf-supabase-secret" placeholder="sb_secret_..."></div>
             </div>
             <p style="margin-top:8px; color: var(--text-muted); font-size:12px;">Acesso protegido por senha mestre.</p>
@@ -1563,6 +1569,11 @@
             if(pass !== 'Config@Master') { showToast('Acesso negado ao Configurador de Banco.'); return; }
             const modal = document.getElementById('db-config-modal');
             document.getElementById('dbconf-supabase-url').value = config.supabase?.url || '';
+            document.getElementById('dbconf-project-ref').value = config.supabase?.projectRef || '';
+            document.getElementById('dbconf-rest-schema').value = config.supabase?.schema || 'public';
+            document.getElementById('dbconf-projects-table').value = config.supabase?.projectsTable || 'projects';
+            document.getElementById('dbconf-tap-table').value = config.supabase?.tapTable || 'tap_entries';
+            document.getElementById('dbconf-anon-key').value = config.supabase?.anonKey || '';
             document.getElementById('dbconf-supabase-secret').value = config.supabase?.secret || '';
             modal.style.display = 'block';
             lucide.createIcons();
@@ -1573,10 +1584,20 @@
         }
         function saveDbConfigurator() {
             const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
+            const projectRef = (document.getElementById('dbconf-project-ref')?.value || '').trim();
+            const schema = (document.getElementById('dbconf-rest-schema')?.value || 'public').trim();
+            const projectsTable = (document.getElementById('dbconf-projects-table')?.value || 'projects').trim();
+            const tapTable = (document.getElementById('dbconf-tap-table')?.value || 'tap_entries').trim();
+            const anonKey = (document.getElementById('dbconf-anon-key')?.value || '').trim();
             const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
             const validation = validateDbConfiguratorUrl(url);
             if(!validation.ok) { showToast(validation.message); return; }
             config.supabase.url = url;
+            config.supabase.projectRef = projectRef;
+            config.supabase.schema = schema || 'public';
+            config.supabase.projectsTable = projectsTable || 'projects';
+            config.supabase.tapTable = tapTable || 'tap_entries';
+            config.supabase.anonKey = anonKey;
             config.supabase.secret = secret;
             const oldUrl = document.getElementById('supabase-url'); if(oldUrl) oldUrl.value = url;
             const oldSecret = document.getElementById('supabase-secret'); if(oldSecret) oldSecret.value = secret;

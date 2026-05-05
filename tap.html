@@ -999,9 +999,10 @@
         async function tapSupabaseRequest(path, method='GET', body) {
             const cfg = getCockpitConfig();
             const rawUrl = cfg?.supabase?.url || '';
-            const secret = (cfg?.supabase?.secret || '').trim();
+            const secret = (cfg?.supabase?.secret || cfg?.supabase?.anonKey || '').trim();
             if(!rawUrl || !secret) throw new Error('Supabase não configurado no Cockpit.');
             const baseUrl = normalizeSupabaseBaseUrl(rawUrl);
+            const schema = (cfg?.supabase?.schema || 'public').trim();
             try {
                 const res = await fetch(`${baseUrl.replace(/\/$/, '')}/rest/v1/${path}`, {
                     method,
@@ -1009,6 +1010,9 @@
                         apikey: secret,
                         Authorization: `Bearer ${secret}`,
                         'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'Accept-Profile': schema,
+                        'Content-Profile': schema,
                         Prefer: 'return=representation,resolution=merge-duplicates'
                     },
                     body: body ? JSON.stringify(body) : undefined
@@ -1029,7 +1033,8 @@
             if(tapProjectContext.id) return tapProjectContext.id;
             const projectCode = getPrimaryProjectCode();
             tapProjectContext.code = projectCode;
-            const rows = await tapSupabaseRequest(`projects?code=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
+            const projectsTable = getCockpitConfig()?.supabase?.projectsTable || 'projects';
+            const rows = await tapSupabaseRequest(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
             if(!rows.length) throw new Error(`Projeto '${projectCode}' não encontrado na tabela projects.`);
             tapProjectContext.id = rows[0].id;
             return tapProjectContext.id;
@@ -1037,7 +1042,8 @@
 
         async function runSupabaseHealthCheck() {
             const projectId = await resolveTapProjectId();
-            await tapSupabaseRequest(`tap_entries?project_id=eq.${projectId}&select=id&limit=1`);
+            const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+            await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id&limit=1`);
             return { projectId };
         }
 
@@ -1050,14 +1056,16 @@
                     created_at: new Date().toISOString(),
                     note: 'healthcheck_tap_write_delete'
                 };
-                const inserted = await tapSupabaseRequest('tap_entries', 'POST', [{ project_id: projectId, payload: testPayload }]);
+                const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                const inserted = await tapSupabaseRequest(tapTable, 'POST', [{ project_id: projectId, payload: testPayload }]);
                 createdTestId = inserted?.[0]?.id || null;
                 if(!createdTestId) throw new Error('Teste de escrita falhou: ID não retornado no INSERT.');
-                await tapSupabaseRequest(`tap_entries?id=eq.${createdTestId}`, 'DELETE');
+                await tapSupabaseRequest(`${tapTable}?id=eq.${createdTestId}`, 'DELETE');
                 showToast(`Conexão OK (SELECT/INSERT/DELETE). Projeto vinculado (id): ${projectId}`);
             } catch (e) {
                 if (createdTestId) {
-                    try { await tapSupabaseRequest(`tap_entries?id=eq.${createdTestId}`, 'DELETE'); } catch (_) {}
+                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                    try { await tapSupabaseRequest(`${tapTable}?id=eq.${createdTestId}`, 'DELETE'); } catch (_) {}
                 }
                 showToast(`Falha na conexão: ${e.message || e}`, true, e);
             }
@@ -1066,7 +1074,8 @@
         async function loadTapsFromSupabase() {
             try {
                 const projectId = await resolveTapProjectId();
-                const rows = await tapSupabaseRequest(`tap_entries?project_id=eq.${projectId}&select=id,payload,updated_at,created_at&order=updated_at.desc.nullslast,created_at.desc.nullslast`);
+                const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id,payload,updated_at,created_at&order=updated_at.desc.nullslast,created_at.desc.nullslast`);
                 taps = rows.map((r) => {
                     const base = (r.payload && typeof r.payload === 'object') ? r.payload : {};
                     return { ...base, id: String(r.id), _dbId: r.id };
@@ -1122,10 +1131,12 @@
                 const { projectId } = await runSupabaseHealthCheck();
                 if (currentEditId) {
                     const dbId = Number(currentEditId);
-                    await tapSupabaseRequest(`tap_entries?id=eq.${dbId}`, 'PATCH', { payload: tapData, project_id: projectId });
+                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                    await tapSupabaseRequest(`${tapTable}?id=eq.${dbId}`, 'PATCH', { payload: tapData, project_id: projectId });
                     showToast('TAP atualizada com sucesso!');
                 } else {
-                    await tapSupabaseRequest('tap_entries', 'POST', [{ project_id: projectId, payload: tapData }]);
+                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                    await tapSupabaseRequest(tapTable, 'POST', [{ project_id: projectId, payload: tapData }]);
                     showToast('Nova TAP criada com sucesso!');
                 }
                 await loadTapsFromSupabase();
@@ -1182,7 +1193,8 @@
             if (!currentEditId) return;
             try {
                 const dbId = Number(currentEditId);
-                await tapSupabaseRequest(`tap_entries?id=eq.${dbId}`, 'DELETE');
+                const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                await tapSupabaseRequest(`${tapTable}?id=eq.${dbId}`, 'DELETE');
                 showToast('TAP excluída com sucesso!');
                 await loadTapsFromSupabase();
                 closeModal();
