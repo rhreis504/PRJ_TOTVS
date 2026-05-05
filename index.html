@@ -823,6 +823,10 @@
             </div>
             <div class="editor-grid">
                 <div class="editor-field" style="grid-column: span 4;"><label>URL do Projeto Supabase</label><input type="text" id="dbconf-supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
+                <div class="editor-field" style="grid-column: span 4;">
+                    <label>Log do teste de conexão</label>
+                    <textarea id="dbconf-connection-log" readonly style="width:100%; min-height:120px; padding:10px; border:1px solid var(--border-color); border-radius:10px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size:12px; background:#f8fafc; color:#0f172a; resize:vertical;" placeholder="Clique em 'Testar Conexão' para exibir os detalhes do erro."></textarea>
+                </div>
                 <div class="editor-field"><label>Project Ref</label><input type="text" id="dbconf-project-ref" placeholder="abcd1234efgh"></div>
                 <div class="editor-field"><label>Schema REST</label><input type="text" id="dbconf-rest-schema" placeholder="public"></div>
                 <div class="editor-field"><label>Tabela de Projetos</label><input type="text" id="dbconf-projects-table" placeholder="projects"></div>
@@ -1615,6 +1619,7 @@
             document.getElementById('dbconf-current-key').value = config.supabase?.currentKey || '';
             document.getElementById('dbconf-previous-key').value = config.supabase?.previousKey || '';
             document.getElementById('dbconf-api-url').value = config.supabase?.apiUrl || '';
+            setDbConfiguratorConnectionLog('');
             modal.style.display = 'block';
             lucide.createIcons();
         }
@@ -1622,14 +1627,29 @@
             const modal = document.getElementById('db-config-modal');
             if(modal) modal.style.display = 'none';
         }
+        function setDbConfiguratorConnectionLog(message = '') {
+            const logField = document.getElementById('dbconf-connection-log');
+            if(logField) logField.value = message;
+        }
         async function testDbConfiguratorConnection() {
             const testBtn = document.getElementById('dbconf-test-connection-btn');
             const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
             const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
             const projectsTable = (document.getElementById('dbconf-projects-table')?.value || 'projects').trim();
             const validation = validateDbConfiguratorUrl(url);
-            if(!validation.ok) { showToast(validation.message); return; }
-            if(!secret) { showToast('Informe a Service Role Key para testar a conexão.'); return; }
+            if(!validation.ok) {
+                setDbConfiguratorConnectionLog(`[ERRO DE VALIDAÇÃO]
+${validation.message}`);
+                showToast(validation.message);
+                return;
+            }
+            if(!secret) {
+                const msg = 'Informe a Service Role Key para testar a conexão.';
+                setDbConfiguratorConnectionLog(`[ERRO DE VALIDAÇÃO]
+${msg}`);
+                showToast(msg);
+                return;
+            }
             const baseUrl = (validation.normalized || '').replace(/\/$/, '');
             const endpoint = `${baseUrl}/rest/v1/${encodeURIComponent(projectsTable)}?select=id&limit=1`;
             const originalLabel = testBtn ? testBtn.textContent : '';
@@ -1637,6 +1657,11 @@
                 testBtn.disabled = true;
                 testBtn.textContent = 'Testando...';
             }
+            const startedAt = new Date().toISOString();
+            setDbConfiguratorConnectionLog(`[INICIANDO TESTE]
+Horário: ${startedAt}
+Endpoint: ${endpoint}
+Tabela: ${projectsTable}`);
             try {
                 const response = await fetch(endpoint, {
                     method: 'GET',
@@ -1646,13 +1671,29 @@
                     }
                 });
                 if(!response.ok) {
-                    const details = (await response.text()).slice(0, 180);
+                    const details = (await response.text()).slice(0, 400);
+                    const logMessage = `[FALHA HTTP]
+Status: ${response.status} ${response.statusText}
+Endpoint: ${endpoint}
+Resposta: ${details || 'não foi possível conectar.'}`;
+                    setDbConfiguratorConnectionLog(logMessage);
                     showToast(`Falha no teste (${response.status}): ${details || 'não foi possível conectar.'}`);
                     return;
                 }
+                setDbConfiguratorConnectionLog(`[SUCESSO]
+Conexão validada com sucesso.
+Endpoint: ${endpoint}`);
                 showToast('Conexão com Supabase validada com sucesso.');
             } catch (error) {
-                showToast(`Erro ao testar conexão: ${error?.message || error}`);
+                const errorName = error?.name || 'Erro desconhecido';
+                const errorMessage = error?.message || String(error);
+                const errorStack = error?.stack ? `
+Stack: ${error.stack}` : '';
+                setDbConfiguratorConnectionLog(`[ERRO DE REDE]
+Tipo: ${errorName}
+Mensagem: ${errorMessage}
+Endpoint: ${endpoint}${errorStack}`);
+                showToast(`Erro ao testar conexão: ${errorMessage}`);
             } finally {
                 if(testBtn) {
                     testBtn.disabled = false;
