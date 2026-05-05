@@ -797,12 +797,29 @@
     <div id="db-config-modal" class="roadmap-editor" style="display:none; z-index:1200;">
         <div class="editor-header">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h1 style="font-size:22px; font-weight:800; color: var(--totvs-brand);">CONFIGURADOR DE BANCO</h1>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <h1 style="font-size:22px; font-weight:800; color: var(--totvs-brand);">CONFIGURADOR DE BANCO</h1>
+                    <button class="btn-ghost" style="padding:8px 10px;" onclick="toggleDbConfiguratorHelp()" title="Ver onde encontrar cada informação">
+                        <i data-lucide="info" size="16"></i>
+                    </button>
+                </div>
                 <div style="display:flex; gap:12px;">
                     <button class="btn-ghost" onclick="testDbConfiguratorConnection()"><i data-lucide="plug-zap" size="18"></i> Testar Conexão</button>
                     <button class="btn-ghost" onclick="closeDbConfigurator()">Fechar</button>
                     <button class="btn-primary" onclick="saveDbConfigurator()"><i data-lucide="save" size="18"></i> Salvar Conexão</button>
                 </div>
+            </div>
+            <div id="dbconf-help" style="display:none; background:#f8fbff; border:1px solid #c8def7; border-radius:10px; padding:12px 14px; margin-top:14px; color:#0f2f57; font-size:13px; line-height:1.45;">
+                <strong style="display:block; margin-bottom:6px;">Passo a passo (Supabase)</strong>
+                <ol style="margin:0; padding-left:18px;">
+                    <li>Acesse o projeto no painel do Supabase.</li>
+                    <li>Em <strong>Settings → API</strong>, copie a <strong>Project URL</strong> e cole em <em>URL do Projeto Supabase</em>.</li>
+                    <li>Nessa mesma tela, copie o <strong>Project ID / Reference</strong> para <em>Project Ref</em>.</li>
+                    <li>Use <em>Schema REST</em> como <strong>public</strong> (ou o schema customizado da API).</li>
+                    <li>Em <strong>Project Settings → API Keys</strong>, copie <strong>anon public</strong> (opcional) e <strong>service_role</strong>.</li>
+                    <li>Confirme os nomes das tabelas no <strong>Table Editor</strong>: normalmente <strong>projects</strong> e <strong>tap_entries</strong>.</li>
+                    <li>Clique em <strong>Testar Conexão</strong> e depois em <strong>Salvar Conexão</strong>.</li>
+                </ol>
             </div>
             <div class="editor-grid">
                 <div class="editor-field" style="grid-column: span 4;"><label>URL do Projeto Supabase</label><input type="text" id="dbconf-supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
@@ -1564,12 +1581,27 @@
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
             showToast("Configurações sistêmicas atualizadas."); startSync();
         }
+        function toggleDbConfiguratorHelp() {
+            const help = document.getElementById('dbconf-help');
+            if(help) help.style.display = help.style.display === 'none' ? 'block' : 'none';
+        }
+        function extractProjectRefFromUrl(rawUrl = '') {
+            const candidate = rawUrl.trim();
+            if(!candidate) return '';
+            try {
+                const normalized = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+                const parsed = new URL(normalized);
+                const hostParts = (parsed.hostname || '').split('.');
+                return hostParts[0] && hostParts[0] !== 'app' ? hostParts[0] : '';
+            } catch (_e) { return ''; }
+        }
         function openDbConfiguratorPrompt() {
             const pass = prompt('Informe a senha do Configurador de Banco:');
             if(pass !== 'Config@Master') { showToast('Acesso negado ao Configurador de Banco.'); return; }
             const modal = document.getElementById('db-config-modal');
             document.getElementById('dbconf-supabase-url').value = config.supabase?.url || '';
-            document.getElementById('dbconf-project-ref').value = config.supabase?.projectRef || '';
+            const inferredProjectRef = config.supabase?.projectRef || extractProjectRefFromUrl(config.supabase?.url || '');
+            document.getElementById('dbconf-project-ref').value = inferredProjectRef;
             document.getElementById('dbconf-rest-schema').value = config.supabase?.schema || 'public';
             document.getElementById('dbconf-projects-table').value = config.supabase?.projectsTable || 'projects';
             document.getElementById('dbconf-tap-table').value = config.supabase?.tapTable || 'tap_entries';
@@ -1590,10 +1622,12 @@
             const tapTable = (document.getElementById('dbconf-tap-table')?.value || 'tap_entries').trim();
             const anonKey = (document.getElementById('dbconf-anon-key')?.value || '').trim();
             const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
+            const normalizedProjectRef = projectRef || extractProjectRefFromUrl(url);
+            if(!projectRef && normalizedProjectRef) document.getElementById('dbconf-project-ref').value = normalizedProjectRef;
             const validation = validateDbConfiguratorUrl(url);
             if(!validation.ok) { showToast(validation.message); return; }
             config.supabase.url = url;
-            config.supabase.projectRef = projectRef;
+            config.supabase.projectRef = normalizedProjectRef;
             config.supabase.schema = schema || 'public';
             config.supabase.projectsTable = projectsTable || 'projects';
             config.supabase.tapTable = tapTable || 'tap_entries';
