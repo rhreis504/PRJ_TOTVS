@@ -84,6 +84,9 @@
                 <button onclick="toggleFilters()" class="w-full sm:w-auto bg-white border border-gray-300 hover:bg-gray-50 text-totvs-navy font-bold py-2.5 px-4 rounded shadow-sm transition-colors flex justify-center items-center gap-2">
                     <i class="ph-bold ph-funnel text-totvs-teal"></i> Filtros
                 </button>
+                <button onclick="testSupabaseConnection()" class="w-full sm:w-auto bg-white border border-totvs-teal/40 hover:bg-totvs-teal/5 text-totvs-teal font-bold py-2.5 px-4 rounded shadow-sm transition-colors flex justify-center items-center gap-2 whitespace-nowrap">
+                    <i class="ph-bold ph-plug"></i> Testar Conexão
+                </button>
                 <button onclick="openNewTapModal()" class="w-full sm:w-auto bg-totvs-magenta hover:bg-totvs-magentaDark text-white font-bold py-2.5 px-6 rounded shadow transition-colors flex justify-center items-center gap-2 whitespace-nowrap">
                     <i class="ph-bold ph-plus"></i> Nova TAP
                 </button>
@@ -898,8 +901,12 @@
 
         function getCockpitConfig() {
             try {
-                return JSON.parse(localStorage.getItem('totvs_cockpit_config') || '{}');
+                const localCfg = JSON.parse(localStorage.getItem('totvs_cockpit_config') || '{}');
+                if (localCfg && Object.keys(localCfg).length) return localCfg;
+                if (window.parent && window.parent !== window && window.parent.config) return window.parent.config;
+                return {};
             } catch (_) {
+                if (window.parent && window.parent !== window && window.parent.config) return window.parent.config;
                 return {};
             }
         }
@@ -909,26 +916,44 @@
             return params.get('primaryProject') || getCockpitConfig()?.activeProjectId || 'default';
         }
 
+        function normalizeSupabaseBaseUrl(rawUrl = '') {
+            const input = (rawUrl || '').trim();
+            if(!input) return '';
+            const candidate = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+            const parsed = new URL(candidate);
+            if(parsed.hostname.endsWith('supabase.co')) return `${parsed.protocol}//${parsed.hostname}`;
+            if(parsed.hostname.endsWith('supabase.com')) throw new Error('Use a URL do projeto (xxxx.supabase.co), não do dashboard.');
+            if(parsed.pathname.includes('/rest/v1')) return `${parsed.protocol}//${parsed.hostname}`;
+            throw new Error('Domínio do Supabase inválido.');
+        }
+
         async function tapSupabaseRequest(path, method='GET', body) {
             const cfg = getCockpitConfig();
-            const rawUrl = (cfg?.supabase?.url || '').trim();
+            const rawUrl = cfg?.supabase?.url || '';
             const secret = (cfg?.supabase?.secret || '').trim();
             if(!rawUrl || !secret) throw new Error('Supabase não configurado no Cockpit.');
-            const baseUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
-            const res = await fetch(`${baseUrl.replace(/\/$/, '')}/rest/v1/${path}`, {
-                method,
-                headers: {
-                    apikey: secret,
-                    Authorization: `Bearer ${secret}`,
-                    'Content-Type': 'application/json',
-                    Prefer: 'return=representation,resolution=merge-duplicates'
-                },
-                body: body ? JSON.stringify(body) : undefined
-            });
-            const text = await res.text();
-            if(!res.ok) throw new Error(text || `Erro ${res.status}`);
-            if(res.status === 204 || !text) return [];
-            return JSON.parse(text);
+            const baseUrl = normalizeSupabaseBaseUrl(rawUrl);
+            try {
+                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/rest/v1/${path}`, {
+                    method,
+                    headers: {
+                        apikey: secret,
+                        Authorization: `Bearer ${secret}`,
+                        'Content-Type': 'application/json',
+                        Prefer: 'return=representation,resolution=merge-duplicates'
+                    },
+                    body: body ? JSON.stringify(body) : undefined
+                });
+                const text = await res.text();
+                if(!res.ok) throw new Error(text || `Erro ${res.status}`);
+                if(res.status === 204 || !text) return [];
+                return JSON.parse(text);
+            } catch (e) {
+                if (e instanceof TypeError) {
+                    throw new Error('Falha de rede ao acessar Supabase. Confira URL, CORS e conexão.');
+                }
+                throw e;
+            }
         }
 
         async function resolveTapProjectId() {
@@ -939,6 +964,34 @@
             if(!rows.length) throw new Error(`Projeto '${projectCode}' não encontrado na tabela projects.`);
             tapProjectContext.id = rows[0].id;
             return tapProjectContext.id;
+        }
+
+        async function runSupabaseHealthCheck() {
+            const projectId = await resolveTapProjectId();
+            await tapSupabaseRequest(`tap_entries?project_id=eq.${projectId}&select=id&limit=1`);
+            return { projectId };
+        }
+
+        async function testSupabaseConnection() {
+            let createdTestId = null;
+            try {
+                const { projectId } = await runSupabaseHealthCheck();
+                const testPayload = {
+                    test_connection: true,
+                    created_at: new Date().toISOString(),
+                    note: 'healthcheck_tap_write_delete'
+                };
+                const inserted = await tapSupabaseRequest('tap_entries', 'POST', [{ project_id: projectId, payload: testPayload }]);
+                createdTestId = inserted?.[0]?.id || null;
+                if(!createdTestId) throw new Error('Teste de escrita falhou: ID não retornado no INSERT.');
+                await tapSupabaseRequest(`tap_entries?id=eq.${createdTestId}`, 'DELETE');
+                showToast(`Conexão OK (SELECT/INSERT/DELETE). Projeto vinculado (id): ${projectId}`);
+            } catch (e) {
+                if (createdTestId) {
+                    try { await tapSupabaseRequest(`tap_entries?id=eq.${createdTestId}`, 'DELETE'); } catch (_) {}
+                }
+                showToast(`Falha na conexão: ${e.message || e}`, true);
+            }
         }
 
         async function loadTapsFromSupabase() {
@@ -997,7 +1050,7 @@
             };
 
             try {
-                const projectId = await resolveTapProjectId();
+                const { projectId } = await runSupabaseHealthCheck();
                 if (currentEditId) {
                     const dbId = Number(currentEditId);
                     await tapSupabaseRequest(`tap_entries?id=eq.${dbId}`, 'PATCH', { payload: tapData, project_id: projectId });
