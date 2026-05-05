@@ -986,7 +986,11 @@
             const parsed = new URL(candidate);
             const host = (parsed.hostname || '').toLowerCase();
             if(host === 'app.supabase.com' || host.endsWith('.app.supabase.com')) {
-                throw new Error('Use a URL do projeto (ex.: https://SEU-PROJETO.supabase.co), não a URL do dashboard app.supabase.com.');
+                const byPath = parsed.pathname.match(/\/project\/([a-z0-9-]+)/i)?.[1];
+                const byQuery = parsed.searchParams.get('project');
+                const projectRef = (byPath || byQuery || '').trim();
+                if(projectRef) return `https://${projectRef}.supabase.co`;
+                throw new Error('URL do dashboard detectada. Informe a URL do projeto (ex.: https://SEU-PROJETO.supabase.co).');
             }
             if(host.includes('supabase') || parsed.pathname.includes('/rest/v1')) return `${parsed.protocol}//${parsed.hostname}`;
             throw new Error(`Domínio do Supabase inválido: ${parsed.hostname}`);
