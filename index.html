@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Cockpit Executivo - Gestão de Projetos</title>
     <!-- Fontes e Ícones -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -824,7 +827,10 @@
             <div class="editor-grid">
                 <div class="editor-field" style="grid-column: span 4;"><label>URL do Projeto Supabase</label><input type="text" id="dbconf-supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
                 <div class="editor-field" style="grid-column: span 4;">
-                    <label>Log do teste de conexão</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                        <label>Log do teste de conexão</label>
+                        <small id="dbconf-build-version" style="color: var(--text-muted); font-size:11px;"></small>
+                    </div>
                     <textarea id="dbconf-connection-log" readonly style="width:100%; min-height:120px; padding:10px; border:1px solid var(--border-color); border-radius:10px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size:12px; background:#f8fafc; color:#0f172a; resize:vertical;" placeholder="Clique em 'Testar Conexão' para exibir os detalhes do erro."></textarea>
                 </div>
                 <div class="editor-field"><label>Project Ref</label><input type="text" id="dbconf-project-ref" placeholder="abcd1234efgh"></div>
@@ -969,6 +975,7 @@
     <!-- ========== SCRIPTS MANTIDOS INTEGRALMENTE ========== -->
     <script>
         // --- CONFIG & STATE ---
+        const DB_CONFIGURATOR_BUILD_VERSION = 'dbconf-2026-05-05-v2';
         const defaultSources = () => ({
             stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
             pendencias: { label: 'Pendências', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
@@ -1603,6 +1610,21 @@
                 return hostParts[0] && hostParts[0] !== 'app' ? hostParts[0] : '';
             } catch (_e) { return ''; }
         }
+        function resolveSupabaseBaseUrl({ rawUrl = '', projectRef = '', apiUrl = '' } = {}) {
+            const sanitizeHost = (value = '') => (value || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*/, '');
+            const normalizedRef = sanitizeHost(projectRef);
+            const candidates = [rawUrl, apiUrl].map(v => (v || '').trim()).filter(Boolean);
+            for (const candidate of candidates) {
+                try {
+                    const seeded = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+                    const parsed = new URL(seeded);
+                    const host = (parsed.hostname || '').toLowerCase();
+                    if(host && host !== 'app.supabase.com') return `${parsed.protocol}//${parsed.hostname}`;
+                } catch (_e) {}
+            }
+            if(normalizedRef) return `https://${normalizedRef}.supabase.co`;
+            return '';
+        }
         function openDbConfiguratorPrompt() {
             const pass = prompt('Informe a senha do Configurador de Banco:');
             if(pass !== 'Config@Master') { showToast('Acesso negado ao Configurador de Banco.'); return; }
@@ -1627,31 +1649,62 @@
             const modal = document.getElementById('db-config-modal');
             if(modal) modal.style.display = 'none';
         }
+        function refreshDbConfiguratorBuildVersion() {
+            const versionField = document.getElementById('dbconf-build-version');
+            if(versionField) versionField.textContent = `Versão: ${DB_CONFIGURATOR_BUILD_VERSION}`;
+        }
         function setDbConfiguratorConnectionLog(message = '') {
+            refreshDbConfiguratorBuildVersion();
             const logField = document.getElementById('dbconf-connection-log');
             if(logField) logField.value = message;
+        }
+        function buildDbConfiguratorNetworkHints({ rawUrl = '', normalizedUrl = '', endpoint = '', errorName = '', errorMessage = '' } = {}) {
+            const hints = [];
+            if(/failed to fetch/i.test(errorMessage) || /TypeError/i.test(errorName)) {
+                hints.push('Possível bloqueio de rede/CORS no navegador (erro típico de fetch sem resposta HTTP).');
+            }
+            if(/\/rest\/v1/i.test(rawUrl)) {
+                hints.push('A URL informada parece conter /rest/v1. Use apenas a Project URL: https://SEU-PROJETO.supabase.co');
+            }
+            hints.push('Confirme no Supabase se o projeto está ativo e se o domínio está correto.');
+            hints.push('Teste abrir no navegador: ' + normalizedUrl);
+            hints.push('Se estiver em rede corporativa, valide proxy/firewall/antivírus bloqueando *.supabase.co.');
+            hints.push('Valide data/hora do sistema e tente aba anônima (extensões podem bloquear requisições).');
+            hints.push('Teste externo (terminal): curl -i "' + endpoint + '" -H "apikey: <SERVICE_ROLE>" -H "Authorization: Bearer <SERVICE_ROLE>"');
+            return hints.map((hint, idx) => `${idx + 1}. ${hint}`).join('\n');
         }
         async function testDbConfiguratorConnection() {
             const testBtn = document.getElementById('dbconf-test-connection-btn');
             const url = (document.getElementById('dbconf-supabase-url')?.value || '').trim();
+            const projectRef = (document.getElementById('dbconf-project-ref')?.value || '').trim();
+            const apiUrl = (document.getElementById('dbconf-api-url')?.value || '').trim();
             const secret = (document.getElementById('dbconf-supabase-secret')?.value || '').trim();
+            const publishableKey = (document.getElementById('dbconf-publishable-key')?.value || '').trim();
+            const anonKey = (document.getElementById('dbconf-anon-key')?.value || '').trim();
             const projectsTable = (document.getElementById('dbconf-projects-table')?.value || 'projects').trim();
-            const validation = validateDbConfiguratorUrl(url);
+            const resolvedBaseUrl = resolveSupabaseBaseUrl({ rawUrl: url, projectRef, apiUrl });
+            const validation = validateDbConfiguratorUrl(resolvedBaseUrl || url);
             if(!validation.ok) {
                 setDbConfiguratorConnectionLog(`[ERRO DE VALIDAÇÃO]
 ${validation.message}`);
                 showToast(validation.message);
                 return;
             }
-            if(!secret) {
-                const msg = 'Informe a Service Role Key para testar a conexão.';
+            const credentialsToTest = [
+                { label: 'service_role', value: secret },
+                { label: 'publishable', value: publishableKey },
+                { label: 'anon', value: anonKey }
+            ].filter(item => item.value);
+            if(!credentialsToTest.length) {
+                const msg = 'Informe ao menos uma chave: Service Role, Publishable ou Anon.';
                 setDbConfiguratorConnectionLog(`[ERRO DE VALIDAÇÃO]
 ${msg}`);
                 showToast(msg);
                 return;
             }
-            const baseUrl = (validation.normalized || '').replace(/\/$/, '');
+            const baseUrl = (resolvedBaseUrl || validation.normalized || '').replace(/\/$/, '');
             const endpoint = `${baseUrl}/rest/v1/${encodeURIComponent(projectsTable)}?select=id&limit=1`;
+            const healthEndpoint = `${baseUrl}/auth/v1/health`;
             const originalLabel = testBtn ? testBtn.textContent : '';
             if(testBtn) {
                 testBtn.disabled = true;
@@ -1659,40 +1712,63 @@ ${msg}`);
             }
             const startedAt = new Date().toISOString();
             setDbConfiguratorConnectionLog(`[INICIANDO TESTE]
+Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
 Horário: ${startedAt}
-Endpoint: ${endpoint}
+Base URL resolvida: ${baseUrl}
+Endpoint REST: ${endpoint}
+Endpoint Health: ${healthEndpoint}
 Tabela: ${projectsTable}`);
             try {
-                const response = await fetch(endpoint, {
-                    method: 'GET',
-                    headers: {
-                        apikey: secret,
-                        Authorization: `Bearer ${secret}`
+                try { await fetch(healthEndpoint, { method: 'GET' }); } catch (_healthErr) {}
+                const attempts = [];
+                let validated = false;
+                for (const cred of credentialsToTest) {
+                    const response = await fetch(endpoint, {
+                        method: 'GET',
+                        headers: {
+                            apikey: cred.value,
+                            Authorization: `Bearer ${cred.value}`
+                        }
+                    });
+                    if(response.ok) {
+                        validated = true;
+                        setDbConfiguratorConnectionLog(`[SUCESSO]
+Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
+Conexão validada com sucesso.
+Credencial aprovada: ${cred.label}
+Endpoint: ${endpoint}`);
+                        showToast(`Conexão com Supabase validada com sucesso (${cred.label}).`);
+                        break;
                     }
-                });
-                if(!response.ok) {
                     const details = (await response.text()).slice(0, 400);
+                    attempts.push(`- ${cred.label}: ${response.status} ${response.statusText} | ${details || 'sem detalhes'}`);
+                    if(![401, 403].includes(response.status)) break;
+                }
+                if(!validated) {
                     const logMessage = `[FALHA HTTP]
-Status: ${response.status} ${response.statusText}
+Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
+Nenhuma credencial foi aceita.
 Endpoint: ${endpoint}
-Resposta: ${details || 'não foi possível conectar.'}`;
+Tentativas:
+${attempts.join('\n')}`;
                     setDbConfiguratorConnectionLog(logMessage);
-                    showToast(`Falha no teste (${response.status}): ${details || 'não foi possível conectar.'}`);
+                    showToast('Falha no teste: nenhuma credencial validou a conexão.');
                     return;
                 }
-                setDbConfiguratorConnectionLog(`[SUCESSO]
-Conexão validada com sucesso.
-Endpoint: ${endpoint}`);
-                showToast('Conexão com Supabase validada com sucesso.');
             } catch (error) {
                 const errorName = error?.name || 'Erro desconhecido';
                 const errorMessage = error?.message || String(error);
                 const errorStack = error?.stack ? `
 Stack: ${error.stack}` : '';
+                const hints = buildDbConfiguratorNetworkHints({ rawUrl: url, normalizedUrl: baseUrl, endpoint, errorName, errorMessage }) + `\n7. Project Ref informado: ${projectRef || 'não informado'}`;
                 setDbConfiguratorConnectionLog(`[ERRO DE REDE]
+Versão: ${DB_CONFIGURATOR_BUILD_VERSION}
 Tipo: ${errorName}
 Mensagem: ${errorMessage}
-Endpoint: ${endpoint}${errorStack}`);
+Endpoint: ${endpoint}${errorStack}
+
+[DIAGNÓSTICO SUGERIDO]
+${hints}`);
                 showToast(`Erro ao testar conexão: ${errorMessage}`);
             } finally {
                 if(testBtn) {
@@ -1731,7 +1807,6 @@ Endpoint: ${endpoint}${errorStack}`);
             const oldUrl = document.getElementById('supabase-url'); if(oldUrl) oldUrl.value = url;
             const oldSecret = document.getElementById('supabase-secret'); if(oldSecret) oldSecret.value = secret;
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
-            closeDbConfigurator();
             showToast('Configuração de banco atualizada com sucesso.');
         }
         function validateDbConfiguratorUrl(rawUrl = '') {
