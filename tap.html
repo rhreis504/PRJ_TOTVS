@@ -3,567 +3,1099 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TAP - {{nomeProjeto}}</title>
+    <title>Gestão de Projetos - TAP TOTVS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        // Paleta de Cores Corporativa TOTVS
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        totvs: {
+                            navy: '#0B162C',     
+                            magenta: '#E10098',  
+                            magentaDark: '#B8007A', 
+                            teal: '#009B9E',     
+                            light: '#F4F5F7',    
+                            gray: '#333333'      
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        /* Estilos específicos para impressão */
-        @media print {
-            body { background-color: white !important; padding: 0 !important; }
-            .no-print { display: none !important; }
-            .doc-container { box-shadow: none !important; border: none !important; border-radius: 0 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
-            .page-break { page-break-before: always; }
-            .section-card { break-inside: avoid; border: 1px solid #e2e8f0 !important; }
+        body {
+            background-color: #F4F5F7;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+        .transfer-item { transition: all 0.2s ease; }
+        .transfer-item:hover { background-color: #f8fafc; transform: scale(1.01); border-color: #cbd5e1; }
+        
+        /* Modal Animation */
+        .modal-enter { animation: modalFadeIn 0.3s ease-out forwards; }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95) translateY(-20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
         }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-900 font-sans py-8 px-4 sm:px-8">
+<body class="text-totvs-gray min-h-screen flex flex-col overflow-x-hidden">
 
-    <!-- Botão de Imprimir (Oculto na impressão) -->
-    <div class="max-w-5xl mx-auto mb-4 no-print space-y-3">
-        <div class="bg-white border border-slate-200 rounded-lg p-4">
-            <div class="flex flex-wrap items-center gap-2">
-                <button id="tap-edit-btn" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-colors">Editar TAP</button>
-                <button id="tap-save-btn" class="hidden bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 px-4 rounded-lg shadow transition-colors">Salvar no Supabase</button>
-                <button id="tap-cancel-btn" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-2 px-4 rounded-lg transition-colors">Cancelar</button>
-                <span id="tap-status" class="text-sm text-slate-600"></span>
-            </div>
-        </div>
-        <div id="tap-editor" class="hidden bg-white border border-slate-200 rounded-lg p-4"></div>
-        <div class="flex justify-end">
-        <button onclick="window.print()" class="bg-cyan-700 hover:bg-cyan-800 text-white font-semibold py-2 px-4 rounded-lg shadow flex items-center gap-2 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-            Imprimir / Salvar PDF
-        </button>
-        </div>
-    </div>
-
-    <!-- DOCUMENTO TAP -->
-    <div class="doc-container max-w-5xl mx-auto bg-white shadow-xl rounded-xl border border-slate-200 overflow-hidden">
-        
-        <!-- CABEÇALHO DO DOCUMENTO -->
-        <header class="bg-slate-900 text-white p-8 border-b-4 border-cyan-500">
-            <div class="flex justify-between items-start">
+    <!-- Header Corporativo TOTVS -->
+    <header class="bg-totvs-navy text-white shadow-lg sticky top-0 z-20">
+        <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center border-b-4 border-totvs-magenta">
+            <div class="flex items-center gap-3">
+                <i class="ph-fill ph-projector-screen-chart text-totvs-magenta text-3xl"></i>
                 <div>
-                    <div class="flex items-center gap-3 mb-2">
-                        <!-- Logo TOTVS Simulado -->
-                        <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                            <div class="w-4 h-4 border-4 border-slate-900 rounded-full border-t-transparent transform rotate-45"></div>
-                        </div>
-                        <h1 class="text-2xl font-black tracking-tight">TOTVS</h1>
-                    </div>
-                    <h2 class="text-xl font-light text-slate-300">TAP (Termo de Abertura do PROJETO)</h2>
-                </div>
-                <div class="text-right">
-                    <p class="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Projeto Relativo</p>
-                    <h3 class="text-2xl font-bold text-cyan-400">{{nomeProjeto}}</h3>
-                    <p class="text-sm mt-1 text-slate-300">Cód. Cliente: <span class="font-mono text-white bg-slate-800 px-2 py-0.5 rounded">{{codCliente}}</span></p>
+                    <h1 class="text-xl font-bold tracking-wide">TAP - Termo de Abertura do Projeto</h1>
                 </div>
             </div>
-        </header>
-
-        <div class="p-8 space-y-8">
-
-            <!-- 1. IDENTIFICAÇÃO -->
-            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
-                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
-                    <h3 class="text-lg font-bold text-slate-800">Identificação</h3>
-                </div>
-                <div class="p-5 grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div class="col-span-1 md:col-span-2">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Data Base</p>
-                        <p class="text-sm font-medium text-slate-800">{{dataBase}}</p>
-                    </div>
-                    <div class="col-span-1 md:col-span-2">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Drive / Repositório</p>
-                        <p class="text-sm font-medium text-slate-800">{{driveRepositorio}}</p>
-                    </div>
-
-                    <div class="col-span-1 md:col-span-4 border-t border-slate-100 pt-4">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Produto(s) Contratado(s)</p>
-                        <p class="text-sm font-bold text-slate-800">{{produtosContratados}}</p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Coordenador (CP)</p>
-                        <p class="text-sm font-medium text-slate-800">{{coordenadorCP}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">GPP</p>
-                        <p class="text-sm font-medium text-slate-800">{{gpp}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">ESN</p>
-                        <p class="text-sm font-medium text-slate-800">{{esn}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Arquiteto TOTVS</p>
-                        <p class="text-sm font-medium text-slate-800">{{arquitetoTotvs}}</p>
-                    </div>
-
-                    <div class="col-span-1 md:col-span-2">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Criticidade Cliente</p>
-                        <!-- As classes de cor (bg-red-100, etc) precisarão ser dinâmicas dependendo do valor da criticidade -->
-                        <span class="inline-block px-3 py-1 rounded border bg-slate-100 text-slate-800 border-slate-200 text-xs font-bold mt-1">{{criticidadeCliente}}</span>
-                    </div>
-                    <div class="col-span-1 md:col-span-2">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Criticidade TOTVS</p>
-                        <span class="inline-block px-3 py-1 rounded border bg-slate-100 text-slate-800 border-slate-200 text-xs font-bold mt-1">{{criticidadeTotvs}}</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 2. FINANCEIRO -->
-            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
-                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 18V6"></path></svg>
-                    <h3 class="text-lg font-bold text-slate-800">Financeiro</h3>
-                </div>
-                <div class="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-6">
-                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Valor do Projeto</p>
-                        <p class="text-base font-bold text-slate-800">{{valorProjeto}}</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Receita Atual</p>
-                        <p class="text-base font-bold text-slate-800">{{receitaAtual}}</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem da Venda %</p>
-                        <p class="text-base font-bold text-slate-800">{{margemVendaPerc}}</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Atual %</p>
-                        <p class="text-base font-bold text-slate-800">{{margemAtualPerc}}</p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Venda (R$)</p>
-                        <p class="text-sm font-medium text-slate-800">{{margemVendaValor}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Atual (R$)</p>
-                        <p class="text-sm font-medium text-slate-800">{{margemAtualValor}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MRR Mensal</p>
-                        <p class="text-sm font-medium text-slate-800">{{mrrMensal}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MRR Total</p>
-                        <p class="text-sm font-medium text-slate-800">{{mrrTotal}}</p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PSA Planejado</p>
-                        <p class="text-sm font-medium text-slate-800">{{psaPlanejado}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Diferença PSA</p>
-                        <p class="text-sm font-medium text-slate-800">{{diferencaPsa}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Invest. Comercial</p>
-                        <p class="text-sm font-medium text-slate-800">{{investimentoComercial}}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Invest. Erro Produto</p>
-                        <p class="text-sm font-medium text-slate-800">{{investimentoErroProduto}}</p>
-                    </div>
-
-                    <!-- As classes de cor (bg-emerald-50, etc) precisarão ser dinâmicas dependendo se o projeto está em perda -->
-                    <div class="col-span-1 md:col-span-2 bg-slate-50 p-3 rounded border border-slate-200 flex items-center gap-4">
-                        <div>
-                            <p class="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-1">Projeto em Perda?</p>
-                            <p class="text-lg font-black text-slate-600 uppercase">{{projetoEmPerda}}</p>
-                        </div>
-                    </div>
-                    <div class="col-span-1 md:col-span-2">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Investimento Perdas</p>
-                        <p class="text-sm font-medium text-slate-800">{{investimentoPerdas}}</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 3. TIMELINE -->
-            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
-                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <h3 class="text-lg font-bold text-slate-800">Timeline do Projeto</h3>
-                </div>
-                <div class="p-5">
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-                        <div class="p-4 border border-slate-200 rounded-lg">
-                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Data Início</p>
-                            <p class="text-base font-bold text-slate-800">{{dataInicio}}</p>
-                        </div>
-                        
-                        <!-- As classes de cor precisarão ser dinâmicas baseadas no statusGoLive -->
-                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
-                            <p class="text-xs font-bold text-slate-600 uppercase mb-1">Go-live (Previsão)</p>
-                            <p class="text-base font-bold text-slate-800">{{goLivePrevisao}}</p>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">{{statusGoLive}}</p>
-                        </div>
-                        
-                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
-                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Duração</p>
-                            <p class="text-xl font-black text-cyan-700">{{duracaoMeses}} <span class="text-xs font-normal text-slate-500">meses</span></p>
-                        </div>
-                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
-                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Pós-produção</p>
-                            <p class="text-xl font-black text-slate-700">{{posProducaoMeses}} <span class="text-xs font-normal text-slate-500">meses</span></p>
-                        </div>
-                        
-                        <!-- As classes de cor precisarão ser dinâmicas baseadas no statusEncerramento -->
-                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg col-span-2 md:col-span-1">
-                            <p class="text-xs font-bold text-slate-600 uppercase mb-1">Encerramento</p>
-                            <p class="text-base font-bold text-slate-800">{{dataEncerramento}}</p>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">{{statusEncerramento}}</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 4. ESCOPO E OBJETIVO -->
-            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
-                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                    <h3 class="text-lg font-bold text-slate-800">Escopo e Objetivo</h3>
-                </div>
-                <div class="p-5">
-                    <ul class="space-y-3">
-                        <!-- O elemento abaixo deve ser repetido (loop) para cada item do escopo no back-end -->
-                        <li class="flex items-start gap-3">
-                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                            <span class="text-sm text-slate-700">{{itemEscopo}}</span>
-                        </li>
-                    </ul>
-                </div>
-            </section>
-
-            <!-- 5. OBSERVAÇÕES -->
-            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
-                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
-                    <h3 class="text-lg font-bold text-slate-800">Observações Gerais</h3>
-                </div>
-                <div class="p-5">
-                    <p class="text-sm text-slate-700 whitespace-pre-wrap">{{observacoesGerais}}</p>
-                </div>
-            </section>
-
+            <div class="hidden sm:flex items-center gap-2 text-sm font-medium bg-white/10 px-3 py-1.5 rounded-md">
+                <i class="ph ph-user-circle text-lg"></i>
+                <span>Portal Interno</span>
+            </div>
         </div>
+    </header>
+
+    <!-- Main Content (Dashboard de TAPs) -->
+    <main class="flex-grow max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col gap-6">
         
-        <!-- RODAPÉ DO DOCUMENTO -->
-        <footer class="bg-slate-50 border-t border-slate-200 p-6 text-center text-xs text-slate-400">
-            Documento gerado pelo sistema de Portfólio de Projetos TOTVS em {{dataGeracaoDocumento}}.
-        </footer>
+        <!-- Header da Página Principal (com Botão de Filtros e Nova TAP) -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+            <div>
+                <h2 class="text-2xl font-bold text-totvs-navy flex items-center gap-2">
+                    <i class="ph-fill ph-kanban text-totvs-teal"></i> Projetos Cadastrados
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">Mostrando <span id="tapCount" class="font-bold text-totvs-magenta">0</span> TAP(s)</p>
+            </div>
+            <div class="flex gap-3 w-full sm:w-auto">
+                <button onclick="toggleFilters()" class="w-full sm:w-auto bg-white border border-gray-300 hover:bg-gray-50 text-totvs-navy font-bold py-2.5 px-4 rounded shadow-sm transition-colors flex justify-center items-center gap-2">
+                    <i class="ph-bold ph-funnel text-totvs-teal"></i> Filtros
+                </button>
+                <button onclick="openNewTapModal()" class="w-full sm:w-auto bg-totvs-magenta hover:bg-totvs-magentaDark text-white font-bold py-2.5 px-6 rounded shadow transition-colors flex justify-center items-center gap-2 whitespace-nowrap">
+                    <i class="ph-bold ph-plus"></i> Nova TAP
+                </button>
+            </div>
+        </div>
+
+        <!-- Área de Filtros Ativos (Aparece quando há filtros) -->
+        <div id="activeFiltersArea" class="hidden flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3">
+            <span class="text-sm font-bold text-gray-500 flex items-center gap-1"><i class="ph-fill ph-funnel"></i> Filtros Ativos:</span>
+            <div id="activeFiltersList" class="flex flex-wrap gap-2">
+                <!-- Badges injetadas via JS -->
+            </div>
+            <button onclick="clearAllFilters()" class="text-xs text-totvs-magenta hover:underline font-bold sm:ml-2">Limpar todos</button>
+        </div>
+
+        <!-- Cards Area -->
+        <section id="cardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-10">
+            <!-- Estado Vazio -->
+            <div class="col-span-full text-center p-12 bg-white border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center" id="emptyState">
+                <div class="bg-gray-50 p-4 rounded-full mb-3">
+                    <i class="ph ph-folder-open text-5xl text-gray-400"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-700">Nenhum projeto encontrado</h3>
+                <p class="text-sm text-gray-500 mt-1 mb-4">Crie a sua primeira TAP ou limpe os filtros de pesquisa.</p>
+            </div>
+            <!-- Cards serão injetados aqui -->
+        </section>
+
+    </main>
+
+    <!-- SIDEBAR DE FILTROS -->
+    <div id="filterOverlay" class="hidden fixed inset-0 bg-totvs-navy/40 backdrop-blur-sm z-30" onclick="toggleFilters()"></div>
+    <div id="filterSidebar" class="fixed inset-y-0 right-0 w-80 sm:w-96 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-40 flex flex-col">
+        <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h2 class="text-lg font-bold text-totvs-navy flex items-center gap-2"><i class="ph-bold ph-funnel text-totvs-magenta"></i> Filtros Avançados</h2>
+            <button onclick="toggleFilters()" class="text-gray-400 hover:text-red-500 transition-colors"><i class="ph-bold ph-x text-xl"></i></button>
+        </div>
+        <div class="p-6 flex-1 overflow-y-auto space-y-6">
+            <!-- Cliente -->
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Cód. Cliente</label>
+                <select id="filter_cliente" class="w-full text-sm rounded border-gray-300 border p-2.5 focus:ring-1 focus:ring-totvs-teal outline-none bg-white">
+                </select>
+            </div>
+            <!-- GPP -->
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">GPP</label>
+                <select id="filter_gpp" class="w-full text-sm rounded border-gray-300 border p-2.5 focus:ring-1 focus:ring-totvs-teal outline-none bg-white">
+                </select>
+            </div>
+            <!-- Criticidade -->
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Criticidade do Cliente</label>
+                <select id="filter_criticidade" class="w-full text-sm rounded border-gray-300 border p-2.5 focus:ring-1 focus:ring-totvs-teal outline-none bg-white">
+                    <option value="">Todas</option>
+                    <option value="BAIXA">Baixa</option>
+                    <option value="MÉDIA">Média</option>
+                    <option value="ALTA">Alta</option>
+                </select>
+            </div>
+            <!-- Perda -->
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Projeto em Perda?</label>
+                <select id="filter_perda" class="w-full text-sm rounded border-gray-300 border p-2.5 focus:ring-1 focus:ring-totvs-teal outline-none bg-white">
+                    <option value="">Todos</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Não">Não</option>
+                </select>
+            </div>
+        </div>
+        <div class="p-5 border-t border-gray-200 bg-gray-50 flex gap-3">
+            <button onclick="clearAllFilters()" class="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-2.5 rounded shadow-sm hover:bg-gray-100 transition-colors">Limpar</button>
+            <button onclick="applyFilters()" class="flex-1 bg-totvs-teal hover:bg-totvs-navy text-white font-bold py-2.5 rounded shadow transition-colors">Aplicar Filtros</button>
+        </div>
     </div>
 
+    <!-- MODAL DO FORMULÁRIO TAP -->
+    <div id="tapModalOverlay" class="hidden fixed inset-0 bg-totvs-navy/60 backdrop-blur-sm z-50 overflow-y-auto w-full h-full flex justify-center items-start pt-6 pb-6 px-4">
+        
+        <!-- Conteúdo do Modal -->
+        <div class="bg-white w-full max-w-5xl rounded-xl shadow-2xl relative modal-enter my-auto">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50 rounded-t-xl sticky top-0 z-10">
+                <h2 class="text-2xl font-bold text-totvs-navy flex items-center gap-2" id="formTitle">
+                    <i class="ph ph-file-plus text-totvs-magenta"></i> Nova TAP
+                </h2>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="clearFormFields()" class="text-sm bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 py-1.5 px-3 rounded transition-colors flex items-center gap-1" title="Limpar Campos">
+                        <i class="ph ph-eraser"></i> Limpar
+                    </button>
+                    <button type="button" onclick="closeModal()" class="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors">
+                        <i class="ph-bold ph-x text-xl"></i>
+                    </button>
+                </div>
+            </div>
 
-<script>
-(function(){
-  const PLACEHOLDER_RE = /\{\{\s*([^}]+?)\s*\}\}/g;
-  const norm = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+            <!-- Formulário Interno -->
+            <div class="p-6">
+                <form id="tapForm" onsubmit="saveTap(event)" class="space-y-8">
+                    
+                    <!-- 1. IDENTIFICAÇÃO -->
+                    <div>
+                        <h3 class="text-md font-bold text-totvs-teal uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <i class="ph ph-identification-card"></i> Identificação
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                            
+                            <!-- Campo Cód. Cliente Multi-select com Checkboxes -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Cód. Cliente (Multi-seleção) *</label>
+                                <div class="relative" id="codClienteDropdownContainer">
+                                    <div onclick="toggleClientDropdown()" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white cursor-pointer flex justify-between items-center min-h-[38px] hover:border-gray-400 transition-colors">
+                                        <span id="codClienteDisplay" class="truncate text-gray-500">Selecione os clientes...</span>
+                                        <i class="ph-bold ph-caret-down text-gray-400"></i>
+                                    </div>
+                                    <input type="text" id="codClienteHidden" required class="opacity-0 absolute h-0 w-0 -z-10" />
+                                    
+                                    <div id="codClientePanel" class="hidden absolute z-30 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg flex flex-col">
+                                        <div id="codClienteList" class="overflow-y-auto p-2 space-y-1 max-h-48 custom-scrollbar">
+                                            <!-- Checkboxes injetados via JS -->
+                                        </div>
+                                        <div class="border-t border-gray-200 p-2 bg-gray-50 flex items-center gap-2 rounded-b">
+                                            <input type="text" id="codCliente_new" placeholder="Novo Cód..." class="w-full text-xs rounded border-gray-300 border p-1.5 focus:ring-1 focus:ring-totvs-teal outline-none">
+                                            <button type="button" onclick="addNewClient()" class="bg-totvs-teal hover:bg-totvs-navy text-white px-3 py-1.5 rounded transition-colors text-xs font-bold flex-shrink-0 flex items-center gap-1">
+                                                <i class="ph-bold ph-plus"></i> Add
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-  // Mapeamento explícito: campo da SHEET -> variável do template TAP.
-  const fieldMap = {
-    nomeProjeto: ['nomeprojeto','projeto','projectname'],
-    codCliente: ['codcliente','codigocliente','clientecodigo'],
-    dataBase: ['database','data_base','data','datareferencia'],
-    driveRepositorio: ['driverepositorio','drive/repositorio','repositorio','drive'],
-    produtosContratados: ['produtoscontratados','produto(s)contratado(s)','produtos','produto'],
-    coordenadorCP: ['coordenadorcp','coordenador(cp)','coordenadorprojeto','cp'],
-    gpp: ['gpp'],
-    esn: ['esn'],
-    arquitetoTotvs: ['arquitetototvs','arquiteto'],
-    criticidadeCliente: ['criticidadecliente'],
-    criticidadeTotvs: ['criticidadetotvs'],
-    valorProjeto: ['valorprojeto'],
-    receitaAtual: ['receitaatual'],
-    margemVendaPerc: ['margemvendaperc'],
-    margemAtualPerc: ['margematualperc'],
-    margemVendaValor: ['margemvendavalor'],
-    margemAtualValor: ['margematualvalor'],
-    mrrMensal: ['mrrmensal'],
-    mrrTotal: ['mrrtotal'],
-    psaPlanejado: ['psaplanejado'],
-    diferencaPsa: ['diferencapsa'],
-    investimentoComercial: ['investimentocomercial'],
-    investimentoErroProduto: ['investimentoerroproduto'],
-    projetoEmPerda: ['projetoemperda'],
-    investimentoPerdas: ['investimentoperdas'],
-    dataInicio: ['datainicio'],
-    goLivePrevisao: ['goliveprevisao'],
-    statusGoLive: ['statusgolive'],
-    duracaoMeses: ['duracaomeses'],
-    posProducaoMeses: ['posproducaomeses'],
-    dataEncerramento: ['dataencerramento'],
-    statusEncerramento: ['statusencerramento'],
-    itemEscopo: ['itemescopo','descricaoescopo','escopo'],
-    observacoesGerais: ['observacoesgerais','observacoes'],
-    dataGeracaoDocumento: ['datageracaodocumento']
-  };
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Data da TAP</label>
+                                <input type="date" id="dataTap" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta focus:border-totvs-magenta outline-none">
+                            </div>
 
-  function detectDelimiter(text){
-    const firstLine = (text || '').split(/\r?\n/, 1)[0] || '';
-    const commaCount = (firstLine.match(/,/g) || []).length;
-    const semicolonCount = (firstLine.match(/;/g) || []).length;
-    return semicolonCount > commaCount ? ';' : ',';
-  }
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Nome do Projeto *</label>
+                                <div class="relative">
+                                    <select id="nomeProjeto" required onchange="handleSelectChange('nomeProjeto')" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    </select>
+                                    <div id="nomeProjeto_new_container" class="hidden flex items-center gap-1">
+                                        <input type="text" id="nomeProjeto_new" placeholder="Digite o novo Nome do Projeto..." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                                        <button type="button" onclick="addNewOption('nomeProjeto')" class="bg-totvs-teal hover:bg-totvs-navy text-white px-3 py-1.5 rounded transition-colors"><i class="ph ph-check"></i></button>
+                                        <button type="button" onclick="cancelNewOption('nomeProjeto')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded transition-colors"><i class="ph ph-x"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">GPP</label>
+                                <div class="relative">
+                                    <select id="gpp" onchange="handleSelectChange('gpp')" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    </select>
+                                    <div id="gpp_new_container" class="hidden flex items-center gap-1">
+                                        <input type="text" id="gpp_new" placeholder="Novo GPP..." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                                        <button type="button" onclick="addNewOption('gpp')" class="bg-totvs-teal hover:bg-totvs-navy text-white px-2 py-1.5 rounded transition-colors"><i class="ph ph-check"></i></button>
+                                        <button type="button" onclick="cancelNewOption('gpp')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1.5 rounded transition-colors"><i class="ph ph-x"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Coordenador do Projeto (CP)</label>
+                                <div class="relative">
+                                    <select id="coordenador" onchange="handleSelectChange('coordenador')" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    </select>
+                                    <div id="coordenador_new_container" class="hidden flex items-center gap-1">
+                                        <input type="text" id="coordenador_new" placeholder="Novo Coordenador..." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                                        <button type="button" onclick="addNewOption('coordenador')" class="bg-totvs-teal hover:bg-totvs-navy text-white px-2 py-1.5 rounded transition-colors"><i class="ph ph-check"></i></button>
+                                        <button type="button" onclick="cancelNewOption('coordenador')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1.5 rounded transition-colors"><i class="ph ph-x"></i></button>
+                                    </div>
+                                </div>
+                            </div>
 
-  function parseCsv(text){
-    const delimiter = detectDelimiter(text);
-    const rows=[]; let row=[]; let cur=''; let q=false;
-    for(let i=0;i<text.length;i++){
-      const c=text[i], n=text[i+1];
-      if(c==='"'){
-        if(q && n==='"'){ cur+='"'; i++; }
-        else q=!q;
-      } else if(c===delimiter && !q){
-        row.push(cur.trim()); cur='';
-      } else if((c==='\n' || c==='\r') && !q){
-        if(c==='\r' && n==='\n') i++;
-        row.push(cur.trim());
-        if(row.some(v=>v!=='')) rows.push(row);
-        row=[]; cur='';
-      } else cur+=c;
-    }
-    row.push(cur.trim());
-    if(row.some(v=>v!=='')) rows.push(row);
-    return rows;
-  }
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Data de GOLIVE Prevista</label>
+                                <input type="date" id="goLive" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
 
-  function parseHtmlTable(text){
-    const doc = new DOMParser().parseFromString(text, 'text/html');
-    const trs = Array.from(doc.querySelectorAll('table tr'));
-    return trs
-      .map(tr => Array.from(tr.querySelectorAll('th,td')).map(td => (td.textContent || '').trim()))
-      .filter(r => r.some(v => v !== ''));
-  }
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">ESN</label>
+                                <div class="relative">
+                                    <select id="esn" onchange="handleSelectChange('esn')" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    </select>
+                                    <div id="esn_new_container" class="hidden flex items-center gap-1">
+                                        <input type="text" id="esn_new" placeholder="Novo ESN..." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                                        <button type="button" onclick="addNewOption('esn')" class="bg-totvs-teal hover:bg-totvs-navy text-white px-2 py-1.5 rounded transition-colors"><i class="ph ph-check"></i></button>
+                                        <button type="button" onclick="cancelNewOption('esn')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1.5 rounded transition-colors"><i class="ph ph-x"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Arquiteto</label>
+                                <div class="relative">
+                                    <select id="arquiteto" onchange="handleSelectChange('arquiteto')" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    </select>
+                                    <div id="arquiteto_new_container" class="hidden flex items-center gap-1">
+                                        <input type="text" id="arquiteto_new" placeholder="Novo Arquiteto..." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                                        <button type="button" onclick="addNewOption('arquiteto')" class="bg-totvs-teal hover:bg-totvs-navy text-white px-2 py-1.5 rounded transition-colors"><i class="ph ph-check"></i></button>
+                                        <button type="button" onclick="cancelNewOption('arquiteto')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1.5 rounded transition-colors"><i class="ph ph-x"></i></button>
+                                    </div>
+                                </div>
+                            </div>
 
-  function resolveUrl(source){
-    if(!source?.url) return '';
-    let url = source.url.trim();
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Criticidade Cliente</label>
+                                <select id="criticidadeCliente" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    <option value="BAIXA">Baixa</option>
+                                    <option value="MÉDIA">Média</option>
+                                    <option value="ALTA">Alta</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Criticidade TOTVS</label>
+                                <select id="criticidadeTotvs" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    <option value="BAIXA">Baixa</option>
+                                    <option value="MÉDIA">Média</option>
+                                    <option value="ALTA">Alta</option>
+                                </select>
+                            </div>
 
-    // Link de publicação web do Google Sheets (pubhtml#gid=...)
-    if(url.includes('/pubhtml')){
-      const gidFromHash = (url.match(/#gid=(\d+)/) || [])[1];
-      url = url.replace('/pubhtml', '/pub?output=csv').replace(/#.*$/, '');
-      if(gidFromHash && !/[?&]gid=/.test(url)) {
-        url += (url.includes('?') ? '&' : '?') + `gid=${gidFromHash}`;
-      }
-    }
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Drive (Link)</label>
+                                <input type="url" id="drive" placeholder="https://" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                        </div>
 
-    // Link de edição padrão do Google Sheets
-    if(url.includes('spreadsheets/d/') && !/output=csv|format=csv/.test(url)) {
-      url = url.replace(/\/edit.*$/, '/export?format=csv');
-    }
+                        <!-- TRANSFER LIST - PRODUTOS DO PROJETO -->
+                        <div class="mt-6 p-5 bg-gray-50 border border-gray-200 rounded-md">
+                            <label class="block text-sm font-bold text-totvs-navy mb-4">Produtos do Escopo</label>
+                            
+                            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                                <div class="relative w-full md:w-1/2">
+                                    <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-gray-400"></i>
+                                    <input type="text" id="searchProduto" onkeyup="renderTransferLists()" placeholder="Procurar produto na lista..." class="w-full pl-9 text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                                </div>
+                                <div class="flex w-full md:w-1/2 gap-2">
+                                    <input type="text" id="customProduto" placeholder="Outro produto não listado (digite)" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                                    <button type="button" onclick="addCustomProduct()" class="bg-totvs-navy hover:bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors whitespace-nowrap flex items-center gap-1">
+                                        <i class="ph ph-plus-circle"></i> Add
+                                    </button>
+                                </div>
+                            </div>
 
-    if(source.sheet && !/[?&]sheet=/.test(url)) {
-      url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
-    }
+                            <div class="flex flex-col md:flex-row gap-4 h-[280px]">
+                                <div class="flex-1 flex flex-col border border-gray-300 rounded-md bg-white overflow-hidden shadow-sm">
+                                    <div class="bg-gray-100 p-2 border-b border-gray-300 flex justify-between items-center">
+                                        <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">Disponíveis</span>
+                                        <button type="button" onclick="moveAllToRight()" class="text-xs text-totvs-teal hover:text-totvs-navy font-bold transition-colors flex items-center gap-1">
+                                            Add Todos <i class="ph-bold ph-caret-double-right"></i>
+                                        </button>
+                                    </div>
+                                    <ul id="listAvailable" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar"></ul>
+                                </div>
 
-    return url;
-  }
+                                <div class="hidden md:flex flex-col justify-center items-center text-gray-300">
+                                    <i class="ph-fill ph-arrows-left-right text-3xl"></i>
+                                </div>
 
-  function findTapSource(project){
-    const entries = Object.entries(project?.sources || {});
-    return entries.find(([,v]) => norm(v.label || '').includes('tap') || norm(v.key || '') === 'tap')?.[1] || project?.sources?.tap || null;
-  }
+                                <div class="flex-1 flex flex-col border border-totvs-teal rounded-md bg-white overflow-hidden shadow-sm ring-1 ring-totvs-teal/20">
+                                    <div class="bg-totvs-teal/10 p-2 border-b border-totvs-teal/30 flex justify-between items-center">
+                                        <span class="text-xs font-bold text-totvs-teal uppercase tracking-wider">Selecionados</span>
+                                        <button type="button" onclick="moveAllToLeft()" class="text-xs text-red-500 hover:text-red-700 font-bold transition-colors flex items-center gap-1">
+                                            <i class="ph-bold ph-trash"></i> Desfazer
+                                        </button>
+                                    </div>
+                                    <ul id="listSelected" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar bg-gray-50/50"></ul>
+                                </div>
+                            </div>
+                        </div>
 
-  function buildRawValues(rows, hasHeader){
-    // Formato 1 (legado): chave/valor por linha (A:B)
-    const kv = {};
-    rows.forEach(r => { if(r.length >= 2) kv[norm(r[0])] = r[1] ?? ''; });
+                        <!-- 1.1 DETALHES DOS PRODUTOS SELECIONADOS -->
+                        <div id="productDetailsSection" class="hidden mt-6">
+                            <h3 class="text-md font-bold text-totvs-teal uppercase tracking-wider mb-4 border-t border-gray-100 pt-6 flex items-center gap-2">
+                                <i class="ph ph-list-plus"></i> Detalhes do Escopo
+                            </h3>
+                            <div id="productDetailsContainer" class="space-y-4"></div>
+                        </div>
+                    </div>
 
-    // Formato 2: cabeçalho na primeira linha + dados na segunda
-    if(hasHeader && rows.length >= 2 && rows[0].length > 2){
-      const headers = rows[0].map(h => norm(h));
-      const values = rows[1] || [];
-      headers.forEach((h, idx) => { if(h) kv[h] = values[idx] ?? ''; });
-    }
-    return kv;
-  }
+                    <!-- 2. FINANCEIRO -->
+                    <div>
+                        <h3 class="text-md font-bold text-totvs-teal uppercase tracking-wider mb-4 border-t border-gray-100 pt-6 flex items-center gap-2">
+                            <i class="ph ph-currency-circle-dollar"></i> Financeiro
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Valor do Projeto (R$)</label>
+                                <input type="number" id="valorProjeto" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Receita Atual (R$)</label>
+                                <input type="number" id="receitaAtual" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
 
-  function buildRawValuesFromWebLayout(rows){
-    const kv = {};
-    const knownKeys = new Set(
-      Object.entries(fieldMap).flatMap(([tplKey, aliases]) => [tplKey, ...aliases]).map(norm)
-    );
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Margem da Venda (%)</label>
+                                <input type="number" id="margemVenda" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Margem Atual (%)</label>
+                                <input type="number" id="margemAtual" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Margem Venda (R$)</label>
+                                <input type="number" id="margemVendaValor" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Margem Atual (R$)</label>
+                                <input type="number" id="margemAtualValor" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
 
-    // 1) Captura pares campo/valor em qualquer coluna da linha (layout legado TAP).
-    rows.forEach((r) => {
-      for(let i = 0; i < r.length - 1; i++){
-        const key = norm(r[i] || '');
-        const val = (r[i + 1] || '').toString().trim();
-        if(key && knownKeys.has(key) && val) kv[key] = val;
-      }
-    });
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">MRR - Mensal (R$)</label>
+                                <input type="number" id="mrrMensal" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Invest. Perdas (R$)</label>
+                                <input type="number" id="investimentoPerdas" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
 
-    // 2) Captura "Escopo e Objetivo": linhas abaixo do cabeçalho até "Observações".
-    const allTexts = rows.flat().map(v => (v || '').toString().trim()).filter(Boolean);
-    const start = allTexts.findIndex(t => norm(t) === norm('Escopo e Objetivo'));
-    if(start >= 0){
-      const items = [];
-      for(let i = start + 1; i < allTexts.length; i++){
-        const txt = allTexts[i];
-        const n = norm(txt);
-        if(n === norm('Observações') || n === norm('Observacoes')) break;
-        if(txt.length > 6 && !knownKeys.has(n)) items.push(txt);
-      }
-      if(items.length) kv[norm('itemEscopo')] = items.join(' | ');
-    }
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">MRR Total (Contrat) (R$)</label>
+                                <input type="number" id="mrrTotal" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Invest. Comercial (R$)</label>
+                                <input type="number" id="investimentoComercial" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
 
-    return kv;
-  }
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">PSA Planejado (R$)</label>
+                                <input type="number" id="psaPlanejado" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Invest. Erro Prod (R$)</label>
+                                <input type="number" id="investimentoErro" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
 
-  function formatDateBr(value){
-    const v = (value || '').toString().trim();
-    if(!v) return '';
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Dif. PSA x Projeto (R$)</label>
+                                <input type="number" id="diferencaPsa" step="0.01" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Projeto em Perda?</label>
+                                <select id="projetoEmPerda" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none bg-white">
+                                    <option value="Não">Não</option>
+                                    <option value="Sim">Sim</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
-    const iso = v.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-    if(iso) return `${iso[3].padStart(2,'0')}/${iso[2].padStart(2,'0')}/${iso[1]}`;
+                    <!-- 3. TIMELINE DO PROJETO -->
+                    <div>
+                        <h3 class="text-md font-bold text-totvs-teal uppercase tracking-wider mb-4 border-t border-gray-100 pt-6 flex items-center gap-2">
+                            <i class="ph ph-calendar-blank"></i> Timeline do Projeto
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Data Início</label>
+                                <input type="date" id="dataInicio" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Duração (Meses)</label>
+                                <input type="number" id="duracao" placeholder="Ex: 5" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Pós-prod (Meses)</label>
+                                <input type="number" id="posProducao" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Encerramento</label>
+                                <input type="date" id="encerramento" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none">
+                            </div>
+                        </div>
+                    </div>
 
-    const us = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-    if(us) return `${us[2].padStart(2,'0')}/${us[1].padStart(2,'0')}/${us[3]}`;
+                    <!-- 4. OBSERVAÇÕES -->
+                    <div>
+                        <h3 class="text-md font-bold text-totvs-teal uppercase tracking-wider mb-4 border-t border-gray-100 pt-6 flex items-center gap-2">
+                            <i class="ph ph-text-align-left"></i> Observações
+                        </h3>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Notas / Descrição Adicional</label>
+                            <textarea id="observacao" rows="4" placeholder="Digite aqui as observações gerais do projeto..." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-magenta outline-none custom-scrollbar"></textarea>
+                        </div>
+                    </div>
 
-    return v;
-  }
+                    <!-- Botões de Ação do Modal -->
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-200 mt-8 bg-gray-50 -mx-6 -mb-6 p-6 rounded-b-xl">
+                        <button type="button" id="btnExcluir" onclick="deleteTap()" class="w-full sm:w-auto hidden bg-white hover:bg-red-50 text-red-600 border border-red-200 font-bold py-2.5 px-6 rounded shadow-sm transition-colors flex justify-center items-center gap-2">
+                            <i class="ph ph-trash"></i> Excluir
+                        </button>
+                        
+                        <div class="flex gap-3 w-full sm:w-auto sm:ml-auto">
+                            <button type="button" onclick="closeModal()" class="w-full sm:w-auto bg-white border border-gray-300 text-gray-700 font-bold py-2.5 px-6 rounded shadow-sm hover:bg-gray-50 transition-colors">
+                                Cancelar
+                            </button>
+                            <button type="submit" id="btnSalvar" class="w-full sm:w-auto bg-totvs-magenta hover:bg-totvs-magentaDark text-white font-bold py-2.5 px-8 rounded shadow transition-colors flex justify-center items-center gap-2">
+                                <i class="ph ph-floppy-disk text-lg"></i> Salvar TAP
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-  function mapToTemplateValues(raw){
-    const out = {};
-    Object.entries(fieldMap).forEach(([tplKey, aliases]) => {
-      const candidates = [norm(tplKey), ...aliases.map(norm)];
-      out[norm(tplKey)] = candidates.map(k => raw[k]).find(v => v !== undefined && v !== '') ?? '';
-    });
+    <datalist id="listaClientes"></datalist>
 
-    ['dataBase','dataInicio','goLivePrevisao','dataEncerramento','dataGeracaoDocumento']
-      .forEach((k) => {
-        const nk = norm(k);
-        out[nk] = formatDateBr(out[nk]);
-      });
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-gray-800 text-white px-6 py-3 rounded shadow-xl z-50 flex items-center gap-3 pointer-events-none">
+        <i class="ph ph-check-circle text-green-400 text-xl" id="toastIcon"></i>
+        <span id="toastMsg" class="text-sm font-medium">Sucesso!</span>
+    </div>
 
-    return out;
-  }
+    <!-- Script de Lógica -->
+    <script>
+        let taps = [];
+        let currentEditId = null;
+        let selectedClientsList = [];
+        let selectedProductsList = []; 
+        let productDetails = {}; 
+        
+        // Estado dos Filtros
+        let activeFilters = {
+            cliente: '',
+            gpp: '',
+            criticidade: '',
+            perda: ''
+        };
 
-  function apply(values){
-    const walker=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
-    nodes.forEach(n=>{ n.textContent = n.textContent.replace(PLACEHOLDER_RE,(_,k)=> values[norm(k)] || '-'); });
-  }
+        const dropdownOptions = {
+            codCliente: ['TDC0CC', 'TDC02R'],
+            nomeProjeto: ['SUPERMERCADO ROSSI NEW LTDA'],
+            gpp: ['Fábio Daumichen'],
+            coordenador: ['Regis Reis', 'Claudinete Vieira'],
+            esn: ['Daniel Abdalla'],
+            arquiteto: []
+        };
 
-  const editableFields = [
-    ['nomeProjeto','Nome do Projeto'],['codCliente','Código do Cliente'],['dataBase','Data Base'],
-    ['driveRepositorio','Drive / Repositório'],['produtosContratados','Produtos Contratados'],['coordenadorCP','Coordenador (CP)'],
-    ['gpp','GPP'],['esn','ESN'],['arquitetoTotvs','Arquiteto TOTVS'],['criticidadeCliente','Criticidade Cliente'],
-    ['criticidadeTotvs','Criticidade TOTVS'],['valorProjeto','Valor do Projeto'],['receitaAtual','Receita Atual'],
-    ['margemVendaPerc','Margem da Venda %'],['margemAtualPerc','Margem Atual %'],['margemVendaValor','Margem Venda (R$)'],
-    ['margemAtualValor','Margem Atual (R$)'],['mrrMensal','MRR Mensal'],['mrrTotal','MRR Total'],['psaPlanejado','PSA Planejado'],
-    ['diferencaPsa','Diferença PSA'],['investimentoComercial','Investimento Comercial'],['investimentoErroProduto','Investimento Erro Produto'],
-    ['projetoEmPerda','Projeto em Perda?'],['investimentoPerdas','Investimento Perdas'],['dataInicio','Data Início'],
-    ['goLivePrevisao','Go-live (Previsão)'],['statusGoLive','Status Go-live'],['duracaoMeses','Duração (meses)'],
-    ['posProducaoMeses','Pós-produção (meses)'],['dataEncerramento','Data Encerramento'],['statusEncerramento','Status Encerramento'],
-    ['itemEscopo','Escopo e Objetivo'],['observacoesGerais','Observações Gerais']
-  ];
-  let currentMapped = {};
-  function renderEditor(values){
-    const el = document.getElementById('tap-editor');
-    el.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${editableFields.map(([k,label]) => `
-      <label class="text-sm text-slate-700">${label}
-        <input data-key="${k}" class="w-full mt-1 border border-slate-300 rounded p-2" value="${(values[norm(k)] || '').replace(/"/g,'&quot;')}">
-      </label>`).join('')}</div>`;
-  }
-  function readEditorValues(){
-    const out = {...currentMapped};
-    document.querySelectorAll('#tap-editor [data-key]').forEach(input => { out[norm(input.dataset.key)] = input.value || ''; });
-    out.datageracaodocumento = new Date().toLocaleDateString('pt-BR');
-    return out;
-  }
-  function normalizeSupabaseBaseUrl(raw){
-    const parsed = new URL((raw || '').trim());
-    return `${parsed.protocol}//${parsed.host}`;
-  }
-  async function supabaseRequest(path, method='GET', body){
-    const cfg = JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');
-    const base = normalizeSupabaseBaseUrl(cfg.supabase?.url || '');
-    const secret = cfg.supabase?.secret;
-    const r = await fetch(`${base}/rest/v1/${path}`, {method, headers:{apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json',Prefer:'return=representation'}, body: body ? JSON.stringify(body) : undefined});
-    if(!r.ok) throw new Error(await r.text() || `HTTP ${r.status}`);
-    const txt = await r.text();
-    return txt ? JSON.parse(txt) : [];
-  }
-  async function saveTap(values){
-    const cfg = JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');
-    const projects = cfg.projects || [];
-    const activeId = (cfg.selectedProjectIds && cfg.selectedProjectIds[0]) || cfg.activeProjectId;
-    const project = projects.find(p => p.id === activeId) || projects[0];
-    if(!project?.id) throw new Error('Projeto ativo não encontrado.');
-    const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
-    let projectId = existing[0]?.id;
-    if(!projectId){
-      const created = await supabaseRequest('projects', 'POST', [{code:project.id, name:project.name || project.id}]);
-      projectId = created[0]?.id;
-    }
-    await supabaseRequest(`tap_entries?project_id=eq.${projectId}`,'DELETE');
-    const payload = {
-      project_id: projectId, identificacao: '', data_referencia: values[norm('dataBase')] || '', nome_projeto: values[norm('nomeProjeto')] || '',
-      coordenador_projeto: values[norm('coordenadorCP')] || '', esn: values[norm('esn')] || '', criticidade_cliente: values[norm('criticidadeCliente')] || '',
-      drive: values[norm('driveRepositorio')] || '', cod_cliente: values[norm('codCliente')] || '', gpp: values[norm('gpp')] || '',
-      produto: values[norm('produtosContratados')] || '', arquiteto: values[norm('arquitetoTotvs')] || '', criticidade_totvs: values[norm('criticidadeTotvs')] || '',
-      valor_projeto: values[norm('valorProjeto')] || '', margem_venda_percentual: values[norm('margemVendaPerc')] || '', margem_venda_valor: values[norm('margemVendaValor')] || '',
-      mrr_recorrente_mensal: values[norm('mrrMensal')] || '', mrr_total_contratados: values[norm('mrrTotal')] || '', psa_planejado: values[norm('psaPlanejado')] || '',
-      diferenca_psa_projeto: values[norm('diferencaPsa')] || '', receita_atual: values[norm('receitaAtual')] || '', margem_atual_percentual: values[norm('margemAtualPerc')] || '',
-      margem_atual_valor: values[norm('margemAtualValor')] || '', investimento_perdas: values[norm('investimentoPerdas')] || '', investimento_comercial: values[norm('investimentoComercial')] || '',
-      investimento_erro_produto: values[norm('investimentoErroProduto')] || '', projeto_em_perda: values[norm('projetoEmPerda')] || '',
-      data_inicio: values[norm('dataInicio')] || '', go_live_previsao: values[norm('goLivePrevisao')] || '', duracao: values[norm('duracaoMeses')] || '',
-      pos_producao_meses: values[norm('posProducaoMeses')] || '', encerramento: values[norm('dataEncerramento')] || '',
-      descricao_escopo: values[norm('itemEscopo')] || '', observacoes: values[norm('observacoesGerais')] || '', payload: values
-    };
-    await supabaseRequest('tap_entries','POST',[payload]);
-  }
+        // --- LÓGICA DE FILTROS ---
+        function toggleFilters() {
+            const sidebar = document.getElementById('filterSidebar');
+            const overlay = document.getElementById('filterOverlay');
+            
+            if (sidebar.classList.contains('translate-x-full')) {
+                sidebar.classList.remove('translate-x-full');
+                overlay.classList.remove('hidden');
+                populateFilterDropdowns(); // Atualiza listas com novos cadastros
+            } else {
+                sidebar.classList.add('translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
 
-  (async function init(){
-    const cfg = JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');
-    const projects = cfg.projects || [];
-    const activeId = (cfg.selectedProjectIds && cfg.selectedProjectIds[0]) || cfg.activeProjectId;
-    const project = projects.find(p=>p.id===activeId) || projects[0];
-    const tapSource = findTapSource(project);
-    const fallbackDate = new Date().toLocaleDateString('pt-BR');
-    if(!tapSource){ apply({datageracaodocumento:fallbackDate}); return; }
+        function populateFilterDropdowns() {
+            const selCliente = document.getElementById('filter_cliente');
+            const selGpp = document.getElementById('filter_gpp');
+            
+            selCliente.innerHTML = `<option value="">Todos</option>`;
+            dropdownOptions.codCliente.forEach(c => selCliente.innerHTML += `<option value="${c}">${c}</option>`);
+            selCliente.value = activeFilters.cliente;
 
-    const url = resolveUrl(tapSource);
-    const resp = await fetch(url + (url.includes('?')?'&':'?') + 't=' + Date.now());
-    const text = await resp.text();
-    const mode = tapSource.sourceType || 'csv';
-    const rows = mode === 'web' ? parseHtmlTable(text) : parseCsv(text);
-    const rawBase = buildRawValues(rows, tapSource.hasHeader !== false);
-    const rawWeb = mode === 'web' ? buildRawValuesFromWebLayout(rows) : {};
-    const raw = { ...rawBase, ...rawWeb };
-    const mapped = mapToTemplateValues(raw);
-    mapped.datageracaodocumento = mapped.datageracaodocumento || fallbackDate;
-    currentMapped = mapped;
-    apply(currentMapped);
-    renderEditor(currentMapped);
-    const statusEl = document.getElementById('tap-status');
-    document.getElementById('tap-edit-btn').onclick = () => {
-      document.getElementById('tap-editor').classList.remove('hidden');
-      document.getElementById('tap-save-btn').classList.remove('hidden');
-      document.getElementById('tap-cancel-btn').classList.remove('hidden');
-      statusEl.textContent = 'Modo edição ativado.';
-    };
-    document.getElementById('tap-cancel-btn').onclick = () => { location.reload(); };
-    document.getElementById('tap-save-btn').onclick = async () => {
-      try{
-        const vals = readEditorValues();
-        currentMapped = vals;
-        apply(vals);
-        await saveTap(vals);
-        statusEl.textContent = 'TAP salva com sucesso no Supabase.';
-      }catch(e){ statusEl.textContent = `Erro ao salvar: ${e.message || e}`; }
-    };
-  })().catch(()=>apply({datageracaodocumento:new Date().toLocaleDateString('pt-BR')}));
-})();
-</script>
+            selGpp.innerHTML = `<option value="">Todos</option>`;
+            dropdownOptions.gpp.forEach(g => selGpp.innerHTML += `<option value="${g}">${g}</option>`);
+            selGpp.value = activeFilters.gpp;
+        }
+
+        function applyFilters() {
+            activeFilters.cliente = document.getElementById('filter_cliente').value;
+            activeFilters.gpp = document.getElementById('filter_gpp').value;
+            activeFilters.criticidade = document.getElementById('filter_criticidade').value;
+            activeFilters.perda = document.getElementById('filter_perda').value;
+            
+            toggleFilters();
+            renderCards();
+            updateActiveFiltersUI();
+        }
+
+        function removeFilter(key) {
+            activeFilters[key] = '';
+            document.getElementById(`filter_${key}`).value = '';
+            renderCards();
+            updateActiveFiltersUI();
+        }
+
+        function clearAllFilters() {
+            activeFilters = { cliente: '', gpp: '', criticidade: '', perda: '' };
+            ['cliente', 'gpp', 'criticidade', 'perda'].forEach(k => document.getElementById(`filter_${k}`).value = '');
+            renderCards();
+            updateActiveFiltersUI();
+        }
+
+        function updateActiveFiltersUI() {
+            const area = document.getElementById('activeFiltersArea');
+            const list = document.getElementById('activeFiltersList');
+            list.innerHTML = '';
+            
+            let hasActive = false;
+            const labels = { cliente: 'Cliente', gpp: 'GPP', criticidade: 'Criticidade', perda: 'Em Perda' };
+
+            for (const [key, val] of Object.entries(activeFilters)) {
+                if (val) {
+                    hasActive = true;
+                    list.innerHTML += `
+                        <div class="bg-totvs-teal/10 border border-totvs-teal/20 text-totvs-navy text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                            <span class="text-totvs-teal">${labels[key]}:</span> ${val}
+                            <button onclick="removeFilter('${key}')" class="text-gray-400 hover:text-red-500 transition-colors ml-1"><i class="ph-bold ph-x"></i></button>
+                        </div>
+                    `;
+                }
+            }
+            
+            if (hasActive) {
+                area.classList.remove('hidden');
+                area.classList.add('flex');
+            } else {
+                area.classList.add('hidden');
+                area.classList.remove('flex');
+            }
+        }
+
+        // --- LÓGICA DO MODAL PRINCIPAL ---
+        const tapModalOverlay = document.getElementById('tapModalOverlay');
+
+        function openNewTapModal() {
+            currentEditId = null;
+            clearFormFields();
+            
+            document.getElementById('formTitle').innerHTML = `<i class="ph ph-file-plus text-totvs-magenta"></i> Nova TAP`;
+            document.getElementById('btnSalvar').innerHTML = `<i class="ph ph-floppy-disk text-lg"></i> Salvar TAP`;
+            document.getElementById('btnExcluir').classList.add('hidden');
+            
+            tapModalOverlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        function closeModal() {
+            tapModalOverlay.classList.add('hidden');
+            document.body.style.overflow = 'auto'; 
+        }
+
+        // --- LÓGICA DE MULTI-SELECT CLIENTES (COM CHECKBOX) ---
+        function toggleClientDropdown() { document.getElementById('codClientePanel').classList.toggle('hidden'); }
+
+        function renderClientCheckboxes() {
+            const listContainer = document.getElementById('codClienteList');
+            listContainer.innerHTML = '';
+            
+            if (dropdownOptions.codCliente.length === 0) {
+                listContainer.innerHTML = `<div class="text-xs text-gray-500 p-2 text-center italic">Nenhum código cadastrado.</div>`;
+            }
+
+            dropdownOptions.codCliente.forEach(client => {
+                const isChecked = selectedClientsList.includes(client);
+                const id = `chk_client_${client.replace(/[^a-zA-Z0-9]/g, '_')}`; 
+                
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors";
+                div.onclick = (e) => {
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
+                        const cb = document.getElementById(id);
+                        cb.checked = !cb.checked;
+                        handleClientCheck(client, cb.checked);
+                    }
+                };
+                
+                div.innerHTML = `
+                    <input type="checkbox" id="${id}" value="${client}" ${isChecked ? 'checked' : ''} onchange="handleClientCheck('${client}', this.checked)" class="w-4 h-4 text-totvs-magenta bg-white border-gray-300 rounded focus:ring-totvs-magenta accent-totvs-magenta cursor-pointer">
+                    <label for="${id}" class="text-sm text-gray-700 cursor-pointer select-none w-full">${client}</label>
+                `;
+                listContainer.appendChild(div);
+            });
+            updateClientDisplay();
+        }
+
+        function handleClientCheck(client, isChecked) {
+            if (isChecked && !selectedClientsList.includes(client)) selectedClientsList.push(client);
+            else if (!isChecked) selectedClientsList = selectedClientsList.filter(c => c !== client);
+            updateClientDisplay();
+        }
+
+        function updateClientDisplay() {
+            const display = document.getElementById('codClienteDisplay');
+            const hiddenInput = document.getElementById('codClienteHidden');
+            const dataList = document.getElementById('listaClientes');
+
+            if (dataList) {
+                dataList.innerHTML = '';
+                selectedClientsList.forEach(c => dataList.innerHTML += `<option value="${c}">`);
+            }
+
+            if (selectedClientsList.length === 0) {
+                display.textContent = "Selecione os clientes...";
+                display.classList.add('text-gray-500'); display.classList.remove('text-totvs-navy', 'font-medium');
+                hiddenInput.value = ""; 
+            } else if (selectedClientsList.length <= 2) {
+                display.textContent = selectedClientsList.join(', ');
+                display.classList.remove('text-gray-500'); display.classList.add('text-totvs-navy', 'font-medium');
+                hiddenInput.value = "filled";
+            } else {
+                display.textContent = `${selectedClientsList.length} clientes selecionados`;
+                display.classList.remove('text-gray-500'); display.classList.add('text-totvs-navy', 'font-medium');
+                hiddenInput.value = "filled";
+            }
+        }
+
+        function addNewClient() {
+            const input = document.getElementById('codCliente_new');
+            const val = input.value.trim();
+            if (val) {
+                if (!dropdownOptions.codCliente.includes(val)) dropdownOptions.codCliente.push(val);
+                if (!selectedClientsList.includes(val)) selectedClientsList.push(val); 
+                renderClientCheckboxes();
+            }
+            input.value = '';
+        }
+
+        document.addEventListener('click', function(event) {
+            const container = document.getElementById('codClienteDropdownContainer');
+            const panel = document.getElementById('codClientePanel');
+            if (container && panel && !container.contains(event.target)) panel.classList.add('hidden');
+        });
+
+        // --- LÓGICA DAS OUTRAS LISTAS SUSPENSAS SIMPLES ---
+        function renderSelect(fieldId) {
+            const select = document.getElementById(fieldId);
+            const currentValue = select.value;
+            select.innerHTML = `<option value="">-- Selecione --</option>`;
+            dropdownOptions[fieldId].forEach(opt => select.innerHTML += `<option value="${opt}">${opt}</option>`);
+            select.innerHTML += `<option value="ADD_NEW" class="font-bold text-totvs-magenta">+ Adicionar Novo...</option>`;
+            select.value = dropdownOptions[fieldId].includes(currentValue) ? currentValue : "";
+        }
+
+        function handleSelectChange(fieldId) {
+            const select = document.getElementById(fieldId);
+            if (select.value === 'ADD_NEW') {
+                select.classList.add('hidden');
+                document.getElementById(`${fieldId}_new_container`).classList.remove('hidden');
+                document.getElementById(`${fieldId}_new`).focus();
+                select.value = ""; 
+            }
+        }
+
+        function addNewOption(fieldId) {
+            const input = document.getElementById(`${fieldId}_new`);
+            const val = input.value.trim();
+            if (val && !dropdownOptions[fieldId].includes(val)) dropdownOptions[fieldId].push(val); 
+            input.value = '';
+            document.getElementById(`${fieldId}_new_container`).classList.add('hidden');
+            const select = document.getElementById(fieldId);
+            select.classList.remove('hidden');
+            renderSelect(fieldId); 
+            if(val) select.value = val; 
+        }
+
+        function cancelNewOption(fieldId) {
+            document.getElementById(`${fieldId}_new`).value = '';
+            document.getElementById(`${fieldId}_new_container`).classList.add('hidden');
+            const select = document.getElementById(fieldId);
+            select.classList.remove('hidden');
+            select.value = "";
+        }
+
+        function initDynamicSelects() {
+            ['nomeProjeto', 'gpp', 'coordenador', 'esn', 'arquiteto'].forEach(renderSelect);
+            renderClientCheckboxes();
+        }
+
+        // --- LÓGICA DO DUAL LISTBOX E DETALHES ---
+        const DEFAULT_PRODUCTS = [
+            "ADESAO APPS", "RH ADMISSAO DIGITAL BY DIGTE", "RH ATRACAO DE TALENTOS",
+            "RH LMS + LXP BY AFFEROLAB", "RH MAPEAMENTO COMPORTAMENTAL - ATS",
+            "RH SAUDE E SEGURANCA DO TRABALHO BY NG", "RH APP MEU REGISTRO DE PONTO REP-P - LINHA AHGORA",
+            "RH AVALIAÇÃO, CLIMA E OBJETIVOS", "RH MAPEAMENTO COMPORTAMENTAL",
+            "RH MÓDULO ESCALAS - LINHA AHGORA", "RH PONTO ELETRÔNICO - LINHA AHGORA",
+            "CLOUD TRADICIONAL", "TOTVS CLOUD ADICIONAL STANDARD", "TOTVS CLOUD RM STANDARD",
+            "QUIRONS - TOTVS Saúde e Segurança do Trabalho BY NG"
+        ];
+
+        function renderTransferLists() {
+            const listAvailable = document.getElementById('listAvailable');
+            const listSelected = document.getElementById('listSelected');
+            const searchTerm = document.getElementById('searchProduto').value.toLowerCase();
+
+            listAvailable.innerHTML = '';
+            listSelected.innerHTML = '';
+
+            selectedProductsList.forEach(prod => {
+                const li = document.createElement('li');
+                li.className = 'transfer-item cursor-pointer bg-white border border-transparent p-2 rounded text-sm text-totvs-navy font-medium flex justify-between items-center shadow-sm';
+                li.onclick = () => moveToLeft(prod);
+                li.innerHTML = `
+                    <span class="truncate pr-2" title="${prod}">${prod}</span>
+                    <i class="ph-bold ph-x text-red-400 hover:text-red-600"></i>
+                `;
+                listSelected.appendChild(li);
+            });
+
+            DEFAULT_PRODUCTS.forEach(prod => {
+                if (selectedProductsList.includes(prod)) return;
+                if (searchTerm && !prod.toLowerCase().includes(searchTerm)) return;
+
+                const li = document.createElement('li');
+                li.className = 'transfer-item cursor-pointer border border-transparent hover:border-gray-200 p-2 rounded text-sm text-gray-600 flex justify-between items-center';
+                li.onclick = () => moveToRight(prod);
+                li.innerHTML = `
+                    <span class="truncate pr-2" title="${prod}">${prod}</span>
+                    <i class="ph-bold ph-arrow-right text-totvs-teal opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                `;
+                listAvailable.appendChild(li);
+            });
+
+            if (listAvailable.children.length === 0) listAvailable.innerHTML = `<li class="p-2 text-xs text-gray-400 text-center italic">Nenhum produto encontrado.</li>`;
+            if (listSelected.children.length === 0) listSelected.innerHTML = `<li class="p-2 text-xs text-gray-400 text-center italic">Nenhum produto selecionado.</li>`;
+
+            renderProductDetails(); 
+        }
+
+        function moveToRight(product) { if (!selectedProductsList.includes(product)) { selectedProductsList.push(product); renderTransferLists(); } }
+        function moveToLeft(product) { selectedProductsList = selectedProductsList.filter(p => p !== product); renderTransferLists(); }
+        function moveAllToRight() {
+            const searchTerm = document.getElementById('searchProduto').value.toLowerCase();
+            DEFAULT_PRODUCTS.forEach(prod => {
+                if (!selectedProductsList.includes(prod)) {
+                    if (!searchTerm || prod.toLowerCase().includes(searchTerm)) selectedProductsList.push(prod);
+                }
+            });
+            document.getElementById('searchProduto').value = ''; 
+            renderTransferLists();
+        }
+        function moveAllToLeft() { selectedProductsList = []; renderTransferLists(); }
+        function addCustomProduct() {
+            const input = document.getElementById('customProduto');
+            const val = input.value.trim();
+            if (val && !selectedProductsList.includes(val)) { selectedProductsList.push(val); input.value = ''; renderTransferLists(); }
+        }
+        
+        function renderProductDetails() {
+            const section = document.getElementById('productDetailsSection');
+            const container = document.getElementById('productDetailsContainer');
+            
+            if (selectedProductsList.length === 0) { section.classList.add('hidden'); container.innerHTML = ''; return; }
+            section.classList.remove('hidden'); container.innerHTML = '';
+
+            selectedProductsList.forEach((prod, index) => {
+                if (!productDetails[prod]) productDetails[prod] = { codigoProposta: '', codClienteProduto: '', idTotvs: '', nomeOferta: '', anexoOferta: '', obs: '' };
+                const details = productDetails[prod];
+                const card = document.createElement('div');
+                card.className = "bg-white border border-gray-200 rounded-md p-4 shadow-sm relative overflow-hidden";
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-1 h-full bg-totvs-teal"></div>
+                    <h4 class="font-bold text-totvs-navy mb-3 text-sm flex items-center gap-2 pl-2"><i class="ph-fill ph-package text-totvs-magenta"></i> ${prod}</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pl-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Cód. Proposta / Oferta</label>
+                            <input type="text" value="${details.codigoProposta}" oninput="updateProductDetail(${index}, 'codigoProposta', this.value)" placeholder="Ex: AAQHIG" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Cód. Cliente</label>
+                            <input type="text" list="listaClientes" value="${details.codClienteProduto}" oninput="updateProductDetail(${index}, 'codClienteProduto', this.value)" placeholder="Ex: TDC02R" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">ID TOTVS</label>
+                            <input type="text" value="${details.idTotvs}" oninput="updateProductDetail(${index}, 'idTotvs', this.value)" placeholder="Ex: 12345" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nome da Oferta</label>
+                            <input type="text" value="${details.nomeOferta}" oninput="updateProductDetail(${index}, 'nomeOferta', this.value)" placeholder="Nome comercial" class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Anexo de Oferta</label>
+                            <input type="text" value="${details.anexoOferta}" oninput="updateProductDetail(${index}, 'anexoOferta', this.value)" placeholder="Link ou Ref." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">OBS</label>
+                            <input type="text" value="${details.obs}" oninput="updateProductDetail(${index}, 'obs', this.value)" placeholder="Observações..." class="w-full text-sm rounded border-gray-300 border p-2 focus:ring-1 focus:ring-totvs-teal outline-none">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            Object.keys(productDetails).forEach(key => { if (!selectedProductsList.includes(key)) delete productDetails[key]; });
+        }
+
+        function updateProductDetail(index, field, value) {
+            const prodName = selectedProductsList[index];
+            if (productDetails[prodName]) productDetails[prodName][field] = value;
+        }
+
+        // Formatação de data
+        function formatDate(dateStr) {
+            if (!dateStr) return 'Não definida';
+            const [year, month, day] = dateStr.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        // --- CRUD E UI ---
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+            toastMsg.textContent = message;
+            toastIcon.className = isError ? "ph ph-warning-circle text-red-400 text-xl" : "ph ph-check-circle text-green-400 text-xl";
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        function saveTap(event) {
+            event.preventDefault();
+            
+            const tapData = {
+                id: currentEditId || Date.now().toString(),
+                dataTap: document.getElementById('dataTap').value,
+                codCliente: [...selectedClientsList], 
+                nomeProjeto: document.getElementById('nomeProjeto').value,
+                gpp: document.getElementById('gpp').value,
+                coordenador: document.getElementById('coordenador').value,
+                esn: document.getElementById('esn').value,
+                arquiteto: document.getElementById('arquiteto').value,
+                criticidadeCliente: document.getElementById('criticidadeCliente').value,
+                criticidadeTotvs: document.getElementById('criticidadeTotvs').value,
+                drive: document.getElementById('drive').value,
+                produtos: [...selectedProductsList], 
+                detalhesProdutos: JSON.parse(JSON.stringify(productDetails)), 
+                valorProjeto: document.getElementById('valorProjeto').value,
+                receitaAtual: document.getElementById('receitaAtual').value,
+                margemVenda: document.getElementById('margemVenda').value,
+                margemAtual: document.getElementById('margemAtual').value,
+                margemVendaValor: document.getElementById('margemVendaValor').value,
+                margemAtualValor: document.getElementById('margemAtualValor').value,
+                mrrMensal: document.getElementById('mrrMensal').value,
+                investimentoPerdas: document.getElementById('investimentoPerdas').value,
+                mrrTotal: document.getElementById('mrrTotal').value,
+                investimentoComercial: document.getElementById('investimentoComercial').value,
+                psaPlanejado: document.getElementById('psaPlanejado').value,
+                investimentoErro: document.getElementById('investimentoErro').value,
+                diferencaPsa: document.getElementById('diferencaPsa').value,
+                projetoEmPerda: document.getElementById('projetoEmPerda').value,
+                dataInicio: document.getElementById('dataInicio').value,
+                goLive: document.getElementById('goLive').value,
+                duracao: document.getElementById('duracao').value,
+                posProducao: document.getElementById('posProducao').value,
+                encerramento: document.getElementById('encerramento').value,
+                observacao: document.getElementById('observacao').value
+            };
+
+            if (currentEditId) {
+                const index = taps.findIndex(t => t.id === currentEditId);
+                if (index !== -1) taps[index] = tapData;
+                showToast('TAP atualizada com sucesso!');
+            } else {
+                taps.push(tapData);
+                showToast('Nova TAP criada com sucesso!');
+            }
+
+            renderCards();
+            closeModal();
+        }
+
+        function editTap(id) {
+            const tap = taps.find(t => t.id === id);
+            if (!tap) return;
+
+            currentEditId = tap.id;
+            document.getElementById('dataTap').value = tap.dataTap || '';
+            
+            selectedClientsList = Array.isArray(tap.codCliente) ? [...tap.codCliente] : (tap.codCliente ? [tap.codCliente] : []);
+            selectedClientsList.forEach(c => { if (!dropdownOptions.codCliente.includes(c)) dropdownOptions.codCliente.push(c); });
+            renderClientCheckboxes();
+
+            ['nomeProjeto', 'gpp', 'coordenador', 'esn', 'arquiteto'].forEach(field => {
+                const val = tap[field] || '';
+                if (val && !dropdownOptions[field].includes(val)) { dropdownOptions[field].push(val); renderSelect(field); }
+                document.getElementById(field).value = val;
+            });
+
+            document.getElementById('criticidadeCliente').value = tap.criticidadeCliente || 'MÉDIA';
+            document.getElementById('criticidadeTotvs').value = tap.criticidadeTotvs || 'MÉDIA';
+            document.getElementById('drive').value = tap.drive || '';
+            
+            selectedProductsList = tap.produtos ? [...tap.produtos] : [];
+            productDetails = tap.detalhesProdutos ? JSON.parse(JSON.stringify(tap.detalhesProdutos)) : {};
+            document.getElementById('searchProduto').value = '';
+            document.getElementById('customProduto').value = '';
+            renderTransferLists();
+
+            ['valorProjeto', 'receitaAtual', 'margemVenda', 'margemAtual', 'margemVendaValor', 'margemAtualValor', 'mrrMensal', 'investimentoPerdas', 'mrrTotal', 'investimentoComercial', 'psaPlanejado', 'investimentoErro', 'diferencaPsa'].forEach(field => document.getElementById(field).value = tap[field] || '');
+            document.getElementById('projetoEmPerda').value = tap.projetoEmPerda || 'Não';
+            ['dataInicio', 'goLive', 'duracao', 'posProducao', 'encerramento', 'observacao'].forEach(field => document.getElementById(field).value = tap[field] || '');
+
+            const cardTitle = Array.isArray(tap.codCliente) ? (tap.codCliente[0] || 'TAP') : (tap.codCliente || 'TAP');
+            document.getElementById('formTitle').innerHTML = `<i class="ph ph-pencil-simple text-totvs-magenta"></i> Editando: ${cardTitle}`;
+            document.getElementById('btnSalvar').innerHTML = `<i class="ph ph-floppy-disk text-lg"></i> Atualizar TAP`;
+            document.getElementById('btnExcluir').classList.remove('hidden');
+
+            tapModalOverlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            const modalContent = document.querySelector('#tapModalOverlay > div');
+            if(modalContent) modalContent.scrollTop = 0;
+        }
+
+        function deleteTap() {
+            if (!currentEditId) return;
+            taps = taps.filter(t => t.id !== currentEditId);
+            showToast('TAP excluída com sucesso!');
+            renderCards();
+            closeModal();
+        }
+
+        function clearFormFields() {
+            document.getElementById('tapForm').reset();
+            selectedClientsList = [];
+            renderClientCheckboxes();
+
+            ['nomeProjeto', 'gpp', 'coordenador', 'esn', 'arquiteto'].forEach(fieldId => {
+                document.getElementById(`${fieldId}_new_container`).classList.add('hidden');
+                document.getElementById(fieldId).classList.remove('hidden');
+            });
+            
+            selectedProductsList = []; productDetails = {};
+            document.getElementById('searchProduto').value = ''; document.getElementById('customProduto').value = '';
+            renderTransferLists();
+            
+            document.getElementById('criticidadeCliente').value = 'MÉDIA';
+            document.getElementById('criticidadeTotvs').value = 'MÉDIA';
+            document.getElementById('projetoEmPerda').value = 'Não';
+            
+            if(currentEditId) {
+                currentEditId = null;
+                document.getElementById('formTitle').innerHTML = `<i class="ph ph-file-plus text-totvs-magenta"></i> Nova TAP`;
+                document.getElementById('btnSalvar').innerHTML = `<i class="ph ph-floppy-disk text-lg"></i> Salvar TAP`;
+                document.getElementById('btnExcluir').classList.add('hidden');
+            }
+        }
+
+        function renderCards() {
+            const container = document.getElementById('cardsContainer');
+            const emptyState = document.getElementById('emptyState');
+            
+            // FILTRAGEM
+            let filteredTaps = taps.filter(tap => {
+                if (activeFilters.cliente) {
+                    const arrClientes = Array.isArray(tap.codCliente) ? tap.codCliente : (tap.codCliente ? [tap.codCliente] : []);
+                    if (!arrClientes.includes(activeFilters.cliente)) return false;
+                }
+                if (activeFilters.gpp && tap.gpp !== activeFilters.gpp) return false;
+                if (activeFilters.criticidade && tap.criticidadeCliente !== activeFilters.criticidade) return false;
+                if (activeFilters.perda && tap.projetoEmPerda !== activeFilters.perda) return false;
+                return true;
+            });
+
+            document.getElementById('tapCount').textContent = filteredTaps.length;
+
+            const elementsToRemove = Array.from(container.children).filter(el => el.id !== 'emptyState');
+            elementsToRemove.forEach(el => el.remove());
+
+            if (filteredTaps.length === 0) {
+                emptyState.style.display = 'flex';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            const reversedTaps = [...filteredTaps].reverse();
+
+            reversedTaps.forEach(tap => {
+                const card = document.createElement('div');
+                
+                let borderClass = 'border-gray-200 border-l-[6px]';
+                if (tap.criticidadeCliente === 'ALTA') borderClass = 'border-red-500 border-l-[6px] border-y-gray-200 border-r-gray-200';
+                else if (tap.criticidadeCliente === 'BAIXA') borderClass = 'border-green-500 border-l-[6px] border-y-gray-200 border-r-gray-200';
+                else borderClass = 'border-totvs-teal border-l-[6px] border-y-gray-200 border-r-gray-200';
+
+                card.className = `bg-white p-5 rounded-xl shadow-sm cursor-pointer card-hover flex flex-col gap-3 ${borderClass}`;
+                card.onclick = () => editTap(tap.id);
+
+                const prodCount = tap.produtos ? tap.produtos.length : 0;
+                
+                let codClientesExibir = 'S/ CÓD';
+                if (Array.isArray(tap.codCliente) && tap.codCliente.length > 0) {
+                    codClientesExibir = tap.codCliente.length <= 2 ? tap.codCliente.join(', ') : `${tap.codCliente[0]} +${tap.codCliente.length - 1}`;
+                } else if (typeof tap.codCliente === 'string' && tap.codCliente) {
+                    codClientesExibir = tap.codCliente; 
+                }
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-bold text-totvs-magenta tracking-wider bg-totvs-magenta/10 px-2 py-1 rounded truncate max-w-[75%]" title="${Array.isArray(tap.codCliente) ? tap.codCliente.join(', ') : ''}">
+                            ${codClientesExibir}
+                        </span>
+                        ${tap.projetoEmPerda === 'Sim' ? `<span class="bg-red-100 text-red-600 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1"><i class="ph-fill ph-warning-circle"></i> PERDA</span>` : ''}
+                    </div>
+                    <h4 class="font-bold text-totvs-navy text-lg leading-tight line-clamp-2" title="${tap.nomeProjeto}">${tap.nomeProjeto || 'Projeto sem nome'}</h4>
+                    <div class="mt-auto pt-3 border-t border-gray-100 text-sm text-gray-500 flex flex-col gap-1.5">
+                        ${tap.gpp ? `<div class="flex items-center gap-2" title="GPP"><i class="ph-fill ph-briefcase text-gray-400"></i> <span class="truncate">${tap.gpp}</span></div>` : ''}
+                        ${tap.coordenador ? `<div class="flex items-center gap-2" title="CP"><i class="ph-fill ph-user text-gray-400"></i> <span class="truncate">${tap.coordenador}</span></div>` : ''}
+                        <div class="flex items-center gap-2" title="Go-Live Previsto"><i class="ph-fill ph-calendar-check text-gray-400"></i> ${formatDate(tap.goLive)}</div>
+                        <div class="flex items-center gap-2" title="Produtos do Escopo"><i class="ph-fill ph-package text-gray-400"></i> ${prodCount} Produto(s)</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Init
+        initDynamicSelects();
+        renderCards();
+
+    </script>
 </body>
 </html>
