@@ -84,6 +84,9 @@
                 <button onclick="toggleFilters()" class="w-full sm:w-auto bg-white border border-gray-300 hover:bg-gray-50 text-totvs-navy font-bold py-2.5 px-4 rounded shadow-sm transition-colors flex justify-center items-center gap-2">
                     <i class="ph-bold ph-funnel text-totvs-teal"></i> Filtros
                 </button>
+                <button onclick="testSupabaseConnection()" class="w-full sm:w-auto bg-white border border-totvs-teal/40 hover:bg-totvs-teal/5 text-totvs-teal font-bold py-2.5 px-4 rounded shadow-sm transition-colors flex justify-center items-center gap-2 whitespace-nowrap">
+                    <i class="ph-bold ph-plug"></i> Testar Conexão
+                </button>
                 <button onclick="openNewTapModal()" class="w-full sm:w-auto bg-totvs-magenta hover:bg-totvs-magentaDark text-white font-bold py-2.5 px-6 rounded shadow transition-colors flex justify-center items-center gap-2 whitespace-nowrap">
                     <i class="ph-bold ph-plus"></i> Nova TAP
                 </button>
@@ -497,14 +500,34 @@
 
     <datalist id="listaClientes"></datalist>
 
-    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-gray-800 text-white px-6 py-3 rounded shadow-xl z-50 flex items-center gap-3 pointer-events-none">
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-gray-800 text-white px-6 py-3 rounded shadow-xl z-50 flex items-center gap-3">
         <i class="ph ph-check-circle text-green-400 text-xl" id="toastIcon"></i>
         <span id="toastMsg" class="text-sm font-medium">Sucesso!</span>
+        <button id="toastInfoBtn" onclick="openErrorLogModal()" class="hidden bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-xs font-bold flex items-center gap-1">
+            <i class="ph ph-info"></i> Info
+        </button>
+    </div>
+    <div id="errorLogModal" class="hidden fixed inset-0 z-[100] bg-totvs-navy/50 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="font-bold text-totvs-navy text-lg flex items-center gap-2"><i class="ph ph-warning-circle text-red-500"></i> Log detalhado do erro</h3>
+                <button onclick="closeErrorLogModal()" class="text-gray-500 hover:text-red-500"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-5">
+                <pre id="errorLogContent" class="bg-gray-900 text-gray-100 text-xs rounded-lg p-4 max-h-[55vh] overflow-auto whitespace-pre-wrap"></pre>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button onclick="copyErrorLog()" class="bg-white border border-gray-300 hover:bg-gray-50 text-totvs-navy font-semibold px-4 py-2 rounded">Copiar log</button>
+                    <button onclick="closeErrorLogModal()" class="bg-totvs-magenta hover:bg-totvs-magentaDark text-white font-semibold px-4 py-2 rounded">Fechar</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Script de Lógica -->
     <script>
         let taps = [];
+        let tapProjectContext = { code: null, id: null };
+        let lastErrorLog = 'Nenhum erro detalhado disponível.';
         let currentEditId = null;
         let selectedClientsList = [];
         let selectedProductsList = []; 
@@ -885,17 +908,187 @@
         }
 
         // --- CRUD E UI ---
-        function showToast(message, isError = false) {
+        function normalizeErrorLog(errorDetails) {
+            if (!errorDetails) return 'Sem detalhes adicionais.';
+            if (typeof errorDetails === 'string') return errorDetails;
+            const name = errorDetails.name ? `name: ${errorDetails.name}\n` : '';
+            const message = errorDetails.message ? `message: ${errorDetails.message}\n` : '';
+            const stack = errorDetails.stack ? `stack:\n${errorDetails.stack}\n` : '';
+            return `${name}${message}${stack}`.trim() || JSON.stringify(errorDetails, null, 2);
+        }
+
+        function openErrorLogModal() {
+            const modal = document.getElementById('errorLogModal');
+            const content = document.getElementById('errorLogContent');
+            content.textContent = lastErrorLog || 'Nenhum erro detalhado disponível.';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeErrorLogModal() {
+            const modal = document.getElementById('errorLogModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function copyErrorLog() {
+            navigator.clipboard.writeText(lastErrorLog || '').then(
+                () => showToast('Log copiado para a área de transferência.'),
+                () => showToast('Não foi possível copiar o log automaticamente.', true, 'Falha ao copiar log.')
+            );
+        }
+
+        function showToast(message, isError = false, errorDetails = null) {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMsg');
             const toastIcon = document.getElementById('toastIcon');
+            const toastInfoBtn = document.getElementById('toastInfoBtn');
             toastMsg.textContent = message;
             toastIcon.className = isError ? "ph ph-warning-circle text-red-400 text-xl" : "ph ph-check-circle text-green-400 text-xl";
+            if (isError) {
+                lastErrorLog = normalizeErrorLog(errorDetails || message);
+                toastInfoBtn.classList.remove('hidden');
+            } else {
+                toastInfoBtn.classList.add('hidden');
+            }
             toast.classList.remove('translate-y-20', 'opacity-0');
             setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
         }
 
-        function saveTap(event) {
+        function getCockpitConfig() {
+            try {
+                const localCfg = JSON.parse(localStorage.getItem('totvs_cockpit_config') || '{}');
+                if (localCfg && Object.keys(localCfg).length) return localCfg;
+                if (window.parent && window.parent !== window && window.parent.config) return window.parent.config;
+                return {};
+            } catch (_) {
+                if (window.parent && window.parent !== window && window.parent.config) return window.parent.config;
+                return {};
+            }
+        }
+
+        function getPrimaryProjectCode() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('primaryProject') || getCockpitConfig()?.activeProjectId || 'default';
+        }
+
+        function normalizeSupabaseBaseUrl(rawUrl = '') {
+            if (window.parent && window.parent !== window && typeof window.parent.normalizeSupabaseBaseUrl === 'function') {
+                try {
+                    return window.parent.normalizeSupabaseBaseUrl(rawUrl);
+                } catch (_) {
+                    // fallback local mais permissivo para evitar bloqueio por regra estrita do shell
+                }
+            }
+            const input = (rawUrl || '').trim();
+            if(!input) return '';
+            const candidate = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+            const parsed = new URL(candidate);
+            const host = (parsed.hostname || '').toLowerCase();
+            if(host === 'app.supabase.com' || host.endsWith('.app.supabase.com')) {
+                const byPath = parsed.pathname.match(/\/project\/([a-z0-9-]+)/i)?.[1];
+                const byQuery = parsed.searchParams.get('project');
+                const projectRef = (byPath || byQuery || '').trim();
+                if(projectRef) return `https://${projectRef}.supabase.co`;
+                throw new Error('URL do dashboard detectada. Informe a URL do projeto (ex.: https://SEU-PROJETO.supabase.co).');
+            }
+            if(host.includes('supabase') || parsed.pathname.includes('/rest/v1')) return `${parsed.protocol}//${parsed.hostname}`;
+            throw new Error(`Domínio do Supabase inválido: ${parsed.hostname}`);
+        }
+
+        async function tapSupabaseRequest(path, method='GET', body) {
+            const cfg = getCockpitConfig();
+            const rawUrl = cfg?.supabase?.url || '';
+            const secret = (cfg?.supabase?.secret || cfg?.supabase?.anonKey || '').trim();
+            if(!rawUrl || !secret) throw new Error('Supabase não configurado no Cockpit.');
+            const baseUrl = normalizeSupabaseBaseUrl(rawUrl);
+            const schema = (cfg?.supabase?.schema || 'public').trim();
+            try {
+                const res = await fetch(`${baseUrl.replace(/\/$/, '')}/rest/v1/${path}`, {
+                    method,
+                    headers: {
+                        apikey: secret,
+                        Authorization: `Bearer ${secret}`,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'Accept-Profile': schema,
+                        'Content-Profile': schema,
+                        Prefer: 'return=representation,resolution=merge-duplicates'
+                    },
+                    body: body ? JSON.stringify(body) : undefined
+                });
+                const text = await res.text();
+                if(!res.ok) throw new Error(text || `Erro ${res.status}`);
+                if(res.status === 204 || !text) return [];
+                return JSON.parse(text);
+            } catch (e) {
+                if (e instanceof TypeError) {
+                    throw new Error('Falha de rede ao acessar Supabase. Confira URL, CORS e conexão.');
+                }
+                throw e;
+            }
+        }
+
+        async function resolveTapProjectId() {
+            if(tapProjectContext.id) return tapProjectContext.id;
+            const projectCode = getPrimaryProjectCode();
+            tapProjectContext.code = projectCode;
+            const projectsTable = getCockpitConfig()?.supabase?.projectsTable || 'projects';
+            const rows = await tapSupabaseRequest(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
+            if(!rows.length) throw new Error(`Projeto '${projectCode}' não encontrado na tabela projects.`);
+            tapProjectContext.id = rows[0].id;
+            return tapProjectContext.id;
+        }
+
+        async function runSupabaseHealthCheck() {
+            const projectId = await resolveTapProjectId();
+            const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+            await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id&limit=1`);
+            return { projectId };
+        }
+
+        async function testSupabaseConnection() {
+            let createdTestId = null;
+            try {
+                const { projectId } = await runSupabaseHealthCheck();
+                const testPayload = {
+                    test_connection: true,
+                    created_at: new Date().toISOString(),
+                    note: 'healthcheck_tap_write_delete'
+                };
+                const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                const inserted = await tapSupabaseRequest(tapTable, 'POST', [{ project_id: projectId, payload: testPayload }]);
+                createdTestId = inserted?.[0]?.id || null;
+                if(!createdTestId) throw new Error('Teste de escrita falhou: ID não retornado no INSERT.');
+                await tapSupabaseRequest(`${tapTable}?id=eq.${createdTestId}`, 'DELETE');
+                showToast(`Conexão OK (SELECT/INSERT/DELETE). Projeto vinculado (id): ${projectId}`);
+            } catch (e) {
+                if (createdTestId) {
+                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                    try { await tapSupabaseRequest(`${tapTable}?id=eq.${createdTestId}`, 'DELETE'); } catch (_) {}
+                }
+                showToast(`Falha na conexão: ${e.message || e}`, true, e);
+            }
+        }
+
+        async function loadTapsFromSupabase() {
+            try {
+                const projectId = await resolveTapProjectId();
+                const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id,payload,updated_at,created_at&order=updated_at.desc.nullslast,created_at.desc.nullslast`);
+                taps = rows.map((r) => {
+                    const base = (r.payload && typeof r.payload === 'object') ? r.payload : {};
+                    return { ...base, id: String(r.id), _dbId: r.id };
+                });
+                renderCards();
+            } catch (e) {
+                taps = [];
+                renderCards();
+                showToast(`Falha ao carregar TAPs: ${e.message || e}`, true, e);
+            }
+        }
+
+        async function saveTap(event) {
             event.preventDefault();
             
             const tapData = {
@@ -934,17 +1127,23 @@
                 observacao: document.getElementById('observacao').value
             };
 
-            if (currentEditId) {
-                const index = taps.findIndex(t => t.id === currentEditId);
-                if (index !== -1) taps[index] = tapData;
-                showToast('TAP atualizada com sucesso!');
-            } else {
-                taps.push(tapData);
-                showToast('Nova TAP criada com sucesso!');
+            try {
+                const { projectId } = await runSupabaseHealthCheck();
+                if (currentEditId) {
+                    const dbId = Number(currentEditId);
+                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                    await tapSupabaseRequest(`${tapTable}?id=eq.${dbId}`, 'PATCH', { payload: tapData, project_id: projectId });
+                    showToast('TAP atualizada com sucesso!');
+                } else {
+                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                    await tapSupabaseRequest(tapTable, 'POST', [{ project_id: projectId, payload: tapData }]);
+                    showToast('Nova TAP criada com sucesso!');
+                }
+                await loadTapsFromSupabase();
+                closeModal();
+            } catch (e) {
+                showToast(`Erro ao salvar TAP: ${e.message || e}`, true, e);
             }
-
-            renderCards();
-            closeModal();
         }
 
         function editTap(id) {
@@ -990,12 +1189,18 @@
             if(modalContent) modalContent.scrollTop = 0;
         }
 
-        function deleteTap() {
+        async function deleteTap() {
             if (!currentEditId) return;
-            taps = taps.filter(t => t.id !== currentEditId);
-            showToast('TAP excluída com sucesso!');
-            renderCards();
-            closeModal();
+            try {
+                const dbId = Number(currentEditId);
+                const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                await tapSupabaseRequest(`${tapTable}?id=eq.${dbId}`, 'DELETE');
+                showToast('TAP excluída com sucesso!');
+                await loadTapsFromSupabase();
+                closeModal();
+            } catch (e) {
+                showToast(`Erro ao excluir TAP: ${e.message || e}`, true, e);
+            }
         }
 
         function clearFormFields() {
@@ -1095,6 +1300,7 @@
         // Init
         initDynamicSelects();
         renderCards();
+        loadTapsFromSupabase();
 
     </script>
 </body>
