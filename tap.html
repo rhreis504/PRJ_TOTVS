@@ -527,7 +527,7 @@
     <script>
         let taps = [];
         let tapProjectContext = { code: null, id: null };
-        const TAP_BUILD_VERSION = 'tap-2026-05-05-v2';
+        const TAP_BUILD_VERSION = 'tap-2026-05-05-v3';
         let lastErrorLog = 'Nenhum erro detalhado disponível.';
         let currentEditId = null;
         let selectedClientsList = [];
@@ -1087,14 +1087,33 @@
             });
         }
 
+        function getProjectConfigByCode(projectCode) {
+            const cfg = getCockpitConfig();
+            const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
+            return projects.find(p => p.id === projectCode) || { id: projectCode, name: projectCode };
+        }
+
+        async function ensureTapProject(projectCode, projectsTable) {
+            const project = getProjectConfigByCode(projectCode);
+            const payload = {
+                code: projectCode,
+                name: (project?.name || projectCode).trim() || projectCode
+            };
+            const rows = await tapSupabaseRequest(`${projectsTable}?on_conflict=code`, 'POST', [payload]);
+            const createdId = rows?.[0]?.id;
+            if(!createdId) {
+                throw new Error(`Projeto '${projectCode}' não existe e não foi possível criá-lo automaticamente.`);
+            }
+            return createdId;
+        }
+
         async function resolveTapProjectId() {
-            if(tapProjectContext.id) return tapProjectContext.id;
             const projectCode = getPrimaryProjectCode();
-            tapProjectContext.code = projectCode;
+            if(tapProjectContext.id && tapProjectContext.code === projectCode) return tapProjectContext.id;
+            tapProjectContext = { code: projectCode, id: null };
             const projectsTable = getCockpitConfig()?.supabase?.projectsTable || 'projects';
             const rows = await tapSupabaseRequest(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
-            if(!rows.length) throw new Error(`Projeto '${projectCode}' não encontrado na tabela projects.`);
-            tapProjectContext.id = rows[0].id;
+            tapProjectContext.id = rows[0]?.id || await ensureTapProject(projectCode, projectsTable);
             return tapProjectContext.id;
         }
 
@@ -1188,9 +1207,8 @@
             try {
                 const { projectId } = await runSupabaseHealthCheck();
                 if (currentEditId) {
-                    const dbId = Number(currentEditId);
                     const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                    await tapSupabaseRequest(`${tapTable}?id=eq.${dbId}`, 'PATCH', { payload: tapData, project_id: projectId });
+                    await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(currentEditId)}`, 'PATCH', { payload: tapData, project_id: projectId });
                     showToast('TAP atualizada com sucesso!');
                 } else {
                     const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
@@ -1250,9 +1268,8 @@
         async function deleteTap() {
             if (!currentEditId) return;
             try {
-                const dbId = Number(currentEditId);
                 const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                await tapSupabaseRequest(`${tapTable}?id=eq.${dbId}`, 'DELETE');
+                await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(currentEditId)}`, 'DELETE');
                 showToast('TAP excluída com sucesso!');
                 await loadTapsFromSupabase();
                 closeModal();
