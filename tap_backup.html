@@ -1,1 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAP - {{nomeProjeto}}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos específicos para impressão */
+        @media print {
+            body { background-color: white !important; padding: 0 !important; }
+            .no-print { display: none !important; }
+            .doc-container { box-shadow: none !important; border: none !important; border-radius: 0 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important;}
+            .page-break { page-break-before: always; }
+            .section-card { break-inside: avoid; border: 1px solid #e2e8f0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans py-8 px-4 sm:px-8">
 
+    <!-- Botão de Imprimir (Oculto na impressão) -->
+    <div class="max-w-5xl mx-auto mb-4 no-print space-y-3">
+        <div class="bg-white border border-slate-200 rounded-lg p-4">
+            <div class="flex flex-wrap items-center gap-2">
+                <button id="tap-edit-btn" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-colors">Editar TAP</button>
+                <button id="tap-save-btn" class="hidden bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 px-4 rounded-lg shadow transition-colors">Salvar no Supabase</button>
+                <button id="tap-cancel-btn" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-2 px-4 rounded-lg transition-colors">Cancelar</button>
+                <span id="tap-status" class="text-sm text-slate-600"></span>
+            </div>
+        </div>
+        <div id="tap-editor" class="hidden bg-white border border-slate-200 rounded-lg p-4"></div>
+        <div class="flex justify-end">
+        <button onclick="window.print()" class="bg-cyan-700 hover:bg-cyan-800 text-white font-semibold py-2 px-4 rounded-lg shadow flex items-center gap-2 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Imprimir / Salvar PDF
+        </button>
+        </div>
+    </div>
+
+    <!-- DOCUMENTO TAP -->
+    <div class="doc-container max-w-5xl mx-auto bg-white shadow-xl rounded-xl border border-slate-200 overflow-hidden">
+        
+        <!-- CABEÇALHO DO DOCUMENTO -->
+        <header class="bg-slate-900 text-white p-8 border-b-4 border-cyan-500">
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <!-- Logo TOTVS Simulado -->
+                        <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                            <div class="w-4 h-4 border-4 border-slate-900 rounded-full border-t-transparent transform rotate-45"></div>
+                        </div>
+                        <h1 class="text-2xl font-black tracking-tight">TOTVS</h1>
+                    </div>
+                    <h2 class="text-xl font-light text-slate-300">TAP (Termo de Abertura do PROJETO)</h2>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Projeto Relativo</p>
+                    <h3 class="text-2xl font-bold text-cyan-400">{{nomeProjeto}}</h3>
+                    <p class="text-sm mt-1 text-slate-300">Cód. Cliente: <span class="font-mono text-white bg-slate-800 px-2 py-0.5 rounded">{{codCliente}}</span></p>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-8 space-y-8">
+
+            <!-- 1. IDENTIFICAÇÃO -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Identificação</h3>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Data Base</p>
+                        <p class="text-sm font-medium text-slate-800">{{dataBase}}</p>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Drive / Repositório</p>
+                        <p class="text-sm font-medium text-slate-800">{{driveRepositorio}}</p>
+                    </div>
+
+                    <div class="col-span-1 md:col-span-4 border-t border-slate-100 pt-4">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Produto(s) Contratado(s)</p>
+                        <p class="text-sm font-bold text-slate-800">{{produtosContratados}}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Coordenador (CP)</p>
+                        <p class="text-sm font-medium text-slate-800">{{coordenadorCP}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">GPP</p>
+                        <p class="text-sm font-medium text-slate-800">{{gpp}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">ESN</p>
+                        <p class="text-sm font-medium text-slate-800">{{esn}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Arquiteto TOTVS</p>
+                        <p class="text-sm font-medium text-slate-800">{{arquitetoTotvs}}</p>
+                    </div>
+
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Criticidade Cliente</p>
+                        <!-- As classes de cor (bg-red-100, etc) precisarão ser dinâmicas dependendo do valor da criticidade -->
+                        <span class="inline-block px-3 py-1 rounded border bg-slate-100 text-slate-800 border-slate-200 text-xs font-bold mt-1">{{criticidadeCliente}}</span>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Criticidade TOTVS</p>
+                        <span class="inline-block px-3 py-1 rounded border bg-slate-100 text-slate-800 border-slate-200 text-xs font-bold mt-1">{{criticidadeTotvs}}</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. FINANCEIRO -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 18V6"></path></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Financeiro</h3>
+                </div>
+                <div class="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-6">
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Valor do Projeto</p>
+                        <p class="text-base font-bold text-slate-800">{{valorProjeto}}</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Receita Atual</p>
+                        <p class="text-base font-bold text-slate-800">{{receitaAtual}}</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem da Venda %</p>
+                        <p class="text-base font-bold text-slate-800">{{margemVendaPerc}}</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Atual %</p>
+                        <p class="text-base font-bold text-slate-800">{{margemAtualPerc}}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Venda (R$)</p>
+                        <p class="text-sm font-medium text-slate-800">{{margemVendaValor}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Margem Atual (R$)</p>
+                        <p class="text-sm font-medium text-slate-800">{{margemAtualValor}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MRR Mensal</p>
+                        <p class="text-sm font-medium text-slate-800">{{mrrMensal}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MRR Total</p>
+                        <p class="text-sm font-medium text-slate-800">{{mrrTotal}}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PSA Planejado</p>
+                        <p class="text-sm font-medium text-slate-800">{{psaPlanejado}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Diferença PSA</p>
+                        <p class="text-sm font-medium text-slate-800">{{diferencaPsa}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Invest. Comercial</p>
+                        <p class="text-sm font-medium text-slate-800">{{investimentoComercial}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Invest. Erro Produto</p>
+                        <p class="text-sm font-medium text-slate-800">{{investimentoErroProduto}}</p>
+                    </div>
+
+                    <!-- As classes de cor (bg-emerald-50, etc) precisarão ser dinâmicas dependendo se o projeto está em perda -->
+                    <div class="col-span-1 md:col-span-2 bg-slate-50 p-3 rounded border border-slate-200 flex items-center gap-4">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-800 uppercase tracking-wider mb-1">Projeto em Perda?</p>
+                            <p class="text-lg font-black text-slate-600 uppercase">{{projetoEmPerda}}</p>
+                        </div>
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Investimento Perdas</p>
+                        <p class="text-sm font-medium text-slate-800">{{investimentoPerdas}}</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. TIMELINE -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Timeline do Projeto</h3>
+                </div>
+                <div class="p-5">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                        <div class="p-4 border border-slate-200 rounded-lg">
+                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Data Início</p>
+                            <p class="text-base font-bold text-slate-800">{{dataInicio}}</p>
+                        </div>
+                        
+                        <!-- As classes de cor precisarão ser dinâmicas baseadas no statusGoLive -->
+                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
+                            <p class="text-xs font-bold text-slate-600 uppercase mb-1">Go-live (Previsão)</p>
+                            <p class="text-base font-bold text-slate-800">{{goLivePrevisao}}</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">{{statusGoLive}}</p>
+                        </div>
+                        
+                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
+                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Duração</p>
+                            <p class="text-xl font-black text-cyan-700">{{duracaoMeses}} <span class="text-xs font-normal text-slate-500">meses</span></p>
+                        </div>
+                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg">
+                            <p class="text-xs font-bold text-slate-500 uppercase mb-1">Pós-produção</p>
+                            <p class="text-xl font-black text-slate-700">{{posProducaoMeses}} <span class="text-xs font-normal text-slate-500">meses</span></p>
+                        </div>
+                        
+                        <!-- As classes de cor precisarão ser dinâmicas baseadas no statusEncerramento -->
+                        <div class="p-4 border border-slate-200 bg-slate-50 rounded-lg col-span-2 md:col-span-1">
+                            <p class="text-xs font-bold text-slate-600 uppercase mb-1">Encerramento</p>
+                            <p class="text-base font-bold text-slate-800">{{dataEncerramento}}</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase mt-1">{{statusEncerramento}}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. ESCOPO E OBJETIVO -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Escopo e Objetivo</h3>
+                </div>
+                <div class="p-5">
+                    <ul class="space-y-3">
+                        <!-- O elemento abaixo deve ser repetido (loop) para cada item do escopo no back-end -->
+                        <li class="flex items-start gap-3">
+                            <svg class="text-cyan-600 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span class="text-sm text-slate-700">{{itemEscopo}}</span>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 5. OBSERVAÇÕES -->
+            <section class="section-card border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="text-cyan-700" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Observações Gerais</h3>
+                </div>
+                <div class="p-5">
+                    <p class="text-sm text-slate-700 whitespace-pre-wrap">{{observacoesGerais}}</p>
+                </div>
+            </section>
+
+        </div>
+        
+        <!-- RODAPÉ DO DOCUMENTO -->
+        <footer class="bg-slate-50 border-t border-slate-200 p-6 text-center text-xs text-slate-400">
+            Documento gerado pelo sistema de Portfólio de Projetos TOTVS em {{dataGeracaoDocumento}}.
+        </footer>
+    </div>
+
+
+<script>
+(function(){
+  const PLACEHOLDER_RE = /\{\{\s*([^}]+?)\s*\}\}/g;
+  const norm = (v='') => v.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+
+  // Mapeamento explícito: campo da SHEET -> variável do template TAP.
+  const fieldMap = {
+    nomeProjeto: ['nomeprojeto','projeto','projectname'],
+    codCliente: ['codcliente','codigocliente','clientecodigo'],
+    dataBase: ['database','data_base','data','datareferencia'],
+    driveRepositorio: ['driverepositorio','drive/repositorio','repositorio','drive'],
+    produtosContratados: ['produtoscontratados','produto(s)contratado(s)','produtos','produto'],
+    coordenadorCP: ['coordenadorcp','coordenador(cp)','coordenadorprojeto','cp'],
+    gpp: ['gpp'],
+    esn: ['esn'],
+    arquitetoTotvs: ['arquitetototvs','arquiteto'],
+    criticidadeCliente: ['criticidadecliente'],
+    criticidadeTotvs: ['criticidadetotvs'],
+    valorProjeto: ['valorprojeto'],
+    receitaAtual: ['receitaatual'],
+    margemVendaPerc: ['margemvendaperc'],
+    margemAtualPerc: ['margematualperc'],
+    margemVendaValor: ['margemvendavalor'],
+    margemAtualValor: ['margematualvalor'],
+    mrrMensal: ['mrrmensal'],
+    mrrTotal: ['mrrtotal'],
+    psaPlanejado: ['psaplanejado'],
+    diferencaPsa: ['diferencapsa'],
+    investimentoComercial: ['investimentocomercial'],
+    investimentoErroProduto: ['investimentoerroproduto'],
+    projetoEmPerda: ['projetoemperda'],
+    investimentoPerdas: ['investimentoperdas'],
+    dataInicio: ['datainicio'],
+    goLivePrevisao: ['goliveprevisao'],
+    statusGoLive: ['statusgolive'],
+    duracaoMeses: ['duracaomeses'],
+    posProducaoMeses: ['posproducaomeses'],
+    dataEncerramento: ['dataencerramento'],
+    statusEncerramento: ['statusencerramento'],
+    itemEscopo: ['itemescopo','descricaoescopo','escopo'],
+    observacoesGerais: ['observacoesgerais','observacoes'],
+    dataGeracaoDocumento: ['datageracaodocumento']
+  };
+
+  function detectDelimiter(text){
+    const firstLine = (text || '').split(/\r?\n/, 1)[0] || '';
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    return semicolonCount > commaCount ? ';' : ',';
+  }
+
+  function parseCsv(text){
+    const delimiter = detectDelimiter(text);
+    const rows=[]; let row=[]; let cur=''; let q=false;
+    for(let i=0;i<text.length;i++){
+      const c=text[i], n=text[i+1];
+      if(c==='"'){
+        if(q && n==='"'){ cur+='"'; i++; }
+        else q=!q;
+      } else if(c===delimiter && !q){
+        row.push(cur.trim()); cur='';
+      } else if((c==='\n' || c==='\r') && !q){
+        if(c==='\r' && n==='\n') i++;
+        row.push(cur.trim());
+        if(row.some(v=>v!=='')) rows.push(row);
+        row=[]; cur='';
+      } else cur+=c;
+    }
+    row.push(cur.trim());
+    if(row.some(v=>v!=='')) rows.push(row);
+    return rows;
+  }
+
+  function parseHtmlTable(text){
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const trs = Array.from(doc.querySelectorAll('table tr'));
+    return trs
+      .map(tr => Array.from(tr.querySelectorAll('th,td')).map(td => (td.textContent || '').trim()))
+      .filter(r => r.some(v => v !== ''));
+  }
+
+  function resolveUrl(source){
+    if(!source?.url) return '';
+    let url = source.url.trim();
+
+    // Link de publicação web do Google Sheets (pubhtml#gid=...)
+    if(url.includes('/pubhtml')){
+      const gidFromHash = (url.match(/#gid=(\d+)/) || [])[1];
+      url = url.replace('/pubhtml', '/pub?output=csv').replace(/#.*$/, '');
+      if(gidFromHash && !/[?&]gid=/.test(url)) {
+        url += (url.includes('?') ? '&' : '?') + `gid=${gidFromHash}`;
+      }
+    }
+
+    // Link de edição padrão do Google Sheets
+    if(url.includes('spreadsheets/d/') && !/output=csv|format=csv/.test(url)) {
+      url = url.replace(/\/edit.*$/, '/export?format=csv');
+    }
+
+    if(source.sheet && !/[?&]sheet=/.test(url)) {
+      url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
+    }
+
+    return url;
+  }
+
+  function findTapSource(project){
+    const entries = Object.entries(project?.sources || {});
+    return entries.find(([,v]) => norm(v.label || '').includes('tap') || norm(v.key || '') === 'tap')?.[1] || project?.sources?.tap || null;
+  }
+
+  function buildRawValues(rows, hasHeader){
+    // Formato 1 (legado): chave/valor por linha (A:B)
+    const kv = {};
+    rows.forEach(r => { if(r.length >= 2) kv[norm(r[0])] = r[1] ?? ''; });
+
+    // Formato 2: cabeçalho na primeira linha + dados na segunda
+    if(hasHeader && rows.length >= 2 && rows[0].length > 2){
+      const headers = rows[0].map(h => norm(h));
+      const values = rows[1] || [];
+      headers.forEach((h, idx) => { if(h) kv[h] = values[idx] ?? ''; });
+    }
+    return kv;
+  }
+
+  function buildRawValuesFromWebLayout(rows){
+    const kv = {};
+    const knownKeys = new Set(
+      Object.entries(fieldMap).flatMap(([tplKey, aliases]) => [tplKey, ...aliases]).map(norm)
+    );
+
+    // 1) Captura pares campo/valor em qualquer coluna da linha (layout legado TAP).
+    rows.forEach((r) => {
+      for(let i = 0; i < r.length - 1; i++){
+        const key = norm(r[i] || '');
+        const val = (r[i + 1] || '').toString().trim();
+        if(key && knownKeys.has(key) && val) kv[key] = val;
+      }
+    });
+
+    // 2) Captura "Escopo e Objetivo": linhas abaixo do cabeçalho até "Observações".
+    const allTexts = rows.flat().map(v => (v || '').toString().trim()).filter(Boolean);
+    const start = allTexts.findIndex(t => norm(t) === norm('Escopo e Objetivo'));
+    if(start >= 0){
+      const items = [];
+      for(let i = start + 1; i < allTexts.length; i++){
+        const txt = allTexts[i];
+        const n = norm(txt);
+        if(n === norm('Observações') || n === norm('Observacoes')) break;
+        if(txt.length > 6 && !knownKeys.has(n)) items.push(txt);
+      }
+      if(items.length) kv[norm('itemEscopo')] = items.join(' | ');
+    }
+
+    return kv;
+  }
+
+  function formatDateBr(value){
+    const v = (value || '').toString().trim();
+    if(!v) return '';
+
+    const iso = v.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if(iso) return `${iso[3].padStart(2,'0')}/${iso[2].padStart(2,'0')}/${iso[1]}`;
+
+    const us = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if(us) return `${us[2].padStart(2,'0')}/${us[1].padStart(2,'0')}/${us[3]}`;
+
+    return v;
+  }
+
+  function mapToTemplateValues(raw){
+    const out = {};
+    Object.entries(fieldMap).forEach(([tplKey, aliases]) => {
+      const candidates = [norm(tplKey), ...aliases.map(norm)];
+      out[norm(tplKey)] = candidates.map(k => raw[k]).find(v => v !== undefined && v !== '') ?? '';
+    });
+
+    ['dataBase','dataInicio','goLivePrevisao','dataEncerramento','dataGeracaoDocumento']
+      .forEach((k) => {
+        const nk = norm(k);
+        out[nk] = formatDateBr(out[nk]);
+      });
+
+    return out;
+  }
+
+  function apply(values){
+    const walker=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n=>{ n.textContent = n.textContent.replace(PLACEHOLDER_RE,(_,k)=> values[norm(k)] || '-'); });
+  }
+
+  const editableFields = [
+    ['nomeProjeto','Nome do Projeto'],['codCliente','Código do Cliente'],['dataBase','Data Base'],
+    ['driveRepositorio','Drive / Repositório'],['produtosContratados','Produtos Contratados'],['coordenadorCP','Coordenador (CP)'],
+    ['gpp','GPP'],['esn','ESN'],['arquitetoTotvs','Arquiteto TOTVS'],['criticidadeCliente','Criticidade Cliente'],
+    ['criticidadeTotvs','Criticidade TOTVS'],['valorProjeto','Valor do Projeto'],['receitaAtual','Receita Atual'],
+    ['margemVendaPerc','Margem da Venda %'],['margemAtualPerc','Margem Atual %'],['margemVendaValor','Margem Venda (R$)'],
+    ['margemAtualValor','Margem Atual (R$)'],['mrrMensal','MRR Mensal'],['mrrTotal','MRR Total'],['psaPlanejado','PSA Planejado'],
+    ['diferencaPsa','Diferença PSA'],['investimentoComercial','Investimento Comercial'],['investimentoErroProduto','Investimento Erro Produto'],
+    ['projetoEmPerda','Projeto em Perda?'],['investimentoPerdas','Investimento Perdas'],['dataInicio','Data Início'],
+    ['goLivePrevisao','Go-live (Previsão)'],['statusGoLive','Status Go-live'],['duracaoMeses','Duração (meses)'],
+    ['posProducaoMeses','Pós-produção (meses)'],['dataEncerramento','Data Encerramento'],['statusEncerramento','Status Encerramento'],
+    ['itemEscopo','Escopo e Objetivo'],['observacoesGerais','Observações Gerais']
+  ];
+  let currentMapped = {};
+  function renderEditor(values){
+    const el = document.getElementById('tap-editor');
+    el.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${editableFields.map(([k,label]) => `
+      <label class="text-sm text-slate-700">${label}
+        <input data-key="${k}" class="w-full mt-1 border border-slate-300 rounded p-2" value="${(values[norm(k)] || '').replace(/"/g,'&quot;')}">
+      </label>`).join('')}</div>`;
+  }
+  function readEditorValues(){
+    const out = {...currentMapped};
+    document.querySelectorAll('#tap-editor [data-key]').forEach(input => { out[norm(input.dataset.key)] = input.value || ''; });
+    out.datageracaodocumento = new Date().toLocaleDateString('pt-BR');
+    return out;
+  }
+  function normalizeSupabaseBaseUrl(raw){
+    const parsed = new URL((raw || '').trim());
+    return `${parsed.protocol}//${parsed.host}`;
+  }
+  async function supabaseRequest(path, method='GET', body){
+    const cfg = JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');
+    const base = normalizeSupabaseBaseUrl(cfg.supabase?.url || '');
+    const secret = cfg.supabase?.secret;
+    const r = await fetch(`${base}/rest/v1/${path}`, {method, headers:{apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json',Prefer:'return=representation'}, body: body ? JSON.stringify(body) : undefined});
+    if(!r.ok) throw new Error(await r.text() || `HTTP ${r.status}`);
+    const txt = await r.text();
+    return txt ? JSON.parse(txt) : [];
+  }
+  async function saveTap(values){
+    const cfg = JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');
+    const projects = cfg.projects || [];
+    const activeId = (cfg.selectedProjectIds && cfg.selectedProjectIds[0]) || cfg.activeProjectId;
+    const project = projects.find(p => p.id === activeId) || projects[0];
+    if(!project?.id) throw new Error('Projeto ativo não encontrado.');
+    const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
+    let projectId = existing[0]?.id;
+    if(!projectId){
+      const created = await supabaseRequest('projects', 'POST', [{code:project.id, name:project.name || project.id}]);
+      projectId = created[0]?.id;
+    }
+    await supabaseRequest(`tap_entries?project_id=eq.${projectId}`,'DELETE');
+    const payload = {
+      project_id: projectId, identificacao: '', data_referencia: values[norm('dataBase')] || '', nome_projeto: values[norm('nomeProjeto')] || '',
+      coordenador_projeto: values[norm('coordenadorCP')] || '', esn: values[norm('esn')] || '', criticidade_cliente: values[norm('criticidadeCliente')] || '',
+      drive: values[norm('driveRepositorio')] || '', cod_cliente: values[norm('codCliente')] || '', gpp: values[norm('gpp')] || '',
+      produto: values[norm('produtosContratados')] || '', arquiteto: values[norm('arquitetoTotvs')] || '', criticidade_totvs: values[norm('criticidadeTotvs')] || '',
+      valor_projeto: values[norm('valorProjeto')] || '', margem_venda_percentual: values[norm('margemVendaPerc')] || '', margem_venda_valor: values[norm('margemVendaValor')] || '',
+      mrr_recorrente_mensal: values[norm('mrrMensal')] || '', mrr_total_contratados: values[norm('mrrTotal')] || '', psa_planejado: values[norm('psaPlanejado')] || '',
+      diferenca_psa_projeto: values[norm('diferencaPsa')] || '', receita_atual: values[norm('receitaAtual')] || '', margem_atual_percentual: values[norm('margemAtualPerc')] || '',
+      margem_atual_valor: values[norm('margemAtualValor')] || '', investimento_perdas: values[norm('investimentoPerdas')] || '', investimento_comercial: values[norm('investimentoComercial')] || '',
+      investimento_erro_produto: values[norm('investimentoErroProduto')] || '', projeto_em_perda: values[norm('projetoEmPerda')] || '',
+      data_inicio: values[norm('dataInicio')] || '', go_live_previsao: values[norm('goLivePrevisao')] || '', duracao: values[norm('duracaoMeses')] || '',
+      pos_producao_meses: values[norm('posProducaoMeses')] || '', encerramento: values[norm('dataEncerramento')] || '',
+      descricao_escopo: values[norm('itemEscopo')] || '', observacoes: values[norm('observacoesGerais')] || '', payload: values
+    };
+    await supabaseRequest('tap_entries','POST',[payload]);
+  }
+
+  (async function init(){
+    const cfg = JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');
+    const projects = cfg.projects || [];
+    const activeId = (cfg.selectedProjectIds && cfg.selectedProjectIds[0]) || cfg.activeProjectId;
+    const project = projects.find(p=>p.id===activeId) || projects[0];
+    const tapSource = findTapSource(project);
+    const fallbackDate = new Date().toLocaleDateString('pt-BR');
+    if(!tapSource){ apply({datageracaodocumento:fallbackDate}); return; }
+
+    const url = resolveUrl(tapSource);
+    const resp = await fetch(url + (url.includes('?')?'&':'?') + 't=' + Date.now());
+    const text = await resp.text();
+    const mode = tapSource.sourceType || 'csv';
+    const rows = mode === 'web' ? parseHtmlTable(text) : parseCsv(text);
+    const rawBase = buildRawValues(rows, tapSource.hasHeader !== false);
+    const rawWeb = mode === 'web' ? buildRawValuesFromWebLayout(rows) : {};
+    const raw = { ...rawBase, ...rawWeb };
+    const mapped = mapToTemplateValues(raw);
+    mapped.datageracaodocumento = mapped.datageracaodocumento || fallbackDate;
+    currentMapped = mapped;
+    apply(currentMapped);
+    renderEditor(currentMapped);
+    const statusEl = document.getElementById('tap-status');
+    document.getElementById('tap-edit-btn').onclick = () => {
+      document.getElementById('tap-editor').classList.remove('hidden');
+      document.getElementById('tap-save-btn').classList.remove('hidden');
+      document.getElementById('tap-cancel-btn').classList.remove('hidden');
+      statusEl.textContent = 'Modo edição ativado.';
+    };
+    document.getElementById('tap-cancel-btn').onclick = () => { location.reload(); };
+    document.getElementById('tap-save-btn').onclick = async () => {
+      try{
+        const vals = readEditorValues();
+        currentMapped = vals;
+        apply(vals);
+        await saveTap(vals);
+        statusEl.textContent = 'TAP salva com sucesso no Supabase.';
+      }catch(e){ statusEl.textContent = `Erro ao salvar: ${e.message || e}`; }
+    };
+  })().catch(()=>apply({datageracaodocumento:new Date().toLocaleDateString('pt-BR')}));
+})();
+</script>
+</body>
+</html>
