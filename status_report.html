@@ -261,7 +261,7 @@
                 <h3 class="text-md font-bold text-slate-800"><i class="fa-solid fa-flag-checkered text-purple-500 mr-2"></i> Marcos do Projeto & Go Live Readiness</h3>
                 <div class="text-right">
                     <span class="text-xs uppercase font-semibold text-slate-400 block">Readiness</span>
-                    <span class="text-xl font-bold text-purple-600">65%</span>
+                    <span class="text-xl font-bold text-purple-600" id="golive-readiness">0%</span>
                 </div>
             </div>
             
@@ -303,33 +303,25 @@
                 <h4 class="font-bold text-slate-700 mb-2"><i class="fa-solid fa-users text-indigo-500 mr-2"></i> Stakeholders</h4>
                 <div class="flex justify-between items-end mb-2">
                     <span class="text-xs text-slate-500">Engajamento Chave</span>
-                    <span class="text-lg font-bold text-green-600">Alto</span>
+                    <span class="text-lg font-bold text-green-600" id="stakeholder-engagement">-</span>
                 </div>
-                <ul class="text-xs text-slate-600 space-y-1 mt-4">
-                    <li class="flex justify-between"><span>Comitê Executivo:</span> <span class="text-green-600"><i class="fa-solid fa-check"></i> Ativo</span></li>
-                    <li class="flex justify-between"><span>Key Users (Folha):</span> <span class="text-orange-600"><i class="fa-solid fa-triangle-exclamation"></i> Atenção</span></li>
-                    <li class="flex justify-between"><span>Fornecedores:</span> <span class="text-green-600"><i class="fa-solid fa-check"></i> Alinhados</span></li>
-                </ul>
+                <ul class="text-xs text-slate-600 space-y-1 mt-4" id="stakeholder-list"></ul>
             </div>
 
             <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
                 <h4 class="font-bold text-slate-700 mb-2"><i class="fa-solid fa-network-wired text-teal-500 mr-2"></i> Integrações</h4>
                 <div class="flex justify-between items-end mb-2">
                     <span class="text-xs text-slate-500">Status APIs</span>
-                    <span class="text-lg font-bold text-orange-600">Atrasado</span>
+                    <span class="text-lg font-bold text-orange-600" id="integration-status">-</span>
                 </div>
-                <div class="w-full bg-slate-200 rounded-full h-1.5 mb-3"><div class="bg-orange-500 h-1.5 rounded-full" style="width: 45%"></div></div>
-                <ul class="text-xs text-slate-600 space-y-1">
-                    <li class="flex justify-between"><span>Folha x Aghora:</span> <span class="text-orange-600">Em Testes</span></li>
-                    <li class="flex justify-between"><span>AD x LMS:</span> <span class="text-green-600">Concluído</span></li>
-                    <li class="flex justify-between"><span>ERP x Fiscal:</span> <span class="text-red-600">Bloqueado</span></li>
-                </ul>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 mb-3"><div id="integration-progress-bar" class="bg-orange-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+                <ul class="text-xs text-slate-600 space-y-1" id="integration-list"></ul>
             </div>
         </div>
 
         <!-- Rodapé Executivo -->
         <footer class="mt-12 border-t border-slate-200 pt-6 pb-2 text-center text-xs text-slate-400 no-print">
-            Gerado automaticamente pelo Cockpit PMO | Última atualização: 02/05/2026 02:55 | Confidencial
+            Gerado automaticamente pelo Cockpit PMO | Última atualização: <span id="last-updated">-</span> | Confidencial
         </footer>
 
     </main>
@@ -338,289 +330,439 @@
 
     <!-- Script JavaScript com Carga Real de Dados e Lógica de Renderização -->
     <script>
-        const REQUIRED_URL_KEYS = ['urlGeral'];
-        const UPDATE_BUTTON_ID='btn-atualizar-dados';
-        const data = { projectInfo:{}, statusInput:{}, health:{dimensions:[]}, evolution:[], tripleConstraint:{prazo:{},custo:{},escopo:{},qualidade:{}}, alerts:[], activities:{past:[],present:[],future:[]}, issues:[], risks:[], gaps:[], decisions:[], milestones:[], goliveCriteria:[], trainings:[], stakeholders:[] };
-
-        const SOURCE_DEFAULTS = { pendencias:'pendencias.html', stakeholders:'', riscos:'riscos.html', gaps:'', tap:'', statusReport:'', agenda:'' };
-        const stripDiacritics = (value='') => value.toString().normalize('NFD').replace(/[̀-ͯ]/g,'');
-        const normalizeKey = (k='') => stripDiacritics(k).toLowerCase().trim();
-        const normalizeRow = (row={}) => Object.entries(row).reduce((acc,[k,v])=>{acc[normalizeKey(k)]=v; return acc;},{});
-        const firstFrom = (row, keys=[]) => { for(const k of keys){ const val=row[normalizeKey(k)]; if(val!==undefined && val!==null && `${val}`.trim()!=='') return `${val}`.trim(); } return ''; };
-        const asList = (value='') => `${value||''}`.split(/\n|;|\|/).map(v=>v.trim()).filter(Boolean);
-        const isClosedStatus = (status='') => /conclu[ií]d|finalizad|encerrad|cancelad|aprovad/i.test(stripDiacritics(status));
-        const escapeHtml = (value='') => `${value??''}`.replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-        const formatDate = (value='') => {
-            if(!value) return '';
-            if(/^\d{4}-\d{2}-\d{2}/.test(value)){ const [y,m,d]=value.slice(0,10).split('-'); return `${d}/${m}/${y}`; }
-            return value;
+        const UPDATE_BUTTON_ID = 'btn-atualizar-dados';
+        const data = {
+            projectInfo: {}, statusInput: {}, health: { dimensions: [] }, evolution: [],
+            tripleConstraint: { prazo: {}, custo: {}, escopo: {}, qualidade: {} }, alerts: [],
+            activities: { past: [], present: [], future: [] }, issues: [], risks: [], gaps: [], decisions: [],
+            milestones: [], goliveCriteria: [], trainings: [], stakeholders: [], integrations: []
         };
 
-        function getCockpitConfig(){
-            const parse=(value)=>{ try{return value?JSON.parse(value):{};}catch{return {};} };
-            const localCfg=parse(localStorage.getItem('totvs_cockpit_config')||'{}');
-            try{
-                const parentCfg=(window.parent && window.parent!==window && window.parent.config) ? window.parent.config : null;
-                if(parentCfg && Object.keys(parentCfg).length) return parentCfg;
-            }catch(_e){}
+        const stripDiacritics = (value = '') => value.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const normalizeKey = (k = '') => stripDiacritics(k).toLowerCase().trim();
+        const compactKey = (k = '') => normalizeKey(k).replace(/[^a-z0-9]+/g, '');
+        const normalizeRow = (row = {}) => {
+            if (Array.isArray(row)) return row.reduce((acc, value, index) => { acc[`col${index + 1}`] = value; return acc; }, {});
+            return Object.entries(row || {}).reduce((acc, [k, v]) => { acc[normalizeKey(k)] = v; acc[compactKey(k)] = v; return acc; }, {});
+        };
+        const firstFrom = (row, keys = []) => {
+            const n = row && (row[normalizeKey(keys[0] || '')] !== undefined || row[compactKey(keys[0] || '')] !== undefined) ? row : normalizeRow(row || {});
+            for (const k of keys) {
+                const val = n[normalizeKey(k)] ?? n[compactKey(k)];
+                if (val !== undefined && val !== null && `${val}`.trim() !== '') return `${val}`.trim();
+            }
+            return '';
+        };
+        const asList = (value = '') => `${value || ''}`.split(/\n|;|\|/).map(v => v.trim()).filter(Boolean);
+        const isClosedStatus = (status = '') => /concluid|finalizad|encerrad|cancelad|aprovad|resolvid|fechad/i.test(stripDiacritics(status));
+        const isLateStatus = (status = '') => /atrasad|vencid|bloquead|crit/i.test(stripDiacritics(status));
+        const escapeHtml = (value = '') => `${value ?? ''}`.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+        const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Number.isFinite(value) ? value : 0));
+        const percent = (part, total) => total ? Math.round((part / total) * 100) : 0;
+        const toNumber = (value = '') => {
+            const n = parseFloat(`${value}`.replace('%', '').replace(/\./g, '').replace(',', '.'));
+            return Number.isFinite(n) ? n : 0;
+        };
+        const parseDateValue = (value = '') => {
+            if (!value) return null;
+            const raw = `${value}`.trim();
+            if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return new Date(`${raw.slice(0, 10)}T00:00:00`);
+            const br = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+            if (br) {
+                const year = br[3].length === 2 ? `20${br[3]}` : br[3];
+                return new Date(`${year}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}T00:00:00`);
+            }
+            const parsed = new Date(raw);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        };
+        const formatDate = (value = '') => {
+            const d = value instanceof Date ? value : parseDateValue(value);
+            if (!d) return value || '';
+            return d.toLocaleDateString('pt-BR');
+        };
+        const dateDiffDays = (future, base = new Date()) => Math.ceil((future.setHours(0,0,0,0) - base.setHours(0,0,0,0)) / 86400000);
+
+        function getCockpitConfig() {
+            const parse = (value) => { try { return value ? JSON.parse(value) : {}; } catch { return {}; } };
+            const localCfg = parse(localStorage.getItem('totvs_cockpit_config') || '{}');
+            try {
+                const parentCfg = (window.parent && window.parent !== window && window.parent.config) ? window.parent.config : null;
+                if (parentCfg && Object.keys(parentCfg).length) return parentCfg;
+            } catch (_e) {}
             return localCfg;
         }
-        function getActiveProjectConfig(cfg=getCockpitConfig()){
-            const projects=Array.isArray(cfg?.projects)?cfg.projects:[];
-            if(!projects.length) return {};
-            const activeId=cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds)?cfg.selectedProjectIds[0]:'');
-            return projects.find(p=>p.id===activeId) || projects[0] || {};
+        function getActiveProjectConfig(cfg = getCockpitConfig()) {
+            const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
+            if (!projects.length) return {};
+            const activeId = cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds[0] : '');
+            return projects.find(p => p.id === activeId) || projects[0] || {};
         }
-        function resolveSourceByLabel(sources={}, aliases=[]){
-            const normalizedAliases=aliases.map(normalizeKey);
+        function resolveSourceByLabel(sources = {}, aliases = []) {
+            const normalizedAliases = aliases.map(normalizeKey);
             return Object.values(sources).find(source => normalizedAliases.includes(normalizeKey(source?.label || ''))) || null;
         }
-        function getConfiguredSource(sourceKey){
-            const cfg=getCockpitConfig();
-            const active=getActiveProjectConfig(cfg);
-            const activeSources=active?.sources || {};
-            const globalSources=cfg?.sources || {};
-            const aliases={
-                statusReport:['Status Report Executivo','Status Report'],
-                stakeholders:['Stakeholders'],
-                pendencias:['Pendências','Pendencias'],
-                riscos:['Riscos'],
-                gaps:['GAPs e Mudanças','Gaps e Mudanças','Gaps'],
-                tap:['TAP'],
-                atividades:['Nova Fonte','Atividades','Resumo Semanal de Atividades']
+        function getConfiguredSource(sourceKey) {
+            const cfg = getCockpitConfig();
+            const active = getActiveProjectConfig(cfg);
+            const activeSources = active?.sources || {};
+            const globalSources = cfg?.sources || {};
+            const aliases = {
+                statusReport: ['Status Report Executivo', 'Status Report'], stakeholders: ['Stakeholders'], pendencias: ['Pendências', 'Pendencias'],
+                riscos: ['Riscos'], gaps: ['GAPs e Mudanças', 'Gaps e Mudanças', 'Gaps'], tap: ['TAP'],
+                atividades: ['Nova Fonte', 'Atividades', 'Resumo Semanal de Atividades'], treinamentos: ['Treinamentos', 'Agenda de Treinamentos']
             };
-            const directActive=activeSources[sourceKey];
-            const directGlobal=globalSources[sourceKey];
-            const labeledActive=resolveSourceByLabel(activeSources, aliases[sourceKey] || []);
-            const labeledGlobal=resolveSourceByLabel(globalSources, aliases[sourceKey] || []);
-            return [directActive, labeledActive, directGlobal, labeledGlobal].find(source => (source?.url || '').trim())
-                || directActive
-                || labeledActive
-                || directGlobal
-                || labeledGlobal
-                || {};
+            const candidates = [activeSources[sourceKey], resolveSourceByLabel(activeSources, aliases[sourceKey] || []), globalSources[sourceKey], resolveSourceByLabel(globalSources, aliases[sourceKey] || [])];
+            return candidates.find(source => (source?.url || '').trim()) || candidates.find(Boolean) || {};
         }
-        function resolveConfiguredCsvUrl(source={}){
-            let url=(source.url || '').trim();
-            if(!url) return '';
-            if((source.sourceType || 'csv') !== 'csv') return url;
-            if(url.includes('docs.google.com/spreadsheets')){
-                if(url.includes('/pub')){
-                    if(!url.includes('output=csv')) url += (url.includes('?') ? '&' : '?') + 'output=csv';
-                } else if(url.includes('/pubhtml')) {
+        function resolveConfiguredCsvUrl(source = {}) {
+            let url = (source.url || '').trim();
+            if (!url) return '';
+            if ((source.sourceType || 'csv') !== 'csv') return url;
+            if (url.includes('docs.google.com/spreadsheets')) {
+                if (url.includes('/pub')) {
+                    if (!url.includes('output=csv')) url += (url.includes('?') ? '&' : '?') + 'output=csv';
+                } else if (url.includes('/pubhtml')) {
                     url = url.replace('/pubhtml', '/pub?output=csv');
-                } else if(url.includes('spreadsheets/d/') && !url.includes('format=csv')) {
+                } else if (url.includes('spreadsheets/d/') && !url.includes('format=csv')) {
                     url = url.replace(/\/edit.*$/, '/export?format=csv');
                 }
-                if(source.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
+                if (source.sheet && !url.includes('gid=')) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
             }
             return url;
         }
-        function getSourceUrl(key){
-            const direct={urlGeral:'statusReport',urlStatusReport:'statusReport',urlStakeholders:'stakeholders',urlPendencias:'pendencias',urlRiscos:'riscos',urlGaps:'gaps',urlAtividades:'atividades',urlTap:'tap'};
-            const sourceKey=direct[key] || key;
-            return resolveConfiguredCsvUrl(getConfiguredSource(sourceKey));
-        }
-        document.addEventListener('DOMContentLoaded',()=>{ reloadFromConfiguredSources(); });
 
-        const parseCSV = (csv)=>{
-            const rows=[]; let row=[]; let cell=''; let quoted=false;
-            for(let i=0;i<csv.length;i++){
-                const ch=csv[i];
-                if(ch==='"' && csv[i+1]==='"'){ cell+='"'; i++; }
-                else if(ch==='"'){ quoted=!quoted; }
-                else if(ch===',' && !quoted){ row.push(cell.trim()); cell=''; }
-                else if((ch==='\n'||ch==='\r') && !quoted){ if(ch==='\r'&&csv[i+1]==='\n') i++; row.push(cell.trim()); if(row.some(Boolean)) rows.push(row); row=[]; cell=''; }
-                else cell+=ch;
+        const parseCSV = (csv) => {
+            const rows = []; let row = []; let cell = ''; let quoted = false;
+            for (let i = 0; i < csv.length; i++) {
+                const ch = csv[i];
+                if (ch === '"' && csv[i + 1] === '"') { cell += '"'; i++; }
+                else if (ch === '"') quoted = !quoted;
+                else if ((ch === ',' || ch === ';') && !quoted) { row.push(cell.trim()); cell = ''; }
+                else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && csv[i + 1] === '\n') i++; row.push(cell.trim()); if (row.some(Boolean)) rows.push(row); row = []; cell = ''; }
+                else cell += ch;
             }
-            row.push(cell.trim()); if(row.some(Boolean)) rows.push(row);
-            if(!rows.length) return [];
-            const headers=rows[0].map(h=>h.trim());
-            return rows.slice(1).map(cols=>{const o={}; headers.forEach((h,i)=>o[h]=(cols[i]||'').trim()); return o;});
+            row.push(cell.trim()); if (row.some(Boolean)) rows.push(row);
+            if (!rows.length) return [];
+            const headerIndex = rows.findIndex(r => r.some(v => /id|chave|campo|descri|nome|status/i.test(v)));
+            const headers = (headerIndex >= 0 ? rows[headerIndex] : rows[0]).map(h => h.trim());
+            return rows.slice((headerIndex >= 0 ? headerIndex : 0) + 1).map(cols => {
+                const o = {}; headers.forEach((h, i) => o[h || `col${i + 1}`] = (cols[i] || '').trim()); return o;
+            }).filter(o => Object.values(o).some(Boolean));
         };
-        async function fetchCsv(url){ if(!url) return []; const resp=await fetch(url,{cache:'no-store'}); if(!resp.ok) throw new Error('Falha ao carregar '+url); return parseCSV(await resp.text()); }
-        async function extractScriptConstantFromPage(page,constName){
-            const resp=await fetch(page,{cache:'no-store'}); if(!resp.ok) return '';
-            const html=await resp.text();
-            const escaped=constName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-            const backtick=html.match(new RegExp('const\\s+'+escaped+'\\s*=\\s*`([\\s\\S]*?)`;'));
-            if(backtick) return backtick[1];
-            const quoted=html.match(new RegExp("const\\s+"+escaped+"\\s*=\\s*([\"'])(([\\s\\S])*?)\\1\\s*;"));
+        async function fetchCsv(url) { if (!url) return []; const resp = await fetch(url, { cache: 'no-store' }); if (!resp.ok) throw new Error(`Falha ao carregar ${url} (${resp.status})`); return parseCSV(await resp.text()); }
+        async function extractScriptConstantFromPage(page, constName) {
+            const resp = await fetch(page, { cache: 'no-store' }); if (!resp.ok) return '';
+            const html = await resp.text();
+            const escaped = constName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const backtick = html.match(new RegExp('const\\s+' + escaped + '\\s*=\\s*`([\\s\\S]*?)`;'));
+            if (backtick) return backtick[1];
+            const quoted = html.match(new RegExp("const\\s+" + escaped + "\\s*=\\s*([\"'])(([\\s\\S])*?)\\1\\s*;"));
             return quoted ? quoted[2] : '';
         }
-        async function loadCsvFromPage(page,constName,urlConst='CSV_URL'){
-            const csvUrl=await extractScriptConstantFromPage(page,urlConst);
-            if(csvUrl){ try{return await fetchCsv(csvUrl);}catch(e){ console.warn(`Falha ao carregar ${csvUrl}; usando fallback de ${page}.`, e); } }
-            const fallback=await extractScriptConstantFromPage(page,constName);
+        async function loadCsvFromPage(page, constName, urlConst = 'CSV_URL') {
+            const csvUrl = await extractScriptConstantFromPage(page, urlConst);
+            if (csvUrl) { try { return await fetchCsv(csvUrl); } catch (e) { console.warn(`Falha ao carregar ${csvUrl}; usando fallback de ${page}.`, e); } }
+            const fallback = await extractScriptConstantFromPage(page, constName);
             return fallback ? parseCSV(fallback) : [];
         }
-        async function loadRowsFromConfiguredSource(urlKey, fallbackPage='', fallbackConst='', urlConst='CSV_URL'){
-            const url=getSourceUrl(urlKey);
-            if(url){
-                try{return await fetchCsv(url);}
-                catch(e){ console.warn(`Falha ao carregar a fonte configurada (${urlKey}); usando fallback quando disponível.`, e); }
-            }
-            return (fallbackPage && fallbackConst) ? loadCsvFromPage(fallbackPage, fallbackConst, urlConst) : [];
+
+        function normalizeSupabaseBaseUrl(raw = '') {
+            const value = (raw || '').trim(); if (!value) return '';
+            const parsed = new URL(value.startsWith('http') ? value : `https://${value}`);
+            if (parsed.hostname.endsWith('supabase.com') || parsed.hostname === 'app.supabase.com') throw new Error('Use a URL do projeto Supabase, não a URL do dashboard.');
+            return `${parsed.protocol}//${parsed.host}`;
         }
-        const clearContainers = () => ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria','train-list'].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML='';});
-        const getRAGColors=(s)=>({'Saudável':'bg-green-100 text-green-800 border-green-200','green':'bg-green-500','Atenção Leve':'bg-blue-100 text-blue-800 border-blue-200','blue':'bg-blue-500','Atenção Moderada':'bg-orange-100 text-orange-800 border-orange-200','Atenção':'bg-orange-100 text-orange-800 border-orange-200','orange':'bg-orange-500','Crítico':'bg-red-100 text-red-800 border-red-200','Alta':'bg-red-100 text-red-800 border-red-200','red':'bg-red-500','Atrasado':'bg-red-100 text-red-800','Vencido':'bg-red-100 text-red-800','Concluído':'bg-green-100 text-green-800','completed':'bg-green-100 text-green-800','Em andamento':'bg-blue-100 text-blue-800','upcoming':'bg-blue-100 text-blue-800','Não iniciado':'bg-gray-100 text-gray-800','Bloqueado':'bg-red-100 text-red-800','Agendado':'bg-slate-100 text-slate-700','No Prazo':'bg-green-100 text-green-800','Reagendado':'bg-orange-100 text-orange-800','cancelled':'bg-red-100 text-red-800'})[s]||'bg-slate-100 text-slate-800 border-slate-200';
-        function applyStatusInput(rows){
-            const kv={}; const normalizedRows=rows.map(normalizeRow);
-            normalizedRows.forEach(r=>{ const k=firstFrom(r,['chave','key','campo','indicador','item']); if(k) kv[normalizeKey(k)]=firstFrom(r,['valor','value','conteudo','resposta','input']); });
-            const mit013 = normalizedRows.find(r=>/mit013/i.test(firstFrom(r,['id','codigo','código','mit','referencia','referência','template','origem']))) || normalizedRows[0] || {};
-            data.statusInput={
-                statusGeral:firstFrom(mit013,['status geral','status','rag','situação geral']) || kv['status geral'] || kv.status || 'Sem status',
-                resumo:firstFrom(mit013,['resumo semanal de atividades','resumo semanal','resumo executivo','atividades da semana','input']) || kv['resumo semanal de atividades'] || kv['resumo semanal'] || '',
-                realizado:firstFrom(mit013,['realizado semana passada','realizado','semana passada']) || kv['realizado semana passada'] || '',
-                planejado:firstFrom(mit013,['planejado semana atual','planejado','semana atual']) || kv['planejado semana atual'] || '',
-                futuro:firstFrom(mit013,['proximos passos','próximos passos','futuro']) || kv['proximos passos'] || kv['próximos passos'] || ''
+        function getSupabaseRuntime() {
+            const cfg = getCockpitConfig();
+            const rawUrl = cfg?.supabase?.url || cfg?.supabase?.apiUrl || (cfg?.supabase?.projectRef ? `https://${cfg.supabase.projectRef}.supabase.co` : '');
+            let baseUrl = '';
+            try { baseUrl = normalizeSupabaseBaseUrl(rawUrl); } catch (e) { console.warn(e.message); }
+            const key = cfg?.supabase?.secret || cfg?.supabase?.serviceRole || cfg?.supabase?.currentKey || cfg?.supabase?.publishableKey || cfg?.supabase?.anonKey || '';
+            return { baseUrl, key, cfg };
+        }
+        async function supabaseGet(path) {
+            const { baseUrl, key } = getSupabaseRuntime();
+            if (!baseUrl || !key) return [];
+            const resp = await fetch(`${baseUrl}/rest/v1/${path}`, { cache: 'no-store', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
+            if (!resp.ok) throw new Error(`Supabase GET ${path} -> ${resp.status}`);
+            return resp.json();
+        }
+        async function getSupabaseProjectId() {
+            const cfg = getCockpitConfig(); const active = getActiveProjectConfig(cfg);
+            const projectCode = cfg?.supabase?.projectCode || cfg?.activeProjectId || active?.id || 'default';
+            const projects = await supabaseGet(`projects?code=eq.${encodeURIComponent(projectCode)}&select=*`);
+            return projects?.[0] || null;
+        }
+        async function loadSupabaseRows(sourceType) {
+            try {
+                const project = await getSupabaseProjectId(); if (!project?.id) return [];
+                if (sourceType === 'tap') {
+                    const tap = await supabaseGet(`tap_entries?project_id=eq.${project.id}&select=*&order=created_at.desc&limit=1`);
+                    return tap?.[0] ? [tap[0].payload || tap[0]] : [];
+                }
+                const rows = await supabaseGet(`source_rows?project_id=eq.${project.id}&source_type=eq.${sourceType}&select=row_data,created_at&order=created_at.desc&limit=500`);
+                return rows.map(r => r.row_data).filter(Boolean);
+            } catch (e) { console.warn(`Falha ao buscar ${sourceType} no Supabase.`, e); return []; }
+        }
+        async function loadRows(sourceKey, fallbackPage = '', fallbackConst = '') {
+            const source = getConfiguredSource(sourceKey);
+            const url = resolveConfiguredCsvUrl(source);
+            if (url) { try { return await fetchCsv(url); } catch (e) { console.warn(`Falha ao carregar fonte configurada ${sourceKey}.`, e); } }
+            const supabaseRows = await loadSupabaseRows(sourceKey);
+            if (supabaseRows.length) return supabaseRows;
+            return (fallbackPage && fallbackConst) ? loadCsvFromPage(fallbackPage, fallbackConst) : [];
+        }
+
+        function applyStatusInput(rows = []) {
+            const kv = {}; const normalizedRows = rows.map(normalizeRow);
+            normalizedRows.forEach(r => { const k = firstFrom(r, ['chave', 'key', 'campo', 'indicador', 'item']); if (k) kv[normalizeKey(k)] = firstFrom(r, ['valor', 'value', 'conteudo', 'conteúdo', 'resposta', 'input']); });
+            const mit013 = normalizedRows.find(r => /mit013/i.test(firstFrom(r, ['id', 'codigo', 'código', 'mit', 'referencia', 'referência', 'template', 'origem']))) || normalizedRows[0] || {};
+            data.statusInput = {
+                statusGeral: firstFrom(mit013, ['status geral', 'status', 'rag', 'situação geral']) || kv['status geral'] || kv.status || '',
+                resumo: firstFrom(mit013, ['resumo semanal de atividades', 'resumo semanal', 'resumo executivo', 'atividades da semana', 'input']) || kv['resumo semanal de atividades'] || kv['resumo semanal'] || '',
+                realizado: firstFrom(mit013, ['realizado semana passada', 'realizado', 'semana passada']) || kv['realizado semana passada'] || '',
+                planejado: firstFrom(mit013, ['planejado semana atual', 'planejado', 'semana atual']) || kv['planejado semana atual'] || '',
+                futuro: firstFrom(mit013, ['proximos passos', 'próximos passos', 'futuro']) || kv['proximos passos'] || kv['próximos passos'] || '',
+                period: firstFrom(mit013, ['periodo', 'período', 'semana de referência']) || kv.periodo || kv['período'] || '',
             };
-            data.projectInfo={...data.projectInfo,statusGeral:data.statusInput.statusGeral,evolutionTotal:+(kv.evolucao_real||kv['evolução real']||0),evolutionPlanned:+(kv.evolucao_planejada||kv['evolução planejada']||0)};
-        }
-        function applyTap(tap={}){
-            if(!tap || !Object.keys(tap).length) return;
-            const cliente=Array.isArray(tap.codCliente)?tap.codCliente.join(', '):(tap.codCliente||tap.cliente||tap.identificacao||'');
-            data.projectInfo={...data.projectInfo,
-                name:tap.nomeProjeto||tap.nome_projeto||data.projectInfo.name||'',
-                client:cliente||data.projectInfo.client||'',
-                period:(tap.dataInicio||tap.data_inicio||tap.dataTap||tap.data_referencia) && (tap.goLive||tap.go_live_previsao) ? `${formatDate(tap.dataInicio||tap.data_inicio||tap.dataTap||tap.data_referencia)} a ${formatDate(tap.goLive||tap.go_live_previsao)}` : formatDate(tap.dataTap||tap.data_referencia||tap.dataInicio||tap.data_inicio||data.projectInfo.period||''),
-                goLive:formatDate(tap.goLive||tap.go_live_previsao||data.projectInfo.goLive||''),
-                pm:tap.coordenador||tap.coordenador_projeto||data.projectInfo.pm||'',
-                pmo:tap.gpp||data.projectInfo.pmo||''
+            data.projectInfo = {
+                ...data.projectInfo,
+                statusGeral: data.statusInput.statusGeral,
+                evolutionTotal: toNumber(kv.evolucao_real || kv['evolução real'] || firstFrom(mit013, ['evolução real', 'evolucao real', 'real'])),
+                evolutionPlanned: toNumber(kv.evolucao_planejada || kv['evolução planejada'] || firstFrom(mit013, ['evolução planejada', 'evolucao planejada', 'planejada']))
             };
         }
-        async function loadTap(){
-            const csvUrl=getSourceUrl('urlTap');
-            if(csvUrl){
-                try{
-                    const rows=await fetchCsv(csvUrl);
-                    if(rows[0]) return rows.map(normalizeRow).map(r=>({nomeProjeto:firstFrom(r,['nome projeto','nome_projeto']),codCliente:firstFrom(r,['cod cliente','cliente','identificacao','identificação']),dataInicio:firstFrom(r,['data inicio','data_inicio','data início']),goLive:firstFrom(r,['go live','go_live_previsao','go live previsao','go live previsão']),coordenador:firstFrom(r,['coordenador','coordenador projeto','coordenador_projeto']),gpp:firstFrom(r,['gpp','pmo'])}))[0];
-                }catch(e){ console.warn('Falha ao carregar a TAP configurada; tentando Supabase.', e); }
-            }
-            try{
-                const cfg=getCockpitConfig(); const baseUrl=normalizeSupabaseBaseUrl(cfg?.supabase?.url||cfg?.supabase?.apiUrl||''); const secret=cfg?.supabase?.secret||cfg?.supabase?.serviceRole||cfg?.supabase?.currentKey||'';
-                if(!baseUrl || !secret) return null;
-                const activeProject=getActiveProjectConfig(cfg); const projectCode=cfg?.supabase?.projectCode||cfg?.activeProjectId||activeProject?.id||'default'; const projectsTable=cfg?.supabase?.projectsTable||'projects'; const tapTable=cfg?.supabase?.tapTable||'tap_entries';
-                const headers={apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json'};
-                const projectResp=await fetch(`${baseUrl}/rest/v1/${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`,{headers,cache:'no-store'});
-                if(!projectResp.ok) throw new Error(`Supabase projects -> ${projectResp.status}`);
-                const project=(await projectResp.json())?.[0]; if(!project?.id) return null;
-                const tapResp=await fetch(`${baseUrl}/rest/v1/${tapTable}?project_id=eq.${project.id}&select=payload,created_at&order=created_at.desc.nullslast&limit=1`,{headers,cache:'no-store'});
-                if(!tapResp.ok) throw new Error(`Supabase TAP -> ${tapResp.status}`);
-                return (await tapResp.json())?.[0]?.payload || null;
-            }catch(e){ console.warn('Não foi possível carregar a TAP do Supabase.', e); return null; }
+        function applyTap(rowsOrTap = []) {
+            const tap = Array.isArray(rowsOrTap) ? (rowsOrTap[0] || {}) : rowsOrTap;
+            if (!tap || !Object.keys(tap).length) return;
+            const n = normalizeRow(tap);
+            const cliente = firstFrom(n, ['cod cliente', 'cod_cliente', 'cliente', 'identificacao', 'identificação', 'client_name']);
+            data.projectInfo = {
+                ...data.projectInfo,
+                name: firstFrom(n, ['nome projeto', 'nome_projeto', 'project_name', 'name']) || data.projectInfo.name || getActiveProjectConfig().name || '',
+                client: cliente || data.projectInfo.client || 'Rossi Supermercados',
+                period: data.statusInput.period || data.projectInfo.period || formatDate(firstFrom(n, ['data referencia', 'data_referencia', 'data tap', 'data_inicio', 'data inicio'])),
+                goLive: formatDate(firstFrom(n, ['go live', 'go_live_previsao', 'go live previsao', 'go live previsão'])) || data.projectInfo.goLive || '',
+                pm: firstFrom(n, ['coordenador', 'coordenador projeto', 'coordenador_projeto', 'manager_totvs']) || data.projectInfo.pm || '',
+                pmo: firstFrom(n, ['gpp', 'pmo']) || data.projectInfo.pmo || '',
+                product: firstFrom(n, ['produto', 'produtos contratados']),
+                value: firstFrom(n, ['valor projeto', 'valor_projeto']),
+                margin: firstFrom(n, ['margem atual percentual', 'margem_atual_percentual', 'margem venda percentual']),
+                loss: firstFrom(n, ['projeto em perda', 'projeto_em_perda']),
+                scope: firstFrom(n, ['descricao escopo', 'descrição escopo', 'descricao_escopo'])
+            };
         }
-        function criticityWeight(value=''){
-            const v=normalizeKey(value);
-            if(/critic|criti|alta|bloquead|urgente|9|8/.test(v)) return 4;
-            if(/media|moderad|6|5|4/.test(v)) return 3;
-            if(/baixa|leve|3|2|1/.test(v)) return 2;
+        function criticityWeight(value = '') {
+            const v = normalizeKey(value);
+            if (/critic|criti|alta|bloquead|urgente|9|8/.test(v)) return 4;
+            if (/media|moderad|6|5|4/.test(v)) return 3;
+            if (/baixa|leve|3|2|1/.test(v)) return 2;
             return 1;
         }
-        function exposureWeight(value=''){ const n=parseFloat(`${value}`.replace(',','.')); return Number.isFinite(n)?n:criticityWeight(value); }
-        function applyIssues(rows){
-            data.issues=rows.map(r=>{ const n=normalizeRow(r); const status=firstFrom(n,['status','condição pendência','condicao pendencia'])||'Aberta'; return {id:firstFrom(n,['id']),desc:firstFrom(n,['descrição','descricao','atividade','pendência','pendencia']),resp:firstFrom(n,['responsável','responsavel','resp']),due:firstFrom(n,['data planejada','vencimento','due']),status,criticity:firstFrom(n,['criticidade','prioridade'])}; })
-                .filter(i=>i.desc && !isClosedStatus(i.status))
-                .sort((a,b)=>criticityWeight(b.criticity)-criticityWeight(a.criticity));
+        function exposureWeight(value = '') { const n = parseFloat(`${value}`.replace(',', '.')); return Number.isFinite(n) ? n : criticityWeight(value); }
+        function applyIssues(rows = []) {
+            data.issues = rows.map(r => { const n = normalizeRow(r); const status = firstFrom(n, ['status', 'condição pendência', 'condicao pendencia']) || 'Aberta'; const due = firstFrom(n, ['data planejada', 'vencimento', 'due', 'planned_at']); return { id: firstFrom(n, ['id', 'external_id']), desc: firstFrom(n, ['descrição', 'descricao', 'activity', 'atividade', 'pendência', 'pendencia', 'description']), resp: firstFrom(n, ['responsável', 'responsavel', 'resp', 'owner']), due, dueDate: parseDateValue(due), status, criticity: firstFrom(n, ['criticidade', 'prioridade', 'criticality']), area: firstFrom(n, ['área', 'area', 'category', 'categoria']), pct: toNumber(firstFrom(n, ['% conclusão', '% conclusao', 'completion_pct'])) }; })
+                .filter(i => i.desc && !isClosedStatus(i.status))
+                .sort((a, b) => (Number(!!b.dueDate && dateDiffDays(new Date(b.dueDate)) < 0) - Number(!!a.dueDate && dateDiffDays(new Date(a.dueDate)) < 0)) || criticityWeight(b.criticity) - criticityWeight(a.criticity));
         }
-        function applyRisks(rows){
-            data.risks=rows.map(r=>{ const n=normalizeRow(r); return {id:firstFrom(n,['id','risco']),desc:firstFrom(n,['comentários','comentarios','descrição','descricao','risco']),exp:firstFrom(n,['exposição ocorrência','exposicao ocorrencia','exposição','exposicao','exp']),action:firstFrom(n,['plano de ação','plano de acao','ação','acao','estratégia de resposta ao risco','estrategia de resposta ao risco']),status:firstFrom(n,['status do risco','status'])}; })
-                .filter(r=>r.desc && !isClosedStatus(r.status))
-                .sort((a,b)=>exposureWeight(b.exp)-exposureWeight(a.exp));
+        function applyRisks(rows = []) {
+            data.risks = rows.map(r => { const n = normalizeRow(r); const probability = toNumber(firstFrom(n, ['probabilidade', 'probability'])); const impact = toNumber(firstFrom(n, ['impacto', 'impact'])); const exp = firstFrom(n, ['exposição ocorrência', 'exposicao ocorrencia', 'exposição', 'exposicao', 'exposure']) || (probability && impact ? `${probability * impact}` : ''); return { id: firstFrom(n, ['id', 'external_id', 'risco']), desc: firstFrom(n, ['comentários', 'comentarios', 'descrição', 'descricao', 'risco', 'description']), exp, probability, impact, action: firstFrom(n, ['plano de ação', 'plano de acao', 'ação', 'acao', 'estratégia de resposta ao risco', 'estrategia de resposta ao risco', 'strategy', 'mitigation_plan']), status: firstFrom(n, ['status do risco', 'status', 'life_cycle_status']), area: firstFrom(n, ['área', 'area', 'process', 'processo']) }; })
+                .filter(r => r.desc && !isClosedStatus(r.status))
+                .sort((a, b) => exposureWeight(b.exp) - exposureWeight(a.exp));
         }
-        function applyGaps(rows){
-            data.gaps=rows.map(r=>{ const n=normalizeRow(r); const status=firstFrom(n,['status','situação','situacao','decisão','decisao']); return {id:firstFrom(n,['id','gap']),desc:firstFrom(n,['gap','descrição','descricao','necessidade']),impact:firstFrom(n,['impacto']),est:firstFrom(n,['estimativa','esforço','esforco','custo']),action:firstFrom(n,['ação requerida','acao requerida','ação','acao','decisão requerida','decisao requerida']),status}; })
-                .filter(g=>g.desc && !isClosedStatus(g.status));
+        function applyGaps(rows = []) {
+            data.gaps = rows.map(r => { const n = normalizeRow(r); const status = firstFrom(n, ['status', 'situação', 'situacao', 'decisão', 'decisao']); return { id: firstFrom(n, ['id', 'gap', 'external_id']), desc: firstFrom(n, ['gap', 'descrição', 'descricao', 'necessidade', 'description']), impact: firstFrom(n, ['impacto', 'impact']), est: firstFrom(n, ['estimativa', 'esforço', 'esforco', 'custo', 'estimate']), action: firstFrom(n, ['ação requerida', 'acao requerida', 'ação', 'acao', 'decisão requerida', 'decisao requerida', 'action']), owner: firstFrom(n, ['responsável', 'responsavel', 'owner']), due: firstFrom(n, ['limite', 'data limite', 'vencimento', 'due_date']), status }; })
+                .filter(g => g.desc && !isClosedStatus(g.status));
         }
-        function loadAgenda(){
-            try{ data.trainings=JSON.parse(localStorage.getItem('totvs_agenda')||'[]'); }catch{ data.trainings=[]; }
+        function applyDecisions() {
+            data.decisions = data.gaps.filter(g => /decis|aprov|comite|comitê|diretor|cliente|executiv|aguard/i.test(stripDiacritics(`${g.action} ${g.status} ${g.desc}`)))
+                .map(g => ({ desc: g.action || g.desc, requester: g.owner || 'PMO', decider: /cliente/i.test(g.status) ? 'Cliente' : 'Comitê Executivo', due: g.due || 'A definir' })).slice(0, 8);
         }
-        function applyActivities(activityRows=[]){
-            const rows=activityRows.map(normalizeRow);
-            const byPeriod=(period)=>rows.filter(r=>normalizeKey(firstFrom(r,['periodo','período']))===period).map(r=>({desc:firstFrom(r,['descrição','descricao','atividade']),resp:firstFrom(r,['responsável','responsavel']),status:firstFrom(r,['status'])||'Em andamento'}));
-            data.activities={past:byPeriod('passado'),present:byPeriod('atual'),future:byPeriod('futuro')};
-            if(!data.activities.past.length) data.activities.past=asList(data.statusInput.realizado).map(desc=>({desc,resp:'MIT013',status:'Concluído'}));
-            if(!data.activities.present.length) data.activities.present=asList(data.statusInput.planejado || data.statusInput.resumo).map(desc=>({desc,resp:'MIT013',status:'Em andamento'}));
-            if(!data.activities.future.length) data.activities.future=asList(data.statusInput.futuro).map(desc=>({desc,resp:'MIT013',status:'Planejado'}));
+        function applyStakeholders(rows = []) {
+            data.stakeholders = rows.map(r => { const n = normalizeRow(r); return { name: firstFrom(n, ['nome', 'name', 'col1']), company: firstFrom(n, ['empresa', 'company']), department: firstFrom(n, ['departamento', 'área', 'area']), role: firstFrom(n, ['cargo', 'papel', 'role']), level: firstFrom(n, ['nível', 'nivel', 'engajamento']), status: firstFrom(n, ['status']) }; }).filter(s => s.name && normalizeKey(s.name) !== 'nome');
         }
-        function currentJourneyPhase(){ return localStorage.getItem('totvs_jornada_fase') || 'Iniciação'; }
-        async function reloadFromConfiguredSources(){ const btn=document.getElementById(UPDATE_BUTTON_ID); try{ if(btn){btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando...';}
-                const [geral, pend, stakeholders, risks, gaps, acts, tap]=await Promise.all([
-                    loadRowsFromConfiguredSource('urlGeral'),
-                    loadRowsFromConfiguredSource('urlPendencias','pendencias.html','FALLBACK_CSV'),
-                    loadRowsFromConfiguredSource('urlStakeholders'),
-                    loadRowsFromConfiguredSource('urlRiscos','riscos.html','RISCOS_CSV_DATA'),
-                    loadRowsFromConfiguredSource('urlGaps'),
-                    loadRowsFromConfiguredSource('urlAtividades'),
-                    loadTap()
+        function applyTrainings(rows = []) {
+            let local = [];
+            try { local = JSON.parse(localStorage.getItem('totvs_agenda') || '[]'); } catch { local = []; }
+            const fromRows = rows.map(r => { const n = normalizeRow(r); return { title: firstFrom(n, ['titulo', 'título', 'treinamento', 'atividade', 'title']), system: firstFrom(n, ['sistema', 'modulo', 'módulo', 'system']), instructor: firstFrom(n, ['instrutor', 'responsável', 'responsavel', 'instructor']), date: firstFrom(n, ['data', 'date']), time: firstFrom(n, ['hora', 'time']), status: firstFrom(n, ['status']) || 'upcoming' }; }).filter(t => t.title);
+            data.trainings = fromRows.length ? fromRows : local;
+        }
+        function applyActivities(activityRows = []) {
+            const rows = activityRows.map(normalizeRow);
+            const byPeriod = (period) => rows.filter(r => normalizeKey(firstFrom(r, ['periodo', 'período'])) === period).map(r => ({ desc: firstFrom(r, ['descrição', 'descricao', 'atividade', 'description']), resp: firstFrom(r, ['responsável', 'responsavel', 'owner']), status: firstFrom(r, ['status']) || 'Em andamento' })).filter(a => a.desc);
+            data.activities = { past: byPeriod('passado'), present: byPeriod('atual'), future: byPeriod('futuro') };
+            if (!data.activities.past.length) data.activities.past = asList(data.statusInput.realizado).map(desc => ({ desc, resp: 'MIT013', status: 'Concluído' }));
+            if (!data.activities.present.length) data.activities.present = asList(data.statusInput.planejado || data.statusInput.resumo).map(desc => ({ desc, resp: 'MIT013', status: 'Em andamento' }));
+            if (!data.activities.future.length) data.activities.future = asList(data.statusInput.futuro).map(desc => ({ desc, resp: 'MIT013', status: 'Planejado' }));
+        }
+        function currentJourneyPhase() { return localStorage.getItem('totvs_jornada_fase') || 'Iniciação'; }
+
+        function scoreFromIssues() {
+            const total = data.issues.length; const critical = data.issues.filter(i => criticityWeight(i.criticity) >= 4 || isLateStatus(i.status)).length;
+            return total ? clamp(100 - critical * 18 - Math.max(0, total - critical) * 4) : 95;
+        }
+        function scoreFromRisks() {
+            const exposure = data.risks.reduce((sum, r) => sum + exposureWeight(r.exp), 0);
+            return clamp(100 - exposure * 4);
+        }
+        function scoreFromGaps() { return data.gaps.length ? clamp(100 - data.gaps.length * 12) : 95; }
+        function deriveAnalytics() {
+            const completedTrainings = data.trainings.filter(a => /completed|conclu/i.test(a.status || '')).length;
+            const trainingScore = data.trainings.length ? percent(completedTrainings, data.trainings.length) : 70;
+            const issueScore = scoreFromIssues(); const riskScore = scoreFromRisks(); const gapScore = scoreFromGaps();
+            const timelineScore = data.projectInfo.goLive ? (data.issues.some(i => i.dueDate && dateDiffDays(new Date(i.dueDate)) < 0) ? 65 : 85) : 45;
+            const scopeScore = clamp((gapScore * 0.65) + (riskScore * 0.35));
+            const qualityScore = clamp((issueScore * 0.55) + (trainingScore * 0.45));
+            data.health.dimensions = [
+                { label: 'Prazo', score: timelineScore, status: timelineScore >= 80 ? 'Saudável' : timelineScore >= 60 ? 'Atenção' : 'Crítico' },
+                { label: 'Riscos', score: riskScore, status: riskScore >= 80 ? 'Saudável' : riskScore >= 60 ? 'Atenção' : 'Crítico' },
+                { label: 'Escopo', score: scopeScore, status: scopeScore >= 80 ? 'Saudável' : scopeScore >= 60 ? 'Atenção' : 'Crítico' },
+                { label: 'Qualidade', score: qualityScore, status: qualityScore >= 80 ? 'Saudável' : qualityScore >= 60 ? 'Atenção' : 'Crítico' },
+            ];
+            const real = data.projectInfo.evolutionTotal || percent(data.activities.past.filter(a => isClosedStatus(a.status)).length + data.issues.filter(i => i.pct >= 100).length, Math.max(1, data.activities.past.length + data.activities.present.length + data.issues.length));
+            const planned = data.projectInfo.evolutionPlanned || Math.max(real, data.projectInfo.goLive ? 50 : 30);
+            data.projectInfo.evolutionTotal = clamp(real); data.projectInfo.evolutionPlanned = clamp(planned);
+            data.evolution = [
+                { phase: 'Iniciação', planned: 100, actual: currentJourneyPhase() === 'Iniciação' ? Math.max(60, real) : 100 },
+                { phase: 'Planejamento', planned: planned, actual: real },
+                { phase: 'Execução', planned: Math.max(0, planned - 25), actual: Math.max(0, real - 25) },
+                { phase: 'Go Live', planned: data.projectInfo.goLive ? 20 : 0, actual: 0 }
+            ];
+            const readinessItems = [
+                { label: 'TAP e dados do projeto cadastrados', ok: Boolean(data.projectInfo.name && data.projectInfo.goLive) },
+                { label: 'Pendências críticas controladas', ok: !data.issues.some(i => criticityWeight(i.criticity) >= 4 || isLateStatus(i.status)) },
+                { label: 'Riscos altos com plano de ação', ok: !data.risks.some(r => exposureWeight(r.exp) >= 9 && !r.action) },
+                { label: 'GAPs executivos sem bloqueio', ok: data.gaps.length === 0 || data.decisions.length < data.gaps.length },
+                { label: 'Treinamentos em andamento', ok: !data.trainings.length || trainingScore >= 50 },
+            ];
+            data.goliveCriteria = readinessItems;
+            data.projectInfo.readiness = percent(readinessItems.filter(i => i.ok).length, readinessItems.length);
+            data.projectInfo.statusGeral = data.statusInput.statusGeral || (data.health.dimensions.some(d => d.status === 'Crítico') ? 'Crítico' : data.health.dimensions.some(d => d.status === 'Atenção') ? 'Atenção' : 'Saudável');
+            data.tripleConstraint = {
+                prazo: { label: data.projectInfo.goLive || 'Go Live não definido', status: timelineScore >= 80 ? 'No Prazo' : 'Atenção', score: timelineScore, detail: `${data.issues.filter(i => i.dueDate && dateDiffDays(new Date(i.dueDate)) < 0).length} pendências vencidas` },
+                custo: { label: data.projectInfo.value || 'Sem valor TAP', status: /sim|perda/i.test(data.projectInfo.loss || '') ? 'Atenção' : 'Controlado', score: /sim|perda/i.test(data.projectInfo.loss || '') ? 55 : 85, detail: data.projectInfo.margin ? `Margem: ${data.projectInfo.margin}` : 'Margem não informada' },
+                escopo: { label: `${data.gaps.length} GAPs`, status: data.gaps.length ? 'Atenção' : 'Controlado', score: scopeScore, detail: data.projectInfo.scope || 'Escopo monitorado por GAPs e riscos' },
+                qualidade: { label: `${trainingScore}% aderência`, status: qualityScore >= 80 ? 'Saudável' : 'Atenção', score: qualityScore, detail: `${completedTrainings}/${data.trainings.length || 0} treinamentos concluídos` }
+            };
+            data.milestones = [
+                { label: 'Kickoff / TAP', date: data.projectInfo.period || 'A definir', status: data.projectInfo.name ? 'completed' : 'upcoming' },
+                { label: 'Planejamento integrado', date: 'Em acompanhamento', status: data.activities.present.length ? 'current' : 'upcoming' },
+                { label: 'Mitigação riscos críticos', date: `${data.risks.length} riscos`, status: data.risks.some(r => exposureWeight(r.exp) >= 9) ? 'attention' : 'completed' },
+                { label: 'Treinamentos', date: `${completedTrainings}/${data.trainings.length || 0}`, status: trainingScore >= 80 ? 'completed' : 'current' },
+                { label: 'Go Live', date: data.projectInfo.goLive || 'A definir', status: 'upcoming' }
+            ];
+            data.integrations = deriveIntegrations();
+            deriveAlerts();
+        }
+        function deriveIntegrations() {
+            const related = [...data.issues, ...data.risks, ...data.gaps].filter(item => /integr|api|interface|folha|aghora|ad|lms|erp|fiscal/i.test(stripDiacritics(`${item.area || ''} ${item.desc || ''} ${item.action || ''}`)));
+            const grouped = related.slice(0, 5).map(item => ({ name: item.area || item.id || 'Integração', status: item.status || (item.action ? 'Em tratamento' : 'Atenção') }));
+            return grouped.length ? grouped : [{ name: 'Integrações do projeto', status: 'Sem bloqueios registrados' }];
+        }
+        function deriveAlerts() {
+            const alerts = [];
+            const lateIssues = data.issues.filter(i => i.dueDate && dateDiffDays(new Date(i.dueDate)) < 0);
+            if (lateIssues.length) alerts.push({ type: 'red', title: `${lateIssues.length} pendência(s) vencida(s)`, text: 'Repriorizar responsáveis e datas no plano semanal.' });
+            const highRisks = data.risks.filter(r => exposureWeight(r.exp) >= 9);
+            if (highRisks.length) alerts.push({ type: 'orange', title: `${highRisks.length} risco(s) com exposição alta`, text: 'Escalonar mitigação e acompanhar plano de ação.' });
+            if (data.decisions.length) alerts.push({ type: 'blue', title: `${data.decisions.length} decisão(ões) executiva(s) pendente(s)`, text: 'Levar para comitê ou aprovar responsáveis.' });
+            if (!data.projectInfo.goLive) alerts.push({ type: 'orange', title: 'Go Live sem data confirmada', text: 'Atualizar TAP ou fonte oficial do cronograma.' });
+            data.alerts = alerts;
+        }
+
+        async function reloadFromConfiguredSources() {
+            const btn = document.getElementById(UPDATE_BUTTON_ID);
+            try {
+                if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando...'; }
+                const [geral, pend, stakeholders, risks, gaps, acts, trainings, tap] = await Promise.all([
+                    loadRows('statusReport'), loadRows('pendencias', 'pendencias.html', 'FALLBACK_CSV'), loadRows('stakeholders'),
+                    loadRows('riscos', 'riscos.html', 'RISCOS_CSV_DATA'), loadRows('gaps'), loadRows('atividades'), loadRows('treinamentos'), loadRows('tap')
                 ]);
-                data.stakeholders=stakeholders; applyStatusInput(geral); applyTap(tap||{}); data.projectInfo.phase=currentJourneyPhase(); applyIssues(pend); applyRisks(risks); applyGaps(gaps); loadAgenda(); applyActivities(acts); rerender();
-                const summary = await migrateToSupabase(); if(summary){ console.info(`Atualização concluída. Issues: ${summary.issues} | Risks: ${summary.risks}`); }
-            }catch(e){ alert('Erro ao atualizar dados: '+e.message); console.error(e);} finally { if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-cloud-arrow-down mr-2"></i> Sincronizar Dados';}} }
-        function rerender(){ clearContainers(); renderHeader(); generateExecutiveSummary(); renderAlerts(); renderMainCards(); renderHealthAndEvolution(); renderTripleConstraint(); renderActivities(); renderTables(); renderTrainings(); renderMilestones(); }
-        function renderHeader(){ document.getElementById('hdr-projeto').innerText=data.projectInfo.name||'-';document.getElementById('hdr-cliente').innerText=data.projectInfo.client||'-';document.getElementById('hdr-fase').innerText=data.projectInfo.phase||'-';document.getElementById('hdr-periodo').innerText=data.projectInfo.period||'-';document.getElementById('hdr-golive').innerText=data.projectInfo.goLive||'-';document.getElementById('hdr-pm').innerText=`${data.projectInfo.pm||'-'} / ${data.projectInfo.pmo||'-'}`;document.getElementById('hdr-status').innerText=data.projectInfo.statusGeral||'-';}
-        function generateExecutiveSummary(){ const resumo=data.statusInput.resumo || `Dados carregados das fontes oficiais. Evolução real: <strong>${data.projectInfo.evolutionTotal||0}%</strong> / Planejada: <strong>${data.projectInfo.evolutionPlanned||0}%</strong>.`; document.getElementById('executive-summary').innerHTML=escapeHtml(resumo).replace(/\n/g,'<br>'); }
-        function renderAlerts(){}
-        function renderMainCards(){}
-        function renderHealthAndEvolution(){}
-        function renderTripleConstraint(){}
-        function renderActivities(){ const renderList=(acts,id)=>{const el=document.getElementById(id); if(!acts.length){el.innerHTML='<p class="text-xs text-slate-400 italic">Sem registros para este período.</p>'; return;} acts.forEach(a=>el.innerHTML+=`<div class="bg-white border border-slate-200 p-2.5 rounded shadow-sm text-sm border-l-4 border-l-slate-400 fade-in"><p class="font-semibold text-slate-800">${escapeHtml(a.desc)}</p><div class="flex justify-between items-center mt-2"><span class="text-xs text-slate-500"><i class="fa-regular fa-user mr-1"></i>${escapeHtml(a.resp||'-')}</span><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(a.status)}">${escapeHtml(a.status||'-')}</span></div></div>`)};renderList(data.activities.past,'act-past');renderList(data.activities.present,'act-present');renderList(data.activities.future,'act-future'); }
-        function renderTables(){document.getElementById('count-issues').innerText=`${data.issues.length} Ativas`;const tI=document.getElementById('table-issues');data.issues.slice(0,8).forEach(i=>tI.innerHTML+=`<tr><td class="p-2">${escapeHtml(i.id)}</td><td class="p-2"><span class="font-medium">${escapeHtml(i.desc)}</span><br><span class="text-[10px] text-slate-400">Criticidade: ${escapeHtml(i.criticity||'-')}</span></td><td class="p-2">${escapeHtml(i.resp)}</td><td class="p-2">${escapeHtml(i.due)}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${escapeHtml(i.status)}</span></td></tr>`);document.getElementById('count-risks').innerText=`${data.risks.length} Ações Requeridas`;const tR=document.getElementById('table-risks');data.risks.slice(0,8).forEach(r=>tR.innerHTML+=`<tr><td class="p-2">${escapeHtml(r.id)} - ${escapeHtml(r.desc)}</td><td class="p-2">${escapeHtml(r.exp)}</td><td class="p-2">${escapeHtml(r.action)}</td></tr>`);const tG=document.getElementById('table-gaps');data.gaps.slice(0,8).forEach(g=>tG.innerHTML+=`<tr><td class="p-2">${escapeHtml(g.id)} - ${escapeHtml(g.desc)}</td><td class="p-2">${escapeHtml(g.impact)}</td><td class="p-2">${escapeHtml(g.est)}</td><td class="p-2">${escapeHtml(g.action||g.status)}</td></tr>`);}
-        function renderTrainings(){
-            const total=data.trainings.length; const completed=data.trainings.filter(a=>/completed|conclu/i.test(a.status||'')).length; const rescheduled=data.trainings.filter(a=>/reagend/i.test(a.status||'')).length; const adherence=total?Math.round((completed/total)*100):0;
-            document.getElementById('train-adh').innerText=`${adherence}%`; document.getElementById('train-progress-bar').style.width=`${adherence}%`; document.getElementById('train-previstos').innerText=total; document.getElementById('train-realizados').innerText=completed; document.getElementById('train-reprogramados').innerText=rescheduled;
-            const list=document.getElementById('train-list'); const upcoming=data.trainings.slice().sort((a,b)=>`${a.date||''}`.localeCompare(`${b.date||''}`)).slice(0,3);
-            list.innerHTML=upcoming.length?upcoming.map(a=>`<div class="border-t border-slate-100 pt-2"><p class="font-semibold text-slate-700">${escapeHtml(a.title||'Treinamento')}</p><p>${escapeHtml(a.system||'-')} • ${escapeHtml(a.instructor||'-')}</p><p class="text-slate-400">${escapeHtml(formatDate(a.date||''))} ${escapeHtml(a.time||'')}</p></div>`).join(''):'<p class="text-slate-400 italic">Sem agenda de capacitação registrada.</p>';
+                Object.assign(data, { projectInfo: {}, statusInput: {}, issues: [], risks: [], gaps: [], decisions: [], stakeholders: [], trainings: [], alerts: [], integrations: [] });
+                applyStatusInput(geral); applyTap(tap); data.projectInfo.phase = currentJourneyPhase();
+                applyIssues(pend); applyRisks(risks); applyGaps(gaps); applyDecisions(); applyStakeholders(stakeholders); applyTrainings(trainings); applyActivities(acts);
+                deriveAnalytics(); rerender();
+            } catch (e) { alert('Erro ao atualizar dados: ' + e.message); console.error(e); }
+            finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down mr-2"></i> Sincronizar Dados'; } }
         }
-        
-
-        function normalizeSupabaseBaseUrl(raw=''){
-            const value=(raw||'').trim();
-            if(!value) return '';
-            try{
-                const parsed=new URL(value.startsWith('http')?value:`https://${value}`);
-                if(parsed.hostname.endsWith('supabase.com')) throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não a URL do dashboard.');
-                if(parsed.hostname.endsWith('supabase.co')){
-                    const hostParts=parsed.hostname.split('.');
-                    if(hostParts[0]==='app') throw new Error('Use a URL do projeto (https://<project-ref>.supabase.co), não app.supabase.com.');
-                }
-                return `${parsed.protocol}//${parsed.host}`;
-            }catch(e){
-                throw new Error(`URL do Supabase inválida: ${e.message || e}`);
-            }
+        function clearContainers() { ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria','train-list','stakeholder-list','integration-list'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; }); }
+        const getRAGColors = (s = '') => ({ 'Saudável': 'bg-green-100 text-green-800 border-green-200', 'Atenção': 'bg-orange-100 text-orange-800 border-orange-200', 'Crítico': 'bg-red-100 text-red-800 border-red-200', 'Alta': 'bg-red-100 text-red-800 border-red-200', 'Atrasado': 'bg-red-100 text-red-800', 'Vencido': 'bg-red-100 text-red-800', 'Concluído': 'bg-green-100 text-green-800', 'completed': 'bg-green-100 text-green-800', 'current': 'bg-blue-100 text-blue-800', 'Em andamento': 'bg-blue-100 text-blue-800', 'upcoming': 'bg-blue-100 text-blue-800', 'Não iniciado': 'bg-gray-100 text-gray-800', 'Bloqueado': 'bg-red-100 text-red-800', 'Agendado': 'bg-slate-100 text-slate-700', 'No Prazo': 'bg-green-100 text-green-800', 'Reagendado': 'bg-orange-100 text-orange-800', 'Controlado': 'bg-green-100 text-green-800' })[s] || 'bg-slate-100 text-slate-800 border-slate-200';
+        function rerender() { clearContainers(); renderHeader(); generateExecutiveSummary(); renderAlerts(); renderMainCards(); renderHealthAndEvolution(); renderTripleConstraint(); renderActivities(); renderTables(); renderTrainings(); renderMilestones(); renderStakeholders(); renderIntegrations(); renderFooter(); }
+        function renderHeader() {
+            document.getElementById('hdr-projeto').innerText = data.projectInfo.name || getActiveProjectConfig().name || '-';
+            document.getElementById('hdr-cliente').innerText = data.projectInfo.client || 'Rossi Supermercados';
+            document.getElementById('hdr-fase').innerText = data.projectInfo.phase || '-';
+            document.getElementById('hdr-periodo').innerText = data.projectInfo.period || data.statusInput.period || '-';
+            document.getElementById('hdr-golive').innerText = data.projectInfo.goLive || '-';
+            document.getElementById('hdr-pm').innerText = `${data.projectInfo.pm || '-'} / ${data.projectInfo.pmo || '-'}`;
+            document.getElementById('hdr-status').innerText = data.projectInfo.statusGeral || '-';
         }
-
-        async function supabaseRequest(path, method='GET', body){
-            const cfg=getCockpitConfig();
-            const baseUrl=normalizeSupabaseBaseUrl(cfg?.supabase?.url||cfg?.supabase?.apiUrl||'');
-            const secret=cfg?.supabase?.secret||cfg?.supabase?.serviceRole||cfg?.supabase?.currentKey||'';
-            if(!baseUrl || !secret) return null;
-            const res=await fetch(`${baseUrl}/rest/v1/${path}`,{method,headers:{apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body: body?JSON.stringify(body):undefined});
-            if(!res.ok) throw new Error(`Supabase ${method} ${path} -> ${res.status}`);
-            return res.json();
+        function generateExecutiveSummary() {
+            const resumo = data.statusInput.resumo || `Status ${data.projectInfo.statusGeral || 'em leitura'}: evolução real de <strong>${Math.round(data.projectInfo.evolutionTotal || 0)}%</strong> contra planejada de <strong>${Math.round(data.projectInfo.evolutionPlanned || 0)}%</strong>. Há <strong>${data.issues.length}</strong> pendência(s) ativa(s), <strong>${data.risks.length}</strong> risco(s) aberto(s), <strong>${data.gaps.length}</strong> GAP(s) e readiness de Go Live em <strong>${data.projectInfo.readiness || 0}%</strong>.`;
+            document.getElementById('executive-summary').innerHTML = escapeHtml(resumo).replace(/&lt;strong&gt;/g, '<strong>').replace(/&lt;\/strong&gt;/g, '</strong>').replace(/\n/g, '<br>');
         }
-
-        async function migrateToSupabase(){
-            const cfg=getCockpitConfig();
-            const baseUrl=normalizeSupabaseBaseUrl(cfg?.supabase?.url||cfg?.supabase?.apiUrl||'');
-            const secret=cfg?.supabase?.secret||cfg?.supabase?.serviceRole||cfg?.supabase?.currentKey||'';
-            if(!baseUrl || !secret) return null;
-            const activeProject=getActiveProjectConfig(cfg);
-            const projectCode=cfg?.supabase?.projectCode||cfg?.activeProjectId||activeProject?.id||'default';
-            const projectName=data.projectInfo.name||activeProject?.name||'Rossi Supermercados';
-            const existing=await supabaseRequest(`projects?code=eq.${encodeURIComponent(projectCode)}`);
-            let projectId=existing?.[0]?.id;
-            if(!projectId){
-                const created=await supabaseRequest('projects','POST',[{code:projectCode,name:projectName}]);
-                projectId=created?.[0]?.id;
-            }
-            const issuesPayload=data.issues.map(i=>({project_id:projectId,external_id:i.id||null,description:i.desc||'',owner:i.resp||null,status:i.status||'Aberta'}));
-            const risksPayload=data.risks.map(r=>({project_id:projectId,external_id:r.id||null,description:r.desc||'',strategy:r.action||null}));
-            if(issuesPayload.length) await supabaseRequest('issues','POST',issuesPayload);
-            if(risksPayload.length) await supabaseRequest('risks','POST',risksPayload);
-            return {issues:issuesPayload.length, risks:risksPayload.length};
+        function renderAlerts() {
+            const el = document.getElementById('alerts-container');
+            if (!data.alerts.length) { el.innerHTML = '<div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 text-sm"><i class="fa-solid fa-circle-check mr-2"></i>Sem alertas executivos críticos no momento.</div>'; return; }
+            el.innerHTML = data.alerts.map(a => `<div class="bg-${a.type}-50 border border-${a.type}-200 text-${a.type}-800 rounded-lg p-3 text-sm"><strong>${escapeHtml(a.title)}</strong><span class="ml-2">${escapeHtml(a.text)}</span></div>`).join('');
         }
-function renderMilestones(){}
+        function renderMainCards() {
+            const cards = [
+                { title: 'Evolução Real', value: `${Math.round(data.projectInfo.evolutionTotal || 0)}%`, detail: `Planejada: ${Math.round(data.projectInfo.evolutionPlanned || 0)}%`, icon: 'chart-line', color: 'blue' },
+                { title: 'Pendências Ativas', value: data.issues.length, detail: `${data.issues.filter(i => criticityWeight(i.criticity) >= 4).length} críticas`, icon: 'list-check', color: 'orange' },
+                { title: 'Riscos Abertos', value: data.risks.length, detail: `${data.risks.filter(r => exposureWeight(r.exp) >= 9).length} altos`, icon: 'triangle-exclamation', color: 'red' },
+                { title: 'Go Live Readiness', value: `${data.projectInfo.readiness || 0}%`, detail: data.projectInfo.goLive || 'Data não definida', icon: 'flag-checkered', color: 'purple' }
+            ];
+            document.getElementById('main-cards-container').innerHTML = cards.map(c => `<div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card"><div class="flex items-center justify-between"><div><p class="text-xs uppercase font-semibold text-slate-400">${c.title}</p><p class="text-2xl font-bold text-slate-800 mt-1">${c.value}</p><p class="text-xs text-slate-500 mt-1">${escapeHtml(c.detail)}</p></div><i class="fa-solid fa-${c.icon} text-${c.color}-500 text-2xl"></i></div></div>`).join('');
+        }
+        function renderHealthAndEvolution() {
+            document.getElementById('health-bars-container').innerHTML = data.health.dimensions.map(d => `<div><div class="flex justify-between text-xs mb-1"><span class="font-semibold text-slate-600">${d.label}</span><span>${Math.round(d.score)}%</span></div><div class="w-full bg-slate-200 rounded-full h-2"><div class="${d.score >= 80 ? 'bg-green-500' : d.score >= 60 ? 'bg-orange-500' : 'bg-red-500'} h-2 rounded-full" style="width:${Math.round(d.score)}%"></div></div><span class="text-[10px] ${getRAGColors(d.status)} px-1.5 py-0.5 rounded mt-1 inline-block">${d.status}</span></div>`).join('');
+            document.getElementById('evolution-bars-container').innerHTML = data.evolution.map(e => `<div><div class="flex justify-between text-xs mb-1"><span class="font-semibold text-slate-600">${e.phase}</span><span>Real ${Math.round(e.actual)}% / Plan ${Math.round(e.planned)}%</span></div><div class="w-full bg-slate-100 rounded-full h-2 relative"><div class="bg-blue-500 h-2 rounded-full" style="width:${Math.round(e.actual)}%"></div><div class="absolute top-0 h-2 border-r-2 border-slate-500" style="left:${Math.round(e.planned)}%"></div></div></div>`).join('');
+        }
+        function renderTripleConstraint() {
+            const items = Object.entries(data.tripleConstraint);
+            document.getElementById('triple-constraint-container').innerHTML = items.map(([key, item]) => `<div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm card"><p class="text-xs uppercase font-semibold text-slate-400">${key}</p><div class="flex justify-between items-center mt-2"><strong class="text-slate-800">${escapeHtml(item.label)}</strong><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(item.status)}">${escapeHtml(item.status)}</span></div><div class="w-full bg-slate-200 h-1.5 rounded-full my-3"><div class="bg-slate-700 h-1.5 rounded-full" style="width:${Math.round(item.score || 0)}%"></div></div><p class="text-xs text-slate-500">${escapeHtml(item.detail)}</p></div>`).join('');
+        }
+        function renderActivities() {
+            const renderList = (acts, id) => { const el = document.getElementById(id); if (!acts.length) { el.innerHTML = '<p class="text-xs text-slate-400 italic">Sem registros para este período.</p>'; return; } acts.forEach(a => el.innerHTML += `<div class="bg-white border border-slate-200 p-2.5 rounded shadow-sm text-sm border-l-4 border-l-slate-400 fade-in"><p class="font-semibold text-slate-800">${escapeHtml(a.desc)}</p><div class="flex justify-between items-center mt-2"><span class="text-xs text-slate-500"><i class="fa-regular fa-user mr-1"></i>${escapeHtml(a.resp || '-')}</span><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(a.status)}">${escapeHtml(a.status || '-')}</span></div></div>`); };
+            renderList(data.activities.past, 'act-past'); renderList(data.activities.present, 'act-present'); renderList(data.activities.future, 'act-future');
+        }
+        function renderTables() {
+            document.getElementById('count-issues').innerText = `${data.issues.length} Ativas`;
+            document.getElementById('table-issues').innerHTML = data.issues.slice(0, 8).map(i => `<tr><td class="p-2">${escapeHtml(i.id)}</td><td class="p-2"><span class="font-medium">${escapeHtml(i.desc)}</span><br><span class="text-[10px] text-slate-400">Criticidade: ${escapeHtml(i.criticity || '-')}</span></td><td class="p-2">${escapeHtml(i.resp)}</td><td class="p-2">${escapeHtml(i.due)}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${escapeHtml(i.status)}</span></td></tr>`).join('') || '<tr><td colspan="5" class="p-3 text-slate-400 italic">Sem pendências abertas.</td></tr>';
+            document.getElementById('count-risks').innerText = `${data.risks.length} Ações Requeridas`;
+            document.getElementById('table-risks').innerHTML = data.risks.slice(0, 8).map(r => `<tr><td class="p-2">${escapeHtml(r.id)} - ${escapeHtml(r.desc)}</td><td class="p-2">${escapeHtml(r.exp)}</td><td class="p-2">${escapeHtml(r.action || 'Definir ação')}</td></tr>`).join('') || '<tr><td colspan="3" class="p-3 text-slate-400 italic">Sem riscos abertos.</td></tr>';
+            document.getElementById('table-gaps').innerHTML = data.gaps.slice(0, 8).map(g => `<tr><td class="p-2">${escapeHtml(g.id)} - ${escapeHtml(g.desc)}</td><td class="p-2">${escapeHtml(g.impact)}</td><td class="p-2">${escapeHtml(g.est)}</td><td class="p-2">${escapeHtml(g.action || g.status)}</td></tr>`).join('') || '<tr><td colspan="4" class="p-3 text-slate-400 italic">Sem GAPs pendentes.</td></tr>';
+            document.getElementById('table-decisions').innerHTML = data.decisions.map(d => `<tr><td class="p-2">${escapeHtml(d.desc)}</td><td class="p-2">${escapeHtml(d.requester)}</td><td class="p-2">${escapeHtml(d.decider)}</td><td class="p-2">${escapeHtml(d.due)}</td></tr>`).join('') || '<tr><td colspan="4" class="p-3 text-slate-400 italic">Sem aprovações executivas pendentes.</td></tr>';
+        }
+        function renderTrainings() {
+            const total = data.trainings.length; const completed = data.trainings.filter(a => /completed|conclu/i.test(a.status || '')).length; const rescheduled = data.trainings.filter(a => /reagend/i.test(a.status || '')).length; const adherence = percent(completed, total);
+            document.getElementById('train-adh').innerText = `${adherence}%`; document.getElementById('train-progress-bar').style.width = `${adherence}%`; document.getElementById('train-previstos').innerText = total; document.getElementById('train-realizados').innerText = completed; document.getElementById('train-reprogramados').innerText = rescheduled;
+            const upcoming = data.trainings.slice().sort((a, b) => `${a.date || ''}`.localeCompare(`${b.date || ''}`)).slice(0, 3);
+            document.getElementById('train-list').innerHTML = upcoming.length ? upcoming.map(a => `<div class="border-t border-slate-100 pt-2"><p class="font-semibold text-slate-700">${escapeHtml(a.title || 'Treinamento')}</p><p>${escapeHtml(a.system || '-')} • ${escapeHtml(a.instructor || '-')}</p><p class="text-slate-400">${escapeHtml(formatDate(a.date || ''))} ${escapeHtml(a.time || '')}</p></div>`).join('') : '<p class="text-slate-400 italic">Sem agenda de capacitação registrada.</p>';
+        }
+        function renderMilestones() {
+            document.getElementById('golive-readiness').innerText = `${data.projectInfo.readiness || 0}%`;
+            document.getElementById('timeline-container').innerHTML = data.milestones.map(m => `<div class="min-w-[150px] bg-slate-50 border border-slate-200 rounded-lg p-3"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(m.status)}">${m.status}</span><p class="font-semibold text-sm text-slate-700 mt-2">${escapeHtml(m.label)}</p><p class="text-xs text-slate-500">${escapeHtml(m.date)}</p></div>`).join('');
+            document.getElementById('golive-criteria').innerHTML = data.goliveCriteria.map(c => `<li class="flex items-start gap-2"><i class="fa-solid ${c.ok ? 'fa-check-circle text-green-500' : 'fa-circle-exclamation text-orange-500'} mt-0.5"></i><span>${escapeHtml(c.label)}</span></li>`).join('');
+        }
+        function renderStakeholders() {
+            const total = data.stakeholders.length; const exec = data.stakeholders.filter(s => /diretor|execut|comite|comitê|gerent/i.test(stripDiacritics(`${s.role} ${s.level}`))).length; const keyUsers = data.stakeholders.filter(s => /key|usuario|usuário|user|folha/i.test(stripDiacritics(`${s.role} ${s.department}`))).length;
+            const engagement = total ? (exec && keyUsers ? 'Alto' : 'Médio') : 'Sem base';
+            document.getElementById('stakeholder-engagement').innerText = engagement;
+            document.getElementById('stakeholder-list').innerHTML = [
+                ['Total mapeado:', `${total} pessoa(s)`], ['Comitê Executivo:', exec ? `${exec} ativo(s)` : 'Não identificado'], ['Key Users:', keyUsers ? `${keyUsers} mapeado(s)` : 'Atenção']
+            ].map(([label, value]) => `<li class="flex justify-between"><span>${label}</span><span class="${/Atenção|Não/.test(value) ? 'text-orange-600' : 'text-green-600'}">${escapeHtml(value)}</span></li>`).join('');
+        }
+        function renderIntegrations() {
+            const blocked = data.integrations.filter(i => /bloque|atras|crit|aten/i.test(stripDiacritics(i.status))).length;
+            const progress = data.integrations.length ? percent(data.integrations.length - blocked, data.integrations.length) : 100;
+            document.getElementById('integration-status').innerText = blocked ? 'Atenção' : 'Controlado';
+            document.getElementById('integration-progress-bar').style.width = `${progress}%`;
+            document.getElementById('integration-list').innerHTML = data.integrations.slice(0, 4).map(i => `<li class="flex justify-between"><span>${escapeHtml(i.name)}:</span><span class="${/bloque|atras|crit|aten/i.test(stripDiacritics(i.status)) ? 'text-orange-600' : 'text-green-600'}">${escapeHtml(i.status)}</span></li>`).join('');
+        }
+        function renderFooter() { const el = document.getElementById('last-updated'); if (el) el.innerText = new Date().toLocaleString('pt-BR'); }
+        document.addEventListener('DOMContentLoaded', () => { reloadFromConfiguredSources(); });
     </script>
 </body>
 </html>
