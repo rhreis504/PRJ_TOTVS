@@ -1124,24 +1124,65 @@
         }
 
         // --- DASHBOARD ---
-        function csvRowsToObjects(rows, expectedHeaders = null) {
-            if(!Array.isArray(rows) || !rows.length) return [];
-            const normalize = (value = '') => value.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-            const headersToUse = expectedHeaders || rows[0] || [];
-            const normalizedExpected = headersToUse.map(normalize);
-            const scoreHeaderRow = (row = []) => normalizedExpected.reduce((total, header, index) => total + (normalize(row[index]) === header ? 1 : 0), 0);
-            const headerIndex = expectedHeaders && rows[1] && scoreHeaderRow(rows[1]) > scoreHeaderRow(rows[0]) ? 1 : 0;
-            const sourceHeaders = rows[headerIndex] || headersToUse;
-            const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
+        function normalizeDashboardHeader(value = '') {
+            return value.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        }
+        function stripLeadingEmptyColumn(rows = []) {
+            if(!rows.length) return rows;
+            const hasLeadingEmptyColumn = rows.every((row) => !row?.length || (row[0] || '').trim() === '');
+            return hasLeadingEmptyColumn ? rows.map((row) => row.slice(1)) : rows;
+        }
+        function parsePendenciasPageRows(csvText, expectedHeaders) {
+            const normalizedRows = stripLeadingEmptyColumn(parseCsv(csvText));
+            if(!normalizedRows.length) return [];
 
-            return rows.slice(headerIndex + 1).map((row) => {
-                const object = {};
-                headersToUse.forEach((header, index) => {
-                    const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
-                    object[header] = (row[sourceIndex] || '').trim();
+            const normalizedHeaders = expectedHeaders.map(normalizeDashboardHeader);
+            const headerMatches = (row = []) => {
+                const normalizedRow = row.map(normalizeDashboardHeader);
+                return normalizedHeaders.reduce((count, header, index) => count + (normalizedRow[index] === header ? 1 : 0), 0);
+            };
+            const sourceHeaderIndex = headerMatches(normalizedRows[1]) > headerMatches(normalizedRows[0]) ? 1 : 0;
+            const sourceHeaders = normalizedRows[sourceHeaderIndex] || [];
+            const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
+            const sprintIndex = expectedHeaders.indexOf('Sprint');
+            const hasSprintHeader = sourceIndexByHeader.has('Sprint');
+
+            const isHeaderLikeRow = (cells = []) => {
+                const normalizedCells = cells.map(normalizeDashboardHeader);
+                const matchesAtOffset = (offset) => normalizedHeaders.every((header, index) => {
+                    const value = normalizedCells[index + offset] || '';
+                    return value === '' || value === header;
                 });
+                return matchesAtOffset(0) || matchesAtOffset(1) || matchesAtOffset(-1);
+            };
+
+            return normalizedRows.slice(sourceHeaderIndex + 1).map((row) => {
+                let alignedRow = row;
+                if(!hasSprintHeader && row.length === expectedHeaders.length - 1) {
+                    alignedRow = [...row.slice(0, sprintIndex), '', ...row.slice(sprintIndex)];
+                }
+                if(isHeaderLikeRow(alignedRow)) return null;
+
+                const rowValues = expectedHeaders.map((header, index) => {
+                    const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
+                    return (alignedRow[sourceIndex] || '').trim();
+                });
+                if(!rowValues.some((cell) => cell && cell !== '-') || isHeaderLikeRow(rowValues)) return null;
+
+                return expectedHeaders.reduce((object, header, index) => {
+                    object[header] = rowValues[index] || '';
+                    return object;
+                }, {});
+            }).filter(Boolean);
+        }
+        function parseRiscosPageRows(csvText) {
+            const rows = parseCsv(csvText);
+            if(!rows.length) return [];
+            const headers = rows[0];
+            return rows.slice(1).map((row) => headers.reduce((object, header, index) => {
+                object[header] = row[index] || '';
                 return object;
-            }).filter((object) => Object.values(object).some((value) => value && value !== '-'));
+            }, {}));
         }
         async function extractScriptConstantFromPage(page, constantName) {
             const response = await fetch(page, { cache: 'no-store' });
@@ -1160,16 +1201,26 @@
                 const csvUrl = await extractScriptConstantFromPage('pendencias.html', 'CSV_URL');
                 const response = await fetch(csvUrl, { cache: 'no-store' });
                 if(!response.ok) throw new Error(`Fonte de pendências retornou HTTP ${response.status}`);
-                return csvRowsToObjects(parseCsv(await response.text()), expectedHeaders).length;
+                return parsePendenciasPageRows(await response.text(), expectedHeaders).length;
             } catch (error) {
                 console.warn('Falha ao carregar contagem real do menu de pendências; usando fallback local.', error);
                 const fallbackCsv = await extractScriptConstantFromPage('pendencias.html', 'FALLBACK_CSV');
-                return csvRowsToObjects(parseCsv(fallbackCsv), expectedHeaders).length;
+                return parsePendenciasPageRows(fallbackCsv, expectedHeaders).length;
             }
         }
         async function loadRiscosMenuCount() {
-            const riscosCsv = await extractScriptConstantFromPage('riscos.html', 'RISCOS_CSV_DATA');
-            return csvRowsToObjects(parseCsv(riscosCsv)).length;
+            const fallbackCsv = await extractScriptConstantFromPage('riscos.html', 'RISCOS_CSV_DATA');
+            try {
+                const csvUrl = await extractScriptConstantFromPage('riscos.html', 'CSV_URL');
+                if(csvUrl) {
+                    const response = await fetch(csvUrl, { cache: 'no-store' });
+                    if(!response.ok) throw new Error(`Fonte de riscos retornou HTTP ${response.status}`);
+                    return parseRiscosPageRows(await response.text()).length;
+                }
+            } catch (error) {
+                console.warn('Falha ao carregar contagem real do menu de riscos; usando fallback local.', error);
+            }
+            return parseRiscosPageRows(fallbackCsv).length;
         }
         async function updateDashboardStats() {
             const safeSetText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
