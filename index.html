@@ -1038,6 +1038,8 @@
             gaps: { label: 'GAPs e Mudanças', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
             tap: { label: 'TAP', sourceType: 'csv', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-signature' },
             statusReport: { label: 'Status Report Executivo', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'clipboard-check' },
+            atividades: { label: 'Atividades', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'calendar-check' },
+            treinamentos: { label: 'Treinamentos', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'graduation-cap' },
         });
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
         let lastSyncStatus = {};
