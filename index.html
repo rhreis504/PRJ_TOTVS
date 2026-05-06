@@ -1032,11 +1032,12 @@
             return LEGACY_SUPABASE_PROJECT_REFS.includes((value || '').trim().toLowerCase());
         }
         const defaultSources = () => ({
-            stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
             pendencias: { label: 'Pendências', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
+            stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
             riscos: { label: 'Riscos', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
-            gaps: { label: 'Gaps', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
+            gaps: { label: 'GAPs e Mudanças', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
             tap: { label: 'TAP', sourceType: 'csv', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-signature' },
+            statusReport: { label: 'Status Report Executivo', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'clipboard-check' },
         });
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
         let lastSyncStatus = {};
@@ -1072,6 +1073,13 @@
             if(!config || typeof config !== 'object') config = {};
             if(!config.password || typeof config.password !== 'string') config.password = 'admin';
             if(!Array.isArray(config.projects) || !config.projects.length) config.projects = [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }];
+            const canonicalSources = defaultSources();
+            config.projects.forEach(project => {
+                if(!project.sources || typeof project.sources !== 'object') project.sources = {};
+                Object.entries(canonicalSources).forEach(([key, source]) => {
+                    project.sources[key] = { ...source, ...(project.sources[key] || {}) };
+                });
+            });
             if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
             if(!Array.isArray(config.selectedProjectIds) || !config.selectedProjectIds.length) config.selectedProjectIds = [config.activeProjectId];
             config.supabase = { ...SUPABASE_DEFAULT_CONFIG, ...(config.supabase || {}) };

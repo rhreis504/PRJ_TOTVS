@@ -340,9 +340,9 @@
     <script>
         const REQUIRED_URL_KEYS = ['urlGeral'];
         const UPDATE_BUTTON_ID='btn-atualizar-dados';
-        const data = { projectInfo:{}, statusInput:{}, health:{dimensions:[]}, evolution:[], tripleConstraint:{prazo:{},custo:{},escopo:{},qualidade:{}}, alerts:[], activities:{past:[],present:[],future:[]}, issues:[], risks:[], gaps:[], decisions:[], milestones:[], goliveCriteria:[], trainings:[] };
+        const data = { projectInfo:{}, statusInput:{}, health:{dimensions:[]}, evolution:[], tripleConstraint:{prazo:{},custo:{},escopo:{},qualidade:{}}, alerts:[], activities:{past:[],present:[],future:[]}, issues:[], risks:[], gaps:[], decisions:[], milestones:[], goliveCriteria:[], trainings:[], stakeholders:[] };
 
-        const SOURCE_DEFAULTS = { pendencias:'pendencias.html', riscos:'riscos.html', gaps:'', tap:'', agenda:'' };
+        const SOURCE_DEFAULTS = { pendencias:'pendencias.html', stakeholders:'', riscos:'riscos.html', gaps:'', tap:'', statusReport:'', agenda:'' };
         const stripDiacritics = (value='') => value.toString().normalize('NFD').replace(/[̀-ͯ]/g,'');
         const normalizeKey = (k='') => stripDiacritics(k).toLowerCase().trim();
         const normalizeRow = (row={}) => Object.entries(row).reduce((acc,[k,v])=>{acc[normalizeKey(k)]=v; return acc;},{});
@@ -371,15 +371,55 @@
             const activeId=cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds)?cfg.selectedProjectIds[0]:'');
             return projects.find(p=>p.id===activeId) || projects[0] || {};
         }
+        function resolveSourceByLabel(sources={}, aliases=[]){
+            const normalizedAliases=aliases.map(normalizeKey);
+            return Object.values(sources).find(source => normalizedAliases.includes(normalizeKey(source?.label || ''))) || null;
+        }
         function getConfiguredSource(sourceKey){
             const cfg=getCockpitConfig();
             const active=getActiveProjectConfig(cfg);
-            return active?.sources?.[sourceKey] || cfg?.sources?.[sourceKey] || {};
+            const activeSources=active?.sources || {};
+            const globalSources=cfg?.sources || {};
+            const aliases={
+                statusReport:['Status Report Executivo','Status Report'],
+                stakeholders:['Stakeholders'],
+                pendencias:['Pendências','Pendencias'],
+                riscos:['Riscos'],
+                gaps:['GAPs e Mudanças','Gaps e Mudanças','Gaps'],
+                tap:['TAP'],
+                atividades:['Nova Fonte','Atividades','Resumo Semanal de Atividades']
+            };
+            const directActive=activeSources[sourceKey];
+            const directGlobal=globalSources[sourceKey];
+            const labeledActive=resolveSourceByLabel(activeSources, aliases[sourceKey] || []);
+            const labeledGlobal=resolveSourceByLabel(globalSources, aliases[sourceKey] || []);
+            return [directActive, labeledActive, directGlobal, labeledGlobal].find(source => (source?.url || '').trim())
+                || directActive
+                || labeledActive
+                || directGlobal
+                || labeledGlobal
+                || {};
+        }
+        function resolveConfiguredCsvUrl(source={}){
+            let url=(source.url || '').trim();
+            if(!url) return '';
+            if((source.sourceType || 'csv') !== 'csv') return url;
+            if(url.includes('docs.google.com/spreadsheets')){
+                if(url.includes('/pub')){
+                    if(!url.includes('output=csv')) url += (url.includes('?') ? '&' : '?') + 'output=csv';
+                } else if(url.includes('/pubhtml')) {
+                    url = url.replace('/pubhtml', '/pub?output=csv');
+                } else if(url.includes('spreadsheets/d/') && !url.includes('format=csv')) {
+                    url = url.replace(/\/edit.*$/, '/export?format=csv');
+                }
+                if(source.sheet) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
+            }
+            return url;
         }
         function getSourceUrl(key){
-            const direct={urlGeral:'stakeholders',urlPendencias:'pendencias',urlRiscos:'riscos',urlGaps:'gaps',urlAtividades:'atividades',urlTap:'tap'};
+            const direct={urlGeral:'statusReport',urlStatusReport:'statusReport',urlStakeholders:'stakeholders',urlPendencias:'pendencias',urlRiscos:'riscos',urlGaps:'gaps',urlAtividades:'atividades',urlTap:'tap'};
             const sourceKey=direct[key] || key;
-            return (getConfiguredSource(sourceKey)?.url || '').trim();
+            return resolveConfiguredCsvUrl(getConfiguredSource(sourceKey));
         }
         document.addEventListener('DOMContentLoaded',()=>{ reloadFromConfiguredSources(); });
 
@@ -505,15 +545,16 @@
         }
         function currentJourneyPhase(){ return localStorage.getItem('totvs_jornada_fase') || 'Iniciação'; }
         async function reloadFromConfiguredSources(){ const btn=document.getElementById(UPDATE_BUTTON_ID); try{ if(btn){btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando...';}
-                const [geral, pend, risks, gaps, acts, tap]=await Promise.all([
+                const [geral, pend, stakeholders, risks, gaps, acts, tap]=await Promise.all([
                     loadRowsFromConfiguredSource('urlGeral'),
                     loadRowsFromConfiguredSource('urlPendencias','pendencias.html','FALLBACK_CSV'),
+                    loadRowsFromConfiguredSource('urlStakeholders'),
                     loadRowsFromConfiguredSource('urlRiscos','riscos.html','RISCOS_CSV_DATA'),
                     loadRowsFromConfiguredSource('urlGaps'),
                     loadRowsFromConfiguredSource('urlAtividades'),
                     loadTap()
                 ]);
-                applyStatusInput(geral); applyTap(tap||{}); data.projectInfo.phase=currentJourneyPhase(); applyIssues(pend); applyRisks(risks); applyGaps(gaps); loadAgenda(); applyActivities(acts); rerender();
+                data.stakeholders=stakeholders; applyStatusInput(geral); applyTap(tap||{}); data.projectInfo.phase=currentJourneyPhase(); applyIssues(pend); applyRisks(risks); applyGaps(gaps); loadAgenda(); applyActivities(acts); rerender();
                 const summary = await migrateToSupabase(); if(summary){ console.info(`Atualização concluída. Issues: ${summary.issues} | Risks: ${summary.risks}`); }
             }catch(e){ alert('Erro ao atualizar dados: '+e.message); console.error(e);} finally { if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-cloud-arrow-down mr-2"></i> Sincronizar Dados';}} }
         function rerender(){ clearContainers(); renderHeader(); generateExecutiveSummary(); renderAlerts(); renderMainCards(); renderHealthAndEvolution(); renderTripleConstraint(); renderActivities(); renderTables(); renderTrainings(); renderMilestones(); }
