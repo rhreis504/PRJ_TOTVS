@@ -324,6 +324,33 @@
         .kpi-info h4 { font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
         .kpi-info p { font-size: 28px; font-weight: 800; color: var(--text-main); line-height: 1; }
 
+        .stakeholder-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stakeholder-summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            transition: var(--transition);
+            min-height: 118px;
+        }
+        .stakeholder-summary-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: #cbd5e1; }
+        .stakeholder-summary-card .summary-icon { width: 44px; height: 44px; border-radius: var(--radius-md); display:flex; align-items:center; justify-content:center; flex: 0 0 auto; }
+        .stakeholder-summary-card .summary-content { min-width: 0; }
+        .stakeholder-summary-card h4 { font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+        .stakeholder-summary-card strong { display:block; color: var(--text-main); font-size: 26px; line-height: 1.1; font-weight: 800; margin-bottom: 8px; }
+        .stakeholder-summary-card small { display:block; color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+        .stakeholder-count-tags { display:flex; flex-wrap:wrap; gap: 6px; margin-top: 8px; }
+        .stakeholder-count-tags span { background: var(--input-bg); color: #475569; border: 1px solid var(--border-color); border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+        .stakeholder-table-card { padding: 0; overflow: hidden; }
+        .stakeholder-table-card .section-title { padding: 24px 24px 0; margin-bottom: 0; }
+        #stk-table-container { overflow-x: auto; padding: 16px 24px 24px; }
+        #page-stakeholders table { min-width: 1120px; }
+        #page-stakeholders table th:first-child, #page-stakeholders table td:first-child { width: 70px; }
+
         /* --- TIMELINE --- */
         .timeline { display: flex; justify-content: space-between; position: relative; padding: 20px 0 10px; margin-top: 10px;}
         .timeline-line { position: absolute; top: 40px; left: 5%; right: 5%; height: 2px; background: var(--border-color); z-index: 1; }
@@ -510,6 +537,7 @@
             .sidebar { position: static; width: 100%; height: auto; display: none; /* Simplification for code size, normally would be a drawer */ }
             #main-app { flex-direction: column; }
             .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .stakeholder-summary-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
             .editor-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
@@ -726,9 +754,17 @@
 
             <!-- STAKEHOLDERS -->
             <div id="page-stakeholders" class="hidden">
-                <div class="card">
+                <div class="page-header">
+                    <div class="page-header-text">
+                        <h2>Mapa de Stakeholders</h2>
+                        <p>Diretório consolidado com contagens por empresa, departamento, cargo e nível.</p>
+                    </div>
+                    <button class="btn-ghost" onclick="startSync()"><i data-lucide="refresh-cw" size="18"></i> Recarregar Dados</button>
+                </div>
+                <div id="stk-summary-container" class="stakeholder-summary-grid"></div>
+                <div class="card stakeholder-table-card">
                     <h3 class="section-title"><i data-lucide="users" size="20"></i> Diretório de Stakeholders</h3>
-                    <div id="stk-table-container" style="overflow-x: auto; margin-top: 16px;"></div>
+                    <div id="stk-table-container"></div>
                 </div>
             </div>
 
@@ -1599,6 +1635,7 @@
             keys.forEach(k => dataStore[k] = aggregatedStore[k] || []);
             document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString();
             updateDashboardStats();
+            if(!document.getElementById('page-stakeholders')?.classList.contains('hidden')) renderStkTable();
         }
         async function loadFocusedProjects() {
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
@@ -2215,13 +2252,112 @@ ${hints}`);
 
         // --- UTILS ---
         function showToast(m) { const t = document.getElementById('toast'); const msg = document.getElementById('toast-msg'); if(msg) msg.innerText = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3500); }
+        function escapeHtml(value='') {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        }
+
+        function stripEmptyStakeholderColumns(rows) {
+            if(!rows.length) return rows;
+            const maxColumns = Math.max(...rows.map(row => row.length));
+            const keepIndexes = [];
+            for(let i = 0; i < maxColumns; i++) {
+                if(rows.some(row => String(row[i] ?? '').trim() !== '')) keepIndexes.push(i);
+            }
+            return rows.map(row => keepIndexes.map(index => row[index] ?? ''));
+        }
+
+        function normalizeStakeholderText(value='') {
+            return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+        }
+
+        function prepareStakeholderDataset() {
+            const fallbackHeaders = ['ID', 'Nome', 'Cargo', 'Empresa', 'Departamento', 'Nível', 'E-mail', 'Telefone', 'Tipo de Influência', 'Interesses e/ou expectativas'];
+            const cleanedRows = stripEmptyStakeholderColumns(dataStore.stakeholders || [])
+                .map(row => row.map(cell => String(cell ?? '').trim()))
+                .filter(row => row.some(cell => cell !== ''));
+
+            const headerIndex = cleanedRows.findIndex(row => {
+                const normalized = row.map(normalizeStakeholderText);
+                const hits = ['id', 'nome', 'cargo', 'empresa', 'departamento', 'nivel'].filter(header => normalized.includes(header)).length;
+                return hits >= 4;
+            });
+
+            const headers = headerIndex >= 0 ? cleanedRows[headerIndex] : fallbackHeaders.slice(0, Math.max(fallbackHeaders.length, cleanedRows[0]?.length || 0));
+            const dataRows = (headerIndex >= 0 ? cleanedRows.slice(headerIndex + 1) : cleanedRows)
+                .filter(row => row.some(cell => cell !== ''))
+                .filter(row => {
+                    const normalizedRow = row.map(normalizeStakeholderText);
+                    return !['id', 'nome', 'cargo', 'empresa', 'departamento', 'nivel'].every(header => normalizedRow.includes(header));
+                });
+
+            return { headers, rows: dataRows };
+        }
+
+        function stakeholderColumnIndex(headers, aliases) {
+            const normalizedHeaders = headers.map(normalizeStakeholderText);
+            return aliases.map(normalizeStakeholderText).map(alias => normalizedHeaders.indexOf(alias)).find(index => index >= 0) ?? -1;
+        }
+
+        function countStakeholderGroups(rows, index) {
+            const counts = {};
+            if(index < 0) return counts;
+            rows.forEach(row => {
+                const value = String(row[index] ?? '').trim();
+                if(!value || value === '-') return;
+                counts[value] = (counts[value] || 0) + 1;
+            });
+            return counts;
+        }
+
+        function renderStakeholderSummary(dataset) {
+            const container = document.getElementById('stk-summary-container');
+            if(!container) return;
+            const { headers, rows } = dataset;
+            const columnMap = {
+                empresa: stakeholderColumnIndex(headers, ['Empresa']),
+                departamento: stakeholderColumnIndex(headers, ['Departamento']),
+                cargo: stakeholderColumnIndex(headers, ['Cargo']),
+                nivel: stakeholderColumnIndex(headers, ['Nível', 'Nivel'])
+            };
+            const total = rows.filter(row => row.some(cell => String(cell ?? '').trim() !== '')).length;
+            const cards = [
+                { label: 'Total de Usuários', value: total, detail: 'stakeholders mapeados', icon: 'users', color: 'blue' },
+                { label: 'Por Empresa', counts: countStakeholderGroups(rows, columnMap.empresa), icon: 'building-2', color: 'green' },
+                { label: 'Por Departamento', counts: countStakeholderGroups(rows, columnMap.departamento), icon: 'network', color: 'purple' },
+                { label: 'Por Cargo', counts: countStakeholderGroups(rows, columnMap.cargo), icon: 'briefcase', color: 'orange' },
+                { label: 'Por Nível', counts: countStakeholderGroups(rows, columnMap.nivel), icon: 'layers-3', color: 'red' }
+            ];
+
+            container.innerHTML = cards.map(card => {
+                const entries = card.counts ? Object.entries(card.counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR')) : [];
+                const value = card.counts ? entries.reduce((sum, [, count]) => sum + count, 0) : card.value;
+                const detail = card.counts ? `${entries.length} categoria${entries.length === 1 ? '' : 's'} identificada${entries.length === 1 ? '' : 's'}` : card.detail;
+                const tags = entries.slice(0, 3).map(([name, count]) => `<span>${escapeHtml(name)}: ${count}</span>`).join('');
+                const extra = entries.length > 3 ? `<span>+${entries.length - 3}</span>` : '';
+                return `
+                    <div class="stakeholder-summary-card">
+                        <div class="summary-icon kpi-icon ${card.color}"><i data-lucide="${card.icon}" size="22"></i></div>
+                        <div class="summary-content">
+                            <h4>${card.label}</h4>
+                            <strong>${value}</strong>
+                            <small>${detail}</small>
+                            ${entries.length ? `<div class="stakeholder-count-tags">${tags}${extra}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
         function renderStkTable() {
             const c = document.getElementById('stk-table-container');
             if(!c) return;
-            if(dataStore.stakeholders.length === 0) { c.innerHTML = "<p style='padding: 24px; color: var(--text-muted); font-size: 14px;'><i data-lucide='info' size='16' style='display:inline-block; vertical-align:middle; margin-right:6px;'></i> Sem base de dados mapeada.</p>"; lucide.createIcons(); return; }
-            let h = "<table class='roadmap-table' style='margin-top:0;'><thead><tr>" + dataStore.stakeholders[0].map((_, i) => `<th>Coluna ${i+1}</th>`).join('') + "</tr></thead><tbody>";
-            h += dataStore.stakeholders.map(r => "<tr>" + r.map(v => `<td>${v}</td>`).join('') + "</tr>").join('') + "</tbody></table>";
+            const dataset = prepareStakeholderDataset();
+            renderStakeholderSummary(dataset);
+            if(dataset.rows.length === 0) { c.innerHTML = "<p style='padding: 24px; color: var(--text-muted); font-size: 14px;'><i data-lucide='info' size='16' style='display:inline-block; vertical-align:middle; margin-right:6px;'></i> Sem base de dados mapeada.</p>"; lucide.createIcons(); return; }
+            let h = "<table class='roadmap-table' style='margin-top:0;'><thead><tr>" + dataset.headers.map(header => `<th>${escapeHtml(header)}</th>`).join('') + "</tr></thead><tbody>";
+            h += dataset.rows.map(row => "<tr>" + dataset.headers.map((_, index) => `<td>${escapeHtml(row[index] || '-')}</td>`).join('') + "</tr>").join('') + "</tbody></table>";
             c.innerHTML = h;
+            lucide.createIcons();
         }
 
         function initApp() {
