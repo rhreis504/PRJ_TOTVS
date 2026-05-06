@@ -1124,13 +1124,65 @@
         }
 
         // --- DASHBOARD ---
-        function updateDashboardStats() {
+        function csvRowsToObjects(rows, expectedHeaders = null) {
+            if(!Array.isArray(rows) || !rows.length) return [];
+            const normalize = (value = '') => value.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            const headersToUse = expectedHeaders || rows[0] || [];
+            const normalizedExpected = headersToUse.map(normalize);
+            const scoreHeaderRow = (row = []) => normalizedExpected.reduce((total, header, index) => total + (normalize(row[index]) === header ? 1 : 0), 0);
+            const headerIndex = expectedHeaders && rows[1] && scoreHeaderRow(rows[1]) > scoreHeaderRow(rows[0]) ? 1 : 0;
+            const sourceHeaders = rows[headerIndex] || headersToUse;
+            const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
+
+            return rows.slice(headerIndex + 1).map((row) => {
+                const object = {};
+                headersToUse.forEach((header, index) => {
+                    const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
+                    object[header] = (row[sourceIndex] || '').trim();
+                });
+                return object;
+            }).filter((object) => Object.values(object).some((value) => value && value !== '-'));
+        }
+        async function extractScriptConstantFromPage(page, constantName) {
+            const response = await fetch(page, { cache: 'no-store' });
+            if(!response.ok) throw new Error(`Não foi possível ler ${page}: HTTP ${response.status}`);
+            const html = await response.text();
+            const escapedName = constantName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const pattern = new RegExp("const\\s+" + escapedName + "\\s*=\\s*(`[^`]*`|[\"'][\\s\\S]*?[\"'])");
+            const match = html.match(pattern);
+            if(!match) throw new Error(`Constante ${constantName} não encontrada em ${page}.`);
+            const rawValue = match[1];
+            return rawValue.startsWith('`') ? rawValue.slice(1, -1) : rawValue.slice(1, -1);
+        }
+        async function loadPendenciasMenuCount() {
+            const expectedHeaders = ['ID','Área','Categoria','Etapa do Projeto','Sprint','Atividade','Descrição','Responsável','Criticidade','Responsável Cliente','Data Identificação','Data Planejada','Dias para Concluir','Condição Pendência','Data Conclusão','% Conclusão','Status'];
+            try {
+                const csvUrl = await extractScriptConstantFromPage('pendencias.html', 'CSV_URL');
+                const response = await fetch(csvUrl, { cache: 'no-store' });
+                if(!response.ok) throw new Error(`Fonte de pendências retornou HTTP ${response.status}`);
+                return csvRowsToObjects(parseCsv(await response.text()), expectedHeaders).length;
+            } catch (error) {
+                console.warn('Falha ao carregar contagem real do menu de pendências; usando fallback local.', error);
+                const fallbackCsv = await extractScriptConstantFromPage('pendencias.html', 'FALLBACK_CSV');
+                return csvRowsToObjects(parseCsv(fallbackCsv), expectedHeaders).length;
+            }
+        }
+        async function loadRiscosMenuCount() {
+            const riscosCsv = await extractScriptConstantFromPage('riscos.html', 'RISCOS_CSV_DATA');
+            return csvRowsToObjects(parseCsv(riscosCsv)).length;
+        }
+        async function updateDashboardStats() {
             const safeSetText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
             
             safeSetText('val-pendencias', dataStore.pendencias.length);
             safeSetText('val-riscos', dataStore.riscos.length);
             safeSetText('val-gaps', dataStore.gaps.length);
             safeSetText('val-stakeholders', dataStore.stakeholders.length);
+
+            Promise.allSettled([loadPendenciasMenuCount(), loadRiscosMenuCount()]).then(([pendenciasResult, riscosResult]) => {
+                if(pendenciasResult.status === 'fulfilled') safeSetText('val-pendencias', pendenciasResult.value);
+                if(riscosResult.status === 'fulfilled') safeSetText('val-riscos', riscosResult.value);
+            });
 
             safeSetText('val-trein-periodo', agenda.length);
             safeSetText('val-trein-ministrados', agenda.filter(a => a.status === 'completed').length);
