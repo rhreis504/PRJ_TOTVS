@@ -54,11 +54,8 @@
                 <p class="text-sm text-slate-500">Cockpit executivo de acompanhamento semanal</p>
             </div>
             <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
-                <button onclick="openConfigModal()" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow no-print">
-                    <i class="fa-solid fa-database mr-2"></i> Configurar Dados
-                </button>
                 <button id="btn-atualizar-dados" onclick="reloadFromConfiguredSources()" class="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition shadow no-print">
-                    <i class="fa-solid fa-rotate mr-2"></i> Atualizar Dados
+                    <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Sincronizar Dados
                 </button>
                 <a href="index.html?menu=1" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition shadow no-print inline-flex items-center">
                     <i class="fa-solid fa-arrow-left mr-2"></i> Voltar ao Cockpit
@@ -337,66 +334,7 @@
 
     </main>
 
-    <!-- Modal de Configuração de Dados -->
-    <div id="config-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center transition-opacity no-print">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 border border-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
-                <h2 class="text-xl font-bold text-slate-800"><i class="fa-solid fa-database text-blue-500 mr-2"></i> Fontes de Dados (CSV / Google Sheets)</h2>
-                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            
-            <div class="space-y-4">
-                <p class="text-sm text-slate-600 mb-4">Insira abaixo os links das planilhas (CSV) publicadas; quando possível, o relatório também usa a TAP no Supabase, riscos.html e a Agenda de Capacitação local.</p>
-                
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Status Report Executivo - Input (MIT013)</label>
-                    <input type="text" id="url-geral" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-                </div>
-                
-                <div class="rounded-lg border border-slate-200 p-3 bg-slate-50/70">
-                    <p class="text-xs font-bold text-slate-600 mb-3 uppercase tracking-wide">Pendências / Riscos / GAPs (URLs separadas)</p>
-
-                    <div class="mb-3">
-                        <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Pendências</label>
-                        <input type="text" id="url-pendencias" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="Cole aqui a URL CSV exclusiva de Pendências" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Riscos</label>
-                        <input type="text" id="url-riscos" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="Cole aqui a URL CSV exclusiva de Riscos" required>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - GAPs</label>
-                        <input type="text" id="url-gaps" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="Cole aqui a URL CSV exclusiva de GAPs" required>
-                    </div>
-                </div>
-                
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Atividades e Próximos Passos</label>
-                    <input type="text" id="url-atividades" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-                </div>
-
-                <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1">Supabase URL (opcional para migração)</label>
-                        <input type="text" id="supabase-url" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://SEU-PROJETO.supabase.co">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1">Supabase Secret Key (opcional)</label>
-                        <input type="password" id="supabase-secret" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="sb_secret_...">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-3">
-                <button onclick="closeConfigModal()" class="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition shadow-sm">Cancelar</button>
-                <button onclick="saveAndLoadData()" class="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow flex items-center">
-                    <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Salvar e Sincronizar
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- As fontes de dados são gerenciadas exclusivamente no menu Configurações do Cockpit. -->
 
     <!-- Script JavaScript com Carga Real de Dados e Lógica de Renderização -->
     <script>
@@ -418,14 +356,32 @@
             return value;
         };
 
-        function getCockpitConfig(){ try{return JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');}catch{return {};} }
-        function getSourceUrl(key){
-            const cfg=getCockpitConfig();
-            const direct={urlGeral:'stakeholders',urlPendencias:'pendencias',urlRiscos:'riscos',urlGaps:'gaps',urlAtividades:'atividades',urlTap:'tap'};
-            return (cfg?.sources?.[key]?.url || cfg?.sources?.[direct[key]]?.url || localStorage.getItem(key) || '').trim();
+        function getCockpitConfig(){
+            const parse=(value)=>{ try{return value?JSON.parse(value):{};}catch{return {};} };
+            const localCfg=parse(localStorage.getItem('totvs_cockpit_config')||'{}');
+            try{
+                const parentCfg=(window.parent && window.parent!==window && window.parent.config) ? window.parent.config : null;
+                if(parentCfg && Object.keys(parentCfg).length) return parentCfg;
+            }catch(_e){}
+            return localCfg;
         }
-        function syncUrlsFromCockpitConfig(){ try{ const cfg=getCockpitConfig(); const src=cfg?.sources||{}; const set=(storageKey,sourceKey)=>{ if(src[sourceKey]?.url) localStorage.setItem(storageKey,src[sourceKey].url); }; set('urlGeral','stakeholders'); set('urlPendencias','pendencias'); set('urlRiscos','riscos'); set('urlGaps','gaps'); set('urlAtividades','atividades'); set('urlTap','tap'); }catch(e){ console.warn('Não foi possível sincronizar URLs da tela de configurações.',e); } }
-        document.addEventListener('DOMContentLoaded',()=>{ syncUrlsFromCockpitConfig(); reloadFromConfiguredSources(); });
+        function getActiveProjectConfig(cfg=getCockpitConfig()){
+            const projects=Array.isArray(cfg?.projects)?cfg.projects:[];
+            if(!projects.length) return {};
+            const activeId=cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds)?cfg.selectedProjectIds[0]:'');
+            return projects.find(p=>p.id===activeId) || projects[0] || {};
+        }
+        function getConfiguredSource(sourceKey){
+            const cfg=getCockpitConfig();
+            const active=getActiveProjectConfig(cfg);
+            return active?.sources?.[sourceKey] || cfg?.sources?.[sourceKey] || {};
+        }
+        function getSourceUrl(key){
+            const direct={urlGeral:'stakeholders',urlPendencias:'pendencias',urlRiscos:'riscos',urlGaps:'gaps',urlAtividades:'atividades',urlTap:'tap'};
+            const sourceKey=direct[key] || key;
+            return (getConfiguredSource(sourceKey)?.url || '').trim();
+        }
+        document.addEventListener('DOMContentLoaded',()=>{ reloadFromConfiguredSources(); });
 
         const parseCSV = (csv)=>{
             const rows=[]; let row=[]; let cell=''; let quoted=false;
@@ -458,11 +414,16 @@
             const fallback=await extractScriptConstantFromPage(page,constName);
             return fallback ? parseCSV(fallback) : [];
         }
+        async function loadRowsFromConfiguredSource(urlKey, fallbackPage='', fallbackConst='', urlConst='CSV_URL'){
+            const url=getSourceUrl(urlKey);
+            if(url){
+                try{return await fetchCsv(url);}
+                catch(e){ console.warn(`Falha ao carregar a fonte configurada (${urlKey}); usando fallback quando disponível.`, e); }
+            }
+            return (fallbackPage && fallbackConst) ? loadCsvFromPage(fallbackPage, fallbackConst, urlConst) : [];
+        }
         const clearContainers = () => ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria','train-list'].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML='';});
         const getRAGColors=(s)=>({'Saudável':'bg-green-100 text-green-800 border-green-200','green':'bg-green-500','Atenção Leve':'bg-blue-100 text-blue-800 border-blue-200','blue':'bg-blue-500','Atenção Moderada':'bg-orange-100 text-orange-800 border-orange-200','Atenção':'bg-orange-100 text-orange-800 border-orange-200','orange':'bg-orange-500','Crítico':'bg-red-100 text-red-800 border-red-200','Alta':'bg-red-100 text-red-800 border-red-200','red':'bg-red-500','Atrasado':'bg-red-100 text-red-800','Vencido':'bg-red-100 text-red-800','Concluído':'bg-green-100 text-green-800','completed':'bg-green-100 text-green-800','Em andamento':'bg-blue-100 text-blue-800','upcoming':'bg-blue-100 text-blue-800','Não iniciado':'bg-gray-100 text-gray-800','Bloqueado':'bg-red-100 text-red-800','Agendado':'bg-slate-100 text-slate-700','No Prazo':'bg-green-100 text-green-800','Reagendado':'bg-orange-100 text-orange-800','cancelled':'bg-red-100 text-red-800'})[s]||'bg-slate-100 text-slate-800 border-slate-200';
-        function openConfigModal(){document.getElementById('config-modal').classList.remove('hidden');document.getElementById('url-geral').value=getSourceUrl('urlGeral');document.getElementById('url-pendencias').value=getSourceUrl('urlPendencias');document.getElementById('url-riscos').value=getSourceUrl('urlRiscos');document.getElementById('url-gaps').value=getSourceUrl('urlGaps');document.getElementById('url-atividades').value=getSourceUrl('urlAtividades');document.getElementById('supabase-url').value=localStorage.getItem('supabaseUrl')||getCockpitConfig()?.supabase?.url||'';document.getElementById('supabase-secret').value=localStorage.getItem('supabaseSecret')||getCockpitConfig()?.supabase?.secret||getCockpitConfig()?.supabase?.currentKey||'';}
-        function closeConfigModal(){document.getElementById('config-modal').classList.add('hidden');}
-
         function applyStatusInput(rows){
             const kv={}; const normalizedRows=rows.map(normalizeRow);
             normalizedRows.forEach(r=>{ const k=firstFrom(r,['chave','key','campo','indicador','item']); if(k) kv[normalizeKey(k)]=firstFrom(r,['valor','value','conteudo','resposta','input']); });
@@ -490,11 +451,16 @@
         }
         async function loadTap(){
             const csvUrl=getSourceUrl('urlTap');
-            if(csvUrl){ const rows=await fetchCsv(csvUrl); if(rows[0]) return rows.map(normalizeRow).map(r=>({nomeProjeto:firstFrom(r,['nome projeto','nome_projeto']),codCliente:firstFrom(r,['cod cliente','cliente','identificacao']),dataInicio:firstFrom(r,['data inicio','data_inicio']),goLive:firstFrom(r,['go live','go_live_previsao']),coordenador:firstFrom(r,['coordenador','coordenador projeto']),gpp:firstFrom(r,['gpp','pmo'])}))[0]; }
+            if(csvUrl){
+                try{
+                    const rows=await fetchCsv(csvUrl);
+                    if(rows[0]) return rows.map(normalizeRow).map(r=>({nomeProjeto:firstFrom(r,['nome projeto','nome_projeto']),codCliente:firstFrom(r,['cod cliente','cliente','identificacao','identificação']),dataInicio:firstFrom(r,['data inicio','data_inicio','data início']),goLive:firstFrom(r,['go live','go_live_previsao','go live previsao','go live previsão']),coordenador:firstFrom(r,['coordenador','coordenador projeto','coordenador_projeto']),gpp:firstFrom(r,['gpp','pmo'])}))[0];
+                }catch(e){ console.warn('Falha ao carregar a TAP configurada; tentando Supabase.', e); }
+            }
             try{
-                const cfg=getCockpitConfig(); const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||cfg?.supabase?.url||''); const secret=localStorage.getItem('supabaseSecret')||cfg?.supabase?.secret||cfg?.supabase?.currentKey||cfg?.supabase?.serviceRole||'';
+                const cfg=getCockpitConfig(); const baseUrl=normalizeSupabaseBaseUrl(cfg?.supabase?.url||cfg?.supabase?.apiUrl||''); const secret=cfg?.supabase?.secret||cfg?.supabase?.serviceRole||cfg?.supabase?.currentKey||'';
                 if(!baseUrl || !secret) return null;
-                const projectCode=cfg?.supabase?.projectCode||'ROSSI-PMO'; const projectsTable=cfg?.supabase?.projectsTable||'projects'; const tapTable=cfg?.supabase?.tapTable||'tap_entries';
+                const activeProject=getActiveProjectConfig(cfg); const projectCode=cfg?.supabase?.projectCode||cfg?.activeProjectId||activeProject?.id||'default'; const projectsTable=cfg?.supabase?.projectsTable||'projects'; const tapTable=cfg?.supabase?.tapTable||'tap_entries';
                 const headers={apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json'};
                 const projectResp=await fetch(`${baseUrl}/rest/v1/${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`,{headers,cache:'no-store'});
                 if(!projectResp.ok) throw new Error(`Supabase projects -> ${projectResp.status}`);
@@ -540,16 +506,16 @@
         function currentJourneyPhase(){ return localStorage.getItem('totvs_jornada_fase') || 'Iniciação'; }
         async function reloadFromConfiguredSources(){ const btn=document.getElementById(UPDATE_BUTTON_ID); try{ if(btn){btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando...';}
                 const [geral, pend, risks, gaps, acts, tap]=await Promise.all([
-                    fetchCsv(getSourceUrl('urlGeral')),
-                    getSourceUrl('urlPendencias') ? fetchCsv(getSourceUrl('urlPendencias')) : loadCsvFromPage('pendencias.html','FALLBACK_CSV','CSV_URL'),
-                    getSourceUrl('urlRiscos') ? fetchCsv(getSourceUrl('urlRiscos')) : loadCsvFromPage('riscos.html','RISCOS_CSV_DATA','CSV_URL'),
-                    getSourceUrl('urlGaps') ? fetchCsv(getSourceUrl('urlGaps')) : Promise.resolve([]),
-                    getSourceUrl('urlAtividades') ? fetchCsv(getSourceUrl('urlAtividades')) : Promise.resolve([]),
+                    loadRowsFromConfiguredSource('urlGeral'),
+                    loadRowsFromConfiguredSource('urlPendencias','pendencias.html','FALLBACK_CSV'),
+                    loadRowsFromConfiguredSource('urlRiscos','riscos.html','RISCOS_CSV_DATA'),
+                    loadRowsFromConfiguredSource('urlGaps'),
+                    loadRowsFromConfiguredSource('urlAtividades'),
                     loadTap()
                 ]);
                 applyStatusInput(geral); applyTap(tap||{}); data.projectInfo.phase=currentJourneyPhase(); applyIssues(pend); applyRisks(risks); applyGaps(gaps); loadAgenda(); applyActivities(acts); rerender();
                 const summary = await migrateToSupabase(); if(summary){ console.info(`Atualização concluída. Issues: ${summary.issues} | Risks: ${summary.risks}`); }
-            }catch(e){ alert('Erro ao atualizar dados: '+e.message); console.error(e);} finally { if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-rotate mr-2"></i> Atualizar Dados';}} }
+            }catch(e){ alert('Erro ao atualizar dados: '+e.message); console.error(e);} finally { if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-cloud-arrow-down mr-2"></i> Sincronizar Dados';}} }
         function rerender(){ clearContainers(); renderHeader(); generateExecutiveSummary(); renderAlerts(); renderMainCards(); renderHealthAndEvolution(); renderTripleConstraint(); renderActivities(); renderTables(); renderTrainings(); renderMilestones(); }
         function renderHeader(){ document.getElementById('hdr-projeto').innerText=data.projectInfo.name||'-';document.getElementById('hdr-cliente').innerText=data.projectInfo.client||'-';document.getElementById('hdr-fase').innerText=data.projectInfo.phase||'-';document.getElementById('hdr-periodo').innerText=data.projectInfo.period||'-';document.getElementById('hdr-golive').innerText=data.projectInfo.goLive||'-';document.getElementById('hdr-pm').innerText=`${data.projectInfo.pm||'-'} / ${data.projectInfo.pmo||'-'}`;document.getElementById('hdr-status').innerText=data.projectInfo.statusGeral||'-';}
         function generateExecutiveSummary(){ const resumo=data.statusInput.resumo || `Dados carregados das fontes oficiais. Evolução real: <strong>${data.projectInfo.evolutionTotal||0}%</strong> / Planejada: <strong>${data.projectInfo.evolutionPlanned||0}%</strong>.`; document.getElementById('executive-summary').innerHTML=escapeHtml(resumo).replace(/\n/g,'<br>'); }
@@ -585,8 +551,8 @@
 
         async function supabaseRequest(path, method='GET', body){
             const cfg=getCockpitConfig();
-            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||cfg?.supabase?.url||'');
-            const secret=localStorage.getItem('supabaseSecret')||cfg?.supabase?.secret||cfg?.supabase?.currentKey||cfg?.supabase?.serviceRole||'';
+            const baseUrl=normalizeSupabaseBaseUrl(cfg?.supabase?.url||cfg?.supabase?.apiUrl||'');
+            const secret=cfg?.supabase?.secret||cfg?.supabase?.serviceRole||cfg?.supabase?.currentKey||'';
             if(!baseUrl || !secret) return null;
             const res=await fetch(`${baseUrl}/rest/v1/${path}`,{method,headers:{apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body: body?JSON.stringify(body):undefined});
             if(!res.ok) throw new Error(`Supabase ${method} ${path} -> ${res.status}`);
@@ -595,11 +561,12 @@
 
         async function migrateToSupabase(){
             const cfg=getCockpitConfig();
-            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||cfg?.supabase?.url||'');
-            const secret=localStorage.getItem('supabaseSecret')||cfg?.supabase?.secret||cfg?.supabase?.currentKey||cfg?.supabase?.serviceRole||'';
+            const baseUrl=normalizeSupabaseBaseUrl(cfg?.supabase?.url||cfg?.supabase?.apiUrl||'');
+            const secret=cfg?.supabase?.secret||cfg?.supabase?.serviceRole||cfg?.supabase?.currentKey||'';
             if(!baseUrl || !secret) return null;
-            const projectCode='ROSSI-PMO';
-            const projectName=data.projectInfo.name||'Rossi Supermercados';
+            const activeProject=getActiveProjectConfig(cfg);
+            const projectCode=cfg?.supabase?.projectCode||cfg?.activeProjectId||activeProject?.id||'default';
+            const projectName=data.projectInfo.name||activeProject?.name||'Rossi Supermercados';
             const existing=await supabaseRequest(`projects?code=eq.${encodeURIComponent(projectCode)}`);
             let projectId=existing?.[0]?.id;
             if(!projectId){
@@ -613,7 +580,6 @@
             return {issues:issuesPayload.length, risks:risksPayload.length};
         }
 function renderMilestones(){}
-        function saveAndLoadData(){ localStorage.setItem('urlGeral',document.getElementById('url-geral').value);localStorage.setItem('urlPendencias',document.getElementById('url-pendencias').value);localStorage.setItem('urlRiscos',document.getElementById('url-riscos').value);localStorage.setItem('urlGaps',document.getElementById('url-gaps').value);localStorage.setItem('urlAtividades',document.getElementById('url-atividades').value);localStorage.setItem('supabaseUrl',document.getElementById('supabase-url').value);localStorage.setItem('supabaseSecret',document.getElementById('supabase-secret').value); closeConfigModal(); reloadFromConfiguredSources(); }
     </script>
 </body>
 </html>
