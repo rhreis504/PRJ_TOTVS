@@ -26,7 +26,7 @@ No SQL Editor do Supabase, rode **nesta ordem**:
 1. `supabase/migrations/20260502_000001_initial_schema.sql`
 2. `supabase/migrations/20260504_000002_project_sync_and_tap.sql`
 3. `supabase/migrations/20260505_000003_api_access_and_rpc.sql`
-4. `supabase/migrations/20260505_000004_tap_entries_updated_at.sql`
+4. `supabase/migrations/20260506000004_tap_entries_updated_at.sql`
 
 > Esses 4 arquivos criam **todas** as tabelas do projeto e adicionam compatibilidade de atualização para TAP:
 > `projects`, `spreadsheet_sources`, `issues`, `risks`, `gaps`, `activities`, `import_jobs`, `source_rows`, `tap_entries`.
@@ -73,7 +73,7 @@ Se esse teste falhar, geralmente faltou executar a migration `20260504_000002_pr
 2. Uso de chave publishable no lugar da secret/service role para escrita
 3. Migration parcial (apenas uma parte das tabelas criada)
 4. Falta de políticas/RLS para cenários com `authenticated`/`anon`
-5. Banco já criado sem a coluna `tap_entries.updated_at` (rode a migration `20260505_000004_tap_entries_updated_at.sql`)
+5. Banco já criado sem a coluna `tap_entries.updated_at` (rode a migration `20260506000004_tap_entries_updated_at.sql`)
 
 ---
 
