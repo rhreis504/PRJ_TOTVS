@@ -291,14 +291,15 @@
                 <h4 class="font-bold text-slate-700 mb-2"><i class="fa-solid fa-graduation-cap text-blue-500 mr-2"></i> Treinamentos</h4>
                 <div class="flex justify-between items-end mb-2">
                     <span class="text-xs text-slate-500">Aderência Atual</span>
-                    <span class="text-lg font-bold text-slate-800">82%</span>
+                    <span class="text-lg font-bold text-slate-800" id="train-adh">0%</span>
                 </div>
-                <div class="w-full bg-slate-200 rounded-full h-1.5 mb-3"><div class="bg-blue-500 h-1.5 rounded-full" style="width: 82%"></div></div>
-                <ul class="text-xs text-slate-600 space-y-1">
-                    <li class="flex justify-between"><span>Previstos:</span> <strong>12</strong></li>
-                    <li class="flex justify-between"><span>Realizados:</span> <strong>5</strong></li>
-                    <li class="flex justify-between text-orange-600"><span>Reprogramados:</span> <strong>2</strong></li>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 mb-3"><div id="train-progress-bar" class="bg-blue-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+                <ul class="text-xs text-slate-600 space-y-1 mb-3">
+                    <li class="flex justify-between"><span>Previstos:</span> <strong id="train-previstos">0</strong></li>
+                    <li class="flex justify-between"><span>Realizados:</span> <strong id="train-realizados">0</strong></li>
+                    <li class="flex justify-between text-orange-600"><span>Reprogramados:</span> <strong id="train-reprogramados">0</strong></li>
                 </ul>
+                <div id="train-list" class="text-xs text-slate-600 space-y-2"></div>
             </div>
             
             <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
@@ -345,10 +346,10 @@
             </div>
             
             <div class="space-y-4">
-                <p class="text-sm text-slate-600 mb-4">Insira abaixo os links das planilhas (CSV) publicadas para que a inteligência popule o dashboard automaticamente.</p>
+                <p class="text-sm text-slate-600 mb-4">Insira abaixo os links das planilhas (CSV) publicadas; quando possível, o relatório também usa a TAP no Supabase, riscos.html e a Agenda de Capacitação local.</p>
                 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Visão Geral do Projeto (Health, Prazos, Marcos)</label>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">URL CSV - Status Report Executivo - Input (MIT013)</label>
                     <input type="text" id="url-geral" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none transition-shadow" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
                 </div>
                 
@@ -399,47 +400,171 @@
 
     <!-- Script JavaScript com Carga Real de Dados e Lógica de Renderização -->
     <script>
-        const REQUIRED_URL_KEYS = ['urlGeral','urlPendencias','urlRiscos','urlGaps','urlAtividades'];
+        const REQUIRED_URL_KEYS = ['urlGeral'];
         const UPDATE_BUTTON_ID='btn-atualizar-dados';
-        const data = { projectInfo:{}, health:{dimensions:[]}, evolution:[], tripleConstraint:{prazo:{},custo:{},escopo:{},qualidade:{}}, alerts:[], activities:{past:[],present:[],future:[]}, issues:[], risks:[], gaps:[], decisions:[], milestones:[], goliveCriteria:[] };
-        function syncUrlsFromCockpitConfig(){ try{ const raw=localStorage.getItem('totvs_cockpit_config'); if(!raw) return; const cfg=JSON.parse(raw); const src=cfg?.sources||{}; const getVal=(k,fallback='')=>src[k]?.url||fallback; if(getVal('stakeholders')) localStorage.setItem('urlGeral',getVal('stakeholders')); if(getVal('pendencias')) localStorage.setItem('urlPendencias',getVal('pendencias')); if(getVal('riscos')) localStorage.setItem('urlRiscos',getVal('riscos')); if(getVal('gaps')) localStorage.setItem('urlGaps',getVal('gaps')); if(getVal('pendencias')) localStorage.setItem('urlAtividades',localStorage.getItem('urlAtividades')||getVal('pendencias')); }catch(e){ console.warn('Não foi possível sincronizar URLs da tela de configurações.',e); } }
-        document.addEventListener('DOMContentLoaded',()=>{
-            syncUrlsFromCockpitConfig();
-            if(REQUIRED_URL_KEYS.every(k=>localStorage.getItem(k))){
-                reloadFromConfiguredSources();
-            }
-        });
+        const data = { projectInfo:{}, statusInput:{}, health:{dimensions:[]}, evolution:[], tripleConstraint:{prazo:{},custo:{},escopo:{},qualidade:{}}, alerts:[], activities:{past:[],present:[],future:[]}, issues:[], risks:[], gaps:[], decisions:[], milestones:[], goliveCriteria:[], trainings:[] };
 
-        const parseCSV = (csv)=>{
-            const lines = csv.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-            if(!lines.length) return [];
-            const headers=lines[0].split(',').map(h=>h.trim());
-            return lines.slice(1).map(line=>{
-                const cols=line.split(',');
-                const o={};
-                headers.forEach((h,i)=>o[h]=(cols[i]||'').trim());
-                return o;
-            });
-        };
-        const clearContainers = () => ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria'].forEach(id=>document.getElementById(id).innerHTML='');
-        const getRAGColors=(s)=>({'Saudável':'bg-green-100 text-green-800 border-green-200','green':'bg-green-500','Atenção Leve':'bg-blue-100 text-blue-800 border-blue-200','blue':'bg-blue-500','Atenção Moderada':'bg-orange-100 text-orange-800 border-orange-200','Atenção':'bg-orange-100 text-orange-800 border-orange-200','orange':'bg-orange-500','Crítico':'bg-red-100 text-red-800 border-red-200','red':'bg-red-500','Atrasado':'bg-red-100 text-red-800','Vencido':'bg-red-100 text-red-800','Concluído':'bg-green-100 text-green-800','Em andamento':'bg-blue-100 text-blue-800','Não iniciado':'bg-gray-100 text-gray-800','Bloqueado':'bg-red-100 text-red-800 text-red-800','Agendado':'bg-slate-100 text-slate-700','No Prazo':'bg-green-100 text-green-800'})[s]||'bg-slate-100 text-slate-800 border-slate-200';
-        function openConfigModal(){document.getElementById('config-modal').classList.remove('hidden');document.getElementById('url-geral').value=localStorage.getItem('urlGeral')||'';document.getElementById('url-pendencias').value=localStorage.getItem('urlPendencias')||'';document.getElementById('url-riscos').value=localStorage.getItem('urlRiscos')||'';document.getElementById('url-gaps').value=localStorage.getItem('urlGaps')||'';document.getElementById('url-atividades').value=localStorage.getItem('urlAtividades')||'';document.getElementById('supabase-url').value=localStorage.getItem('supabaseUrl')||'';document.getElementById('supabase-secret').value=localStorage.getItem('supabaseSecret')||'';}
-        function closeConfigModal(){document.getElementById('config-modal').classList.add('hidden');}
-        async function fetchCsv(url){ const resp=await fetch(url,{cache:'no-store'}); if(!resp.ok) throw new Error('Falha ao carregar '+url); return parseCSV(await resp.text()); }
-        function applyGeneral(rows){ const kv={}; rows.forEach(r=>{const k=(r.chave||r.key||r.campo||'').toLowerCase(); kv[k]=r.valor||r.value||'';}); data.projectInfo={name:kv.projeto||'',client:kv.cliente||'',phase:kv.fase||'',period:kv.periodo||'',goLive:kv.golive||'',pm:kv.pm||'',pmo:kv.pmo||'',statusGeral:kv.status||'Sem status',evolutionTotal:+(kv.evolucao_real||0),evolutionPlanned:+(kv.evolucao_planejada||0)}; }
-        const normalizeKey = (k='') => k.toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+        const SOURCE_DEFAULTS = { pendencias:'pendencias.html', riscos:'riscos.html', gaps:'', tap:'', agenda:'' };
+        const stripDiacritics = (value='') => value.toString().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        const normalizeKey = (k='') => stripDiacritics(k).toLowerCase().trim();
         const normalizeRow = (row={}) => Object.entries(row).reduce((acc,[k,v])=>{acc[normalizeKey(k)]=v; return acc;},{});
         const firstFrom = (row, keys=[]) => { for(const k of keys){ const val=row[normalizeKey(k)]; if(val!==undefined && val!==null && `${val}`.trim()!=='') return `${val}`.trim(); } return ''; };
-        async function reloadFromConfiguredSources(){ const btn=document.getElementById(UPDATE_BUTTON_ID); try{ if(btn){btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando...';} const urls={urlGeral:localStorage.getItem('urlGeral'),urlPendencias:localStorage.getItem('urlPendencias'),urlRiscos:localStorage.getItem('urlRiscos'),urlGaps:localStorage.getItem('urlGaps'),urlAtividades:localStorage.getItem('urlAtividades')}; if(REQUIRED_URL_KEYS.some(k=>!urls[k])){alert('Configure todas as URLs antes de atualizar.'); return;} const [geral,pend,risks,gaps,acts]=await Promise.all([fetchCsv(urls.urlGeral),fetchCsv(urls.urlPendencias),fetchCsv(urls.urlRiscos),fetchCsv(urls.urlGaps),fetchCsv(urls.urlAtividades)]); applyGeneral(geral); data.issues=pend.map(r=>{ const n=normalizeRow(r); return {id:firstFrom(n,['id']),desc:firstFrom(n,['descricao','desc']),resp:firstFrom(n,['responsavel','resp']),due:firstFrom(n,['vencimento','data planejada','due']),status:firstFrom(n,['status'])||'Aberta'}; }); data.risks=risks.map(r=>{ const n=normalizeRow(r); return {id:firstFrom(n,['id','risco']),desc:firstFrom(n,['descricao','desc']),exp:firstFrom(n,['exposicao','exp']),action:firstFrom(n,['acao','action'])}; }); data.gaps=gaps.map(r=>{ const n=normalizeRow(r); return {id:firstFrom(n,['id']),desc:firstFrom(n,['descricao','desc']),impact:firstFrom(n,['impacto']),est:firstFrom(n,['estimativa']),action:firstFrom(n,['acao'])}; }); data.activities={past:acts.map(normalizeRow).filter(r=>(firstFrom(r,['periodo'])).toLowerCase()==='passado').map(r=>({desc:firstFrom(r,['descricao']),resp:firstFrom(r,['responsavel']),status:firstFrom(r,['status'])})),present:acts.map(normalizeRow).filter(r=>(firstFrom(r,['periodo'])).toLowerCase()==='atual').map(r=>({desc:firstFrom(r,['descricao']),resp:firstFrom(r,['responsavel']),status:firstFrom(r,['status'])})),future:acts.map(normalizeRow).filter(r=>(firstFrom(r,['periodo'])).toLowerCase()==='futuro').map(r=>({desc:firstFrom(r,['descricao']),resp:firstFrom(r,['responsavel']),status:firstFrom(r,['status'])}))}; rerender(); const summary = await migrateToSupabase(); if(summary){ alert(`Atualização concluída! Issues: ${summary.issues} | Risks: ${summary.risks}`);} }catch(e){ alert('Erro ao atualizar dados: '+e.message);} finally { if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-rotate mr-2"></i> Atualizar Dados';}} }
-        function rerender(){ clearContainers(); renderHeader(); generateExecutiveSummary(); renderAlerts(); renderMainCards(); renderHealthAndEvolution(); renderTripleConstraint(); renderActivities(); renderTables(); renderMilestones(); }
+        const asList = (value='') => `${value||''}`.split(/\n|;|\|/).map(v=>v.trim()).filter(Boolean);
+        const isClosedStatus = (status='') => /conclu[ií]d|finalizad|encerrad|cancelad|aprovad/i.test(stripDiacritics(status));
+        const escapeHtml = (value='') => `${value??''}`.replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+        const formatDate = (value='') => {
+            if(!value) return '';
+            if(/^\d{4}-\d{2}-\d{2}/.test(value)){ const [y,m,d]=value.slice(0,10).split('-'); return `${d}/${m}/${y}`; }
+            return value;
+        };
+
+        function getCockpitConfig(){ try{return JSON.parse(localStorage.getItem('totvs_cockpit_config')||'{}');}catch{return {};} }
+        function getSourceUrl(key){
+            const cfg=getCockpitConfig();
+            const direct={urlGeral:'stakeholders',urlPendencias:'pendencias',urlRiscos:'riscos',urlGaps:'gaps',urlAtividades:'atividades',urlTap:'tap'};
+            return (cfg?.sources?.[key]?.url || cfg?.sources?.[direct[key]]?.url || localStorage.getItem(key) || '').trim();
+        }
+        function syncUrlsFromCockpitConfig(){ try{ const cfg=getCockpitConfig(); const src=cfg?.sources||{}; const set=(storageKey,sourceKey)=>{ if(src[sourceKey]?.url) localStorage.setItem(storageKey,src[sourceKey].url); }; set('urlGeral','stakeholders'); set('urlPendencias','pendencias'); set('urlRiscos','riscos'); set('urlGaps','gaps'); set('urlAtividades','atividades'); set('urlTap','tap'); }catch(e){ console.warn('Não foi possível sincronizar URLs da tela de configurações.',e); } }
+        document.addEventListener('DOMContentLoaded',()=>{ syncUrlsFromCockpitConfig(); reloadFromConfiguredSources(); });
+
+        const parseCSV = (csv)=>{
+            const rows=[]; let row=[]; let cell=''; let quoted=false;
+            for(let i=0;i<csv.length;i++){
+                const ch=csv[i];
+                if(ch==='"' && csv[i+1]==='"'){ cell+='"'; i++; }
+                else if(ch==='"'){ quoted=!quoted; }
+                else if(ch===',' && !quoted){ row.push(cell.trim()); cell=''; }
+                else if((ch==='\n'||ch==='\r') && !quoted){ if(ch==='\r'&&csv[i+1]==='\n') i++; row.push(cell.trim()); if(row.some(Boolean)) rows.push(row); row=[]; cell=''; }
+                else cell+=ch;
+            }
+            row.push(cell.trim()); if(row.some(Boolean)) rows.push(row);
+            if(!rows.length) return [];
+            const headers=rows[0].map(h=>h.trim());
+            return rows.slice(1).map(cols=>{const o={}; headers.forEach((h,i)=>o[h]=(cols[i]||'').trim()); return o;});
+        };
+        async function fetchCsv(url){ if(!url) return []; const resp=await fetch(url,{cache:'no-store'}); if(!resp.ok) throw new Error('Falha ao carregar '+url); return parseCSV(await resp.text()); }
+        async function extractScriptConstantFromPage(page,constName){
+            const resp=await fetch(page,{cache:'no-store'}); if(!resp.ok) return '';
+            const html=await resp.text();
+            const escaped=constName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+            const backtick=html.match(new RegExp('const\\s+'+escaped+'\\s*=\\s*`([\\s\\S]*?)`;'));
+            if(backtick) return backtick[1];
+            const quoted=html.match(new RegExp("const\\s+"+escaped+"\\s*=\\s*([\"'])(([\\s\\S])*?)\\1\\s*;"));
+            return quoted ? quoted[2] : '';
+        }
+        async function loadCsvFromPage(page,constName,urlConst='CSV_URL'){
+            const csvUrl=await extractScriptConstantFromPage(page,urlConst);
+            if(csvUrl){ try{return await fetchCsv(csvUrl);}catch(e){ console.warn(`Falha ao carregar ${csvUrl}; usando fallback de ${page}.`, e); } }
+            const fallback=await extractScriptConstantFromPage(page,constName);
+            return fallback ? parseCSV(fallback) : [];
+        }
+        const clearContainers = () => ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria','train-list'].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML='';});
+        const getRAGColors=(s)=>({'Saudável':'bg-green-100 text-green-800 border-green-200','green':'bg-green-500','Atenção Leve':'bg-blue-100 text-blue-800 border-blue-200','blue':'bg-blue-500','Atenção Moderada':'bg-orange-100 text-orange-800 border-orange-200','Atenção':'bg-orange-100 text-orange-800 border-orange-200','orange':'bg-orange-500','Crítico':'bg-red-100 text-red-800 border-red-200','Alta':'bg-red-100 text-red-800 border-red-200','red':'bg-red-500','Atrasado':'bg-red-100 text-red-800','Vencido':'bg-red-100 text-red-800','Concluído':'bg-green-100 text-green-800','completed':'bg-green-100 text-green-800','Em andamento':'bg-blue-100 text-blue-800','upcoming':'bg-blue-100 text-blue-800','Não iniciado':'bg-gray-100 text-gray-800','Bloqueado':'bg-red-100 text-red-800','Agendado':'bg-slate-100 text-slate-700','No Prazo':'bg-green-100 text-green-800','Reagendado':'bg-orange-100 text-orange-800','cancelled':'bg-red-100 text-red-800'})[s]||'bg-slate-100 text-slate-800 border-slate-200';
+        function openConfigModal(){document.getElementById('config-modal').classList.remove('hidden');document.getElementById('url-geral').value=getSourceUrl('urlGeral');document.getElementById('url-pendencias').value=getSourceUrl('urlPendencias');document.getElementById('url-riscos').value=getSourceUrl('urlRiscos');document.getElementById('url-gaps').value=getSourceUrl('urlGaps');document.getElementById('url-atividades').value=getSourceUrl('urlAtividades');document.getElementById('supabase-url').value=localStorage.getItem('supabaseUrl')||getCockpitConfig()?.supabase?.url||'';document.getElementById('supabase-secret').value=localStorage.getItem('supabaseSecret')||getCockpitConfig()?.supabase?.secret||getCockpitConfig()?.supabase?.currentKey||'';}
+        function closeConfigModal(){document.getElementById('config-modal').classList.add('hidden');}
+
+        function applyStatusInput(rows){
+            const kv={}; const normalizedRows=rows.map(normalizeRow);
+            normalizedRows.forEach(r=>{ const k=firstFrom(r,['chave','key','campo','indicador','item']); if(k) kv[normalizeKey(k)]=firstFrom(r,['valor','value','conteudo','resposta','input']); });
+            const mit013 = normalizedRows.find(r=>/mit013/i.test(firstFrom(r,['id','codigo','código','mit','referencia','referência','template','origem']))) || normalizedRows[0] || {};
+            data.statusInput={
+                statusGeral:firstFrom(mit013,['status geral','status','rag','situação geral']) || kv['status geral'] || kv.status || 'Sem status',
+                resumo:firstFrom(mit013,['resumo semanal de atividades','resumo semanal','resumo executivo','atividades da semana','input']) || kv['resumo semanal de atividades'] || kv['resumo semanal'] || '',
+                realizado:firstFrom(mit013,['realizado semana passada','realizado','semana passada']) || kv['realizado semana passada'] || '',
+                planejado:firstFrom(mit013,['planejado semana atual','planejado','semana atual']) || kv['planejado semana atual'] || '',
+                futuro:firstFrom(mit013,['proximos passos','próximos passos','futuro']) || kv['proximos passos'] || kv['próximos passos'] || ''
+            };
+            data.projectInfo={...data.projectInfo,statusGeral:data.statusInput.statusGeral,evolutionTotal:+(kv.evolucao_real||kv['evolução real']||0),evolutionPlanned:+(kv.evolucao_planejada||kv['evolução planejada']||0)};
+        }
+        function applyTap(tap={}){
+            if(!tap || !Object.keys(tap).length) return;
+            const cliente=Array.isArray(tap.codCliente)?tap.codCliente.join(', '):(tap.codCliente||tap.cliente||tap.identificacao||'');
+            data.projectInfo={...data.projectInfo,
+                name:tap.nomeProjeto||tap.nome_projeto||data.projectInfo.name||'',
+                client:cliente||data.projectInfo.client||'',
+                period:(tap.dataInicio||tap.data_inicio||tap.dataTap||tap.data_referencia) && (tap.goLive||tap.go_live_previsao) ? `${formatDate(tap.dataInicio||tap.data_inicio||tap.dataTap||tap.data_referencia)} a ${formatDate(tap.goLive||tap.go_live_previsao)}` : formatDate(tap.dataTap||tap.data_referencia||tap.dataInicio||tap.data_inicio||data.projectInfo.period||''),
+                goLive:formatDate(tap.goLive||tap.go_live_previsao||data.projectInfo.goLive||''),
+                pm:tap.coordenador||tap.coordenador_projeto||data.projectInfo.pm||'',
+                pmo:tap.gpp||data.projectInfo.pmo||''
+            };
+        }
+        async function loadTap(){
+            const csvUrl=getSourceUrl('urlTap');
+            if(csvUrl){ const rows=await fetchCsv(csvUrl); if(rows[0]) return rows.map(normalizeRow).map(r=>({nomeProjeto:firstFrom(r,['nome projeto','nome_projeto']),codCliente:firstFrom(r,['cod cliente','cliente','identificacao']),dataInicio:firstFrom(r,['data inicio','data_inicio']),goLive:firstFrom(r,['go live','go_live_previsao']),coordenador:firstFrom(r,['coordenador','coordenador projeto']),gpp:firstFrom(r,['gpp','pmo'])}))[0]; }
+            try{
+                const cfg=getCockpitConfig(); const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||cfg?.supabase?.url||''); const secret=localStorage.getItem('supabaseSecret')||cfg?.supabase?.secret||cfg?.supabase?.currentKey||cfg?.supabase?.serviceRole||'';
+                if(!baseUrl || !secret) return null;
+                const projectCode=cfg?.supabase?.projectCode||'ROSSI-PMO'; const projectsTable=cfg?.supabase?.projectsTable||'projects'; const tapTable=cfg?.supabase?.tapTable||'tap_entries';
+                const headers={apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json'};
+                const projectResp=await fetch(`${baseUrl}/rest/v1/${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`,{headers,cache:'no-store'});
+                if(!projectResp.ok) throw new Error(`Supabase projects -> ${projectResp.status}`);
+                const project=(await projectResp.json())?.[0]; if(!project?.id) return null;
+                const tapResp=await fetch(`${baseUrl}/rest/v1/${tapTable}?project_id=eq.${project.id}&select=payload,created_at&order=created_at.desc.nullslast&limit=1`,{headers,cache:'no-store'});
+                if(!tapResp.ok) throw new Error(`Supabase TAP -> ${tapResp.status}`);
+                return (await tapResp.json())?.[0]?.payload || null;
+            }catch(e){ console.warn('Não foi possível carregar a TAP do Supabase.', e); return null; }
+        }
+        function criticityWeight(value=''){
+            const v=normalizeKey(value);
+            if(/critic|criti|alta|bloquead|urgente|9|8/.test(v)) return 4;
+            if(/media|moderad|6|5|4/.test(v)) return 3;
+            if(/baixa|leve|3|2|1/.test(v)) return 2;
+            return 1;
+        }
+        function exposureWeight(value=''){ const n=parseFloat(`${value}`.replace(',','.')); return Number.isFinite(n)?n:criticityWeight(value); }
+        function applyIssues(rows){
+            data.issues=rows.map(r=>{ const n=normalizeRow(r); const status=firstFrom(n,['status','condição pendência','condicao pendencia'])||'Aberta'; return {id:firstFrom(n,['id']),desc:firstFrom(n,['descrição','descricao','atividade','pendência','pendencia']),resp:firstFrom(n,['responsável','responsavel','resp']),due:firstFrom(n,['data planejada','vencimento','due']),status,criticity:firstFrom(n,['criticidade','prioridade'])}; })
+                .filter(i=>i.desc && !isClosedStatus(i.status))
+                .sort((a,b)=>criticityWeight(b.criticity)-criticityWeight(a.criticity));
+        }
+        function applyRisks(rows){
+            data.risks=rows.map(r=>{ const n=normalizeRow(r); return {id:firstFrom(n,['id','risco']),desc:firstFrom(n,['comentários','comentarios','descrição','descricao','risco']),exp:firstFrom(n,['exposição ocorrência','exposicao ocorrencia','exposição','exposicao','exp']),action:firstFrom(n,['plano de ação','plano de acao','ação','acao','estratégia de resposta ao risco','estrategia de resposta ao risco']),status:firstFrom(n,['status do risco','status'])}; })
+                .filter(r=>r.desc && !isClosedStatus(r.status))
+                .sort((a,b)=>exposureWeight(b.exp)-exposureWeight(a.exp));
+        }
+        function applyGaps(rows){
+            data.gaps=rows.map(r=>{ const n=normalizeRow(r); const status=firstFrom(n,['status','situação','situacao','decisão','decisao']); return {id:firstFrom(n,['id','gap']),desc:firstFrom(n,['gap','descrição','descricao','necessidade']),impact:firstFrom(n,['impacto']),est:firstFrom(n,['estimativa','esforço','esforco','custo']),action:firstFrom(n,['ação requerida','acao requerida','ação','acao','decisão requerida','decisao requerida']),status}; })
+                .filter(g=>g.desc && !isClosedStatus(g.status));
+        }
+        function loadAgenda(){
+            try{ data.trainings=JSON.parse(localStorage.getItem('totvs_agenda')||'[]'); }catch{ data.trainings=[]; }
+        }
+        function applyActivities(activityRows=[]){
+            const rows=activityRows.map(normalizeRow);
+            const byPeriod=(period)=>rows.filter(r=>normalizeKey(firstFrom(r,['periodo','período']))===period).map(r=>({desc:firstFrom(r,['descrição','descricao','atividade']),resp:firstFrom(r,['responsável','responsavel']),status:firstFrom(r,['status'])||'Em andamento'}));
+            data.activities={past:byPeriod('passado'),present:byPeriod('atual'),future:byPeriod('futuro')};
+            if(!data.activities.past.length) data.activities.past=asList(data.statusInput.realizado).map(desc=>({desc,resp:'MIT013',status:'Concluído'}));
+            if(!data.activities.present.length) data.activities.present=asList(data.statusInput.planejado || data.statusInput.resumo).map(desc=>({desc,resp:'MIT013',status:'Em andamento'}));
+            if(!data.activities.future.length) data.activities.future=asList(data.statusInput.futuro).map(desc=>({desc,resp:'MIT013',status:'Planejado'}));
+        }
+        function currentJourneyPhase(){ return localStorage.getItem('totvs_jornada_fase') || 'Iniciação'; }
+        async function reloadFromConfiguredSources(){ const btn=document.getElementById(UPDATE_BUTTON_ID); try{ if(btn){btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando...';}
+                const [geral, pend, risks, gaps, acts, tap]=await Promise.all([
+                    fetchCsv(getSourceUrl('urlGeral')),
+                    getSourceUrl('urlPendencias') ? fetchCsv(getSourceUrl('urlPendencias')) : loadCsvFromPage('pendencias.html','FALLBACK_CSV','CSV_URL'),
+                    getSourceUrl('urlRiscos') ? fetchCsv(getSourceUrl('urlRiscos')) : loadCsvFromPage('riscos.html','RISCOS_CSV_DATA','CSV_URL'),
+                    getSourceUrl('urlGaps') ? fetchCsv(getSourceUrl('urlGaps')) : Promise.resolve([]),
+                    getSourceUrl('urlAtividades') ? fetchCsv(getSourceUrl('urlAtividades')) : Promise.resolve([]),
+                    loadTap()
+                ]);
+                applyStatusInput(geral); applyTap(tap||{}); data.projectInfo.phase=currentJourneyPhase(); applyIssues(pend); applyRisks(risks); applyGaps(gaps); loadAgenda(); applyActivities(acts); rerender();
+                const summary = await migrateToSupabase(); if(summary){ console.info(`Atualização concluída. Issues: ${summary.issues} | Risks: ${summary.risks}`); }
+            }catch(e){ alert('Erro ao atualizar dados: '+e.message); console.error(e);} finally { if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-rotate mr-2"></i> Atualizar Dados';}} }
+        function rerender(){ clearContainers(); renderHeader(); generateExecutiveSummary(); renderAlerts(); renderMainCards(); renderHealthAndEvolution(); renderTripleConstraint(); renderActivities(); renderTables(); renderTrainings(); renderMilestones(); }
         function renderHeader(){ document.getElementById('hdr-projeto').innerText=data.projectInfo.name||'-';document.getElementById('hdr-cliente').innerText=data.projectInfo.client||'-';document.getElementById('hdr-fase').innerText=data.projectInfo.phase||'-';document.getElementById('hdr-periodo').innerText=data.projectInfo.period||'-';document.getElementById('hdr-golive').innerText=data.projectInfo.goLive||'-';document.getElementById('hdr-pm').innerText=`${data.projectInfo.pm||'-'} / ${data.projectInfo.pmo||'-'}`;document.getElementById('hdr-status').innerText=data.projectInfo.statusGeral||'-';}
-        function generateExecutiveSummary(){document.getElementById('executive-summary').innerHTML=`Dados carregados das planilhas configuradas. Evolução real: <strong>${data.projectInfo.evolutionTotal||0}%</strong> / Planejada: <strong>${data.projectInfo.evolutionPlanned||0}%</strong>.`;}
+        function generateExecutiveSummary(){ const resumo=data.statusInput.resumo || `Dados carregados das fontes oficiais. Evolução real: <strong>${data.projectInfo.evolutionTotal||0}%</strong> / Planejada: <strong>${data.projectInfo.evolutionPlanned||0}%</strong>.`; document.getElementById('executive-summary').innerHTML=escapeHtml(resumo).replace(/\n/g,'<br>'); }
         function renderAlerts(){}
         function renderMainCards(){}
         function renderHealthAndEvolution(){}
         function renderTripleConstraint(){}
-        function renderActivities(){ const renderList=(acts,id)=>{const el=document.getElementById(id);acts.forEach(a=>el.innerHTML+=`<div class="bg-white border border-slate-200 p-2.5 rounded shadow-sm text-sm border-l-4 border-l-slate-400 fade-in"><p class="font-semibold text-slate-800">${a.desc}</p><div class="flex justify-between items-center mt-2"><span class="text-xs text-slate-500"><i class="fa-regular fa-user mr-1"></i>${a.resp}</span><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(a.status)}">${a.status}</span></div></div>`)};renderList(data.activities.past,'act-past');renderList(data.activities.present,'act-present');renderList(data.activities.future,'act-future'); }
-        function renderTables(){document.getElementById('count-issues').innerText=`${data.issues.length} Críticas`;const tI=document.getElementById('table-issues');data.issues.forEach(i=>tI.innerHTML+=`<tr><td class="p-2">${i.id}</td><td class="p-2">${i.desc}</td><td class="p-2">${i.resp}</td><td class="p-2">${i.due}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${i.status}</span></td></tr>`);document.getElementById('count-risks').innerText=`${data.risks.length} Ações Requeridas`;const tR=document.getElementById('table-risks');data.risks.forEach(r=>tR.innerHTML+=`<tr><td class="p-2">${r.id} - ${r.desc}</td><td class="p-2">${r.exp}</td><td class="p-2">${r.action}</td></tr>`);const tG=document.getElementById('table-gaps');data.gaps.forEach(g=>tG.innerHTML+=`<tr><td class="p-2">${g.id} - ${g.desc}</td><td class="p-2">${g.impact}</td><td class="p-2">${g.est}</td><td class="p-2">${g.action}</td></tr>`);}
+        function renderActivities(){ const renderList=(acts,id)=>{const el=document.getElementById(id); if(!acts.length){el.innerHTML='<p class="text-xs text-slate-400 italic">Sem registros para este período.</p>'; return;} acts.forEach(a=>el.innerHTML+=`<div class="bg-white border border-slate-200 p-2.5 rounded shadow-sm text-sm border-l-4 border-l-slate-400 fade-in"><p class="font-semibold text-slate-800">${escapeHtml(a.desc)}</p><div class="flex justify-between items-center mt-2"><span class="text-xs text-slate-500"><i class="fa-regular fa-user mr-1"></i>${escapeHtml(a.resp||'-')}</span><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(a.status)}">${escapeHtml(a.status||'-')}</span></div></div>`)};renderList(data.activities.past,'act-past');renderList(data.activities.present,'act-present');renderList(data.activities.future,'act-future'); }
+        function renderTables(){document.getElementById('count-issues').innerText=`${data.issues.length} Ativas`;const tI=document.getElementById('table-issues');data.issues.slice(0,8).forEach(i=>tI.innerHTML+=`<tr><td class="p-2">${escapeHtml(i.id)}</td><td class="p-2"><span class="font-medium">${escapeHtml(i.desc)}</span><br><span class="text-[10px] text-slate-400">Criticidade: ${escapeHtml(i.criticity||'-')}</span></td><td class="p-2">${escapeHtml(i.resp)}</td><td class="p-2">${escapeHtml(i.due)}</td><td class="p-2"><span class="text-[10px] px-1.5 py-0.5 rounded ${getRAGColors(i.status)}">${escapeHtml(i.status)}</span></td></tr>`);document.getElementById('count-risks').innerText=`${data.risks.length} Ações Requeridas`;const tR=document.getElementById('table-risks');data.risks.slice(0,8).forEach(r=>tR.innerHTML+=`<tr><td class="p-2">${escapeHtml(r.id)} - ${escapeHtml(r.desc)}</td><td class="p-2">${escapeHtml(r.exp)}</td><td class="p-2">${escapeHtml(r.action)}</td></tr>`);const tG=document.getElementById('table-gaps');data.gaps.slice(0,8).forEach(g=>tG.innerHTML+=`<tr><td class="p-2">${escapeHtml(g.id)} - ${escapeHtml(g.desc)}</td><td class="p-2">${escapeHtml(g.impact)}</td><td class="p-2">${escapeHtml(g.est)}</td><td class="p-2">${escapeHtml(g.action||g.status)}</td></tr>`);}
+        function renderTrainings(){
+            const total=data.trainings.length; const completed=data.trainings.filter(a=>/completed|conclu/i.test(a.status||'')).length; const rescheduled=data.trainings.filter(a=>/reagend/i.test(a.status||'')).length; const adherence=total?Math.round((completed/total)*100):0;
+            document.getElementById('train-adh').innerText=`${adherence}%`; document.getElementById('train-progress-bar').style.width=`${adherence}%`; document.getElementById('train-previstos').innerText=total; document.getElementById('train-realizados').innerText=completed; document.getElementById('train-reprogramados').innerText=rescheduled;
+            const list=document.getElementById('train-list'); const upcoming=data.trainings.slice().sort((a,b)=>`${a.date||''}`.localeCompare(`${b.date||''}`)).slice(0,3);
+            list.innerHTML=upcoming.length?upcoming.map(a=>`<div class="border-t border-slate-100 pt-2"><p class="font-semibold text-slate-700">${escapeHtml(a.title||'Treinamento')}</p><p>${escapeHtml(a.system||'-')} • ${escapeHtml(a.instructor||'-')}</p><p class="text-slate-400">${escapeHtml(formatDate(a.date||''))} ${escapeHtml(a.time||'')}</p></div>`).join(''):'<p class="text-slate-400 italic">Sem agenda de capacitação registrada.</p>';
+        }
         
 
         function normalizeSupabaseBaseUrl(raw=''){
@@ -459,8 +584,9 @@
         }
 
         async function supabaseRequest(path, method='GET', body){
-            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||'');
-            const secret=localStorage.getItem('supabaseSecret');
+            const cfg=getCockpitConfig();
+            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||cfg?.supabase?.url||'');
+            const secret=localStorage.getItem('supabaseSecret')||cfg?.supabase?.secret||cfg?.supabase?.currentKey||cfg?.supabase?.serviceRole||'';
             if(!baseUrl || !secret) return null;
             const res=await fetch(`${baseUrl}/rest/v1/${path}`,{method,headers:{apikey:secret,Authorization:`Bearer ${secret}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body: body?JSON.stringify(body):undefined});
             if(!res.ok) throw new Error(`Supabase ${method} ${path} -> ${res.status}`);
@@ -468,8 +594,9 @@
         }
 
         async function migrateToSupabase(){
-            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||'');
-            const secret=localStorage.getItem('supabaseSecret');
+            const cfg=getCockpitConfig();
+            const baseUrl=normalizeSupabaseBaseUrl(localStorage.getItem('supabaseUrl')||cfg?.supabase?.url||'');
+            const secret=localStorage.getItem('supabaseSecret')||cfg?.supabase?.secret||cfg?.supabase?.currentKey||cfg?.supabase?.serviceRole||'';
             if(!baseUrl || !secret) return null;
             const projectCode='ROSSI-PMO';
             const projectName=data.projectInfo.name||'Rossi Supermercados';
