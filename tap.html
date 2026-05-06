@@ -527,7 +527,7 @@
     <script>
         let taps = [];
         let tapProjectContext = { code: null, id: null };
-        const TAP_BUILD_VERSION = 'tap-2026-05-05-v3';
+        const TAP_BUILD_VERSION = 'tap-2026-05-05-v4';
         let lastErrorLog = 'Nenhum erro detalhado disponível.';
         let currentEditId = null;
         let selectedClientsList = [];
@@ -1079,7 +1079,11 @@
                     throw e;
                 }
             }
-            throw buildTapSupabaseError('Supabase respondeu, mas nenhuma credencial autorizou a operação.', {
+            const hasRequestError = attempts.some(attempt => !/:\s*(401|403)\b/.test(attempt));
+            const message = hasRequestError
+                ? 'Supabase recusou a operação. Confira os detalhes técnicos retornados pela API.'
+                : 'Supabase respondeu, mas nenhuma credencial autorizou a operação.';
+            throw buildTapSupabaseError(message, {
                 version: TAP_BUILD_VERSION,
                 endpoint,
                 schema,
@@ -1163,7 +1167,7 @@
                     return;
                 }
                 const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id,payload,updated_at,created_at&order=updated_at.desc.nullslast,created_at.desc.nullslast`);
+                const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id,payload,created_at&order=created_at.desc.nullslast`);
                 taps = rows.map((r) => {
                     const base = (r.payload && typeof r.payload === 'object') ? r.payload : {};
                     return { ...base, id: String(r.id), _dbId: r.id };
