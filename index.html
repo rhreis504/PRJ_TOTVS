@@ -2194,32 +2194,42 @@ ${hints}`);
                 if(labelField) labelField.focus();
             }, 0);
         }
-        function applyTapProjectSelection(selectedId) {
-            const selectedProject = config.projects.find(p => p.id === selectedId);
+        function applyTapProjectSelection(selectedId, tapProject = {}) {
+            const normalizedId = `${selectedId || ''}`.trim();
+            if(!normalizedId) return;
+            const projectName = `${tapProject.label || tapProject.nomeProjeto || normalizedId}`.trim();
+            const selectedProject = config.projects.find(p => p.id === normalizedId);
             if(!selectedProject) {
-                config.projects.push({ id: selectedId, name: selectedId, sources: defaultSources() });
+                config.projects.push({ id: normalizedId, name: projectName, sources: defaultSources(), tapEntryId: tapProject.tapEntryId || null });
+            } else {
+                selectedProject.name = projectName;
+                selectedProject.tapEntryId = tapProject.tapEntryId || selectedProject.tapEntryId || null;
             }
-            config.activeProjectId = selectedId;
-            config.selectedProjectIds = [selectedId];
+            config.activeProjectId = normalizedId;
+            config.selectedProjectIds = [normalizedId];
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
         }
+        function setTapProjectSelectorMessage(select, message, isError = false) {
+            select.innerHTML = `<option value="" disabled selected>${escapeHtml(message)}</option>`;
+            select.disabled = true;
+            select.title = isError ? message : '';
+        }
         function renderTapProjectSelectorOptions(select, tapProjects = []) {
-            const fallbackProjects = config.projects.map(project => ({ id: project.id, label: project.name, source: 'config' }));
-            const projects = tapProjects.length ? tapProjects : fallbackProjects;
-            select.innerHTML = projects.map(project => `<option value="${project.id}">${escapeHtml(project.label || project.id)}</option>`).join('');
-            if(!projects.some(project => project.id === config.activeProjectId) && projects[0]?.id) {
-                applyTapProjectSelection(projects[0].id);
+            if(!tapProjects.length) {
+                setTapProjectSelectorMessage(select, 'Nenhuma TAP encontrada em TAP_ENTRIES');
+                return;
+            }
+            select.disabled = false;
+            select.title = '';
+            select.innerHTML = tapProjects.map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.label || project.id)}</option>`).join('');
+            if(!tapProjects.some(project => project.id === config.activeProjectId) && tapProjects[0]?.id) {
+                applyTapProjectSelection(tapProjects[0].id, tapProjects[0]);
             }
             select.value = config.activeProjectId;
             select.onchange = async () => {
                 const selectedId = select.value;
-                const selectedTapProject = projects.find(project => project.id === selectedId);
-                applyTapProjectSelection(selectedId);
-                if(selectedTapProject?.label) {
-                    const localProject = config.projects.find(p => p.id === selectedId);
-                    if(localProject) localProject.name = selectedTapProject.label;
-                    localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
-                }
+                const selectedTapProject = tapProjects.find(project => project.id === selectedId) || {};
+                applyTapProjectSelection(selectedId, selectedTapProject);
                 showToast('Atualizando contexto da TAP...');
                 generateConfigRows();
                 await loadFocusedProjects();
@@ -2227,33 +2237,29 @@ ${hints}`);
         }
         async function loadTapProjectSelectorOptions() {
             const runtime = getSupabaseRuntimeConfig();
-            if(!runtime.baseUrl || !runtime.credential) return [];
+            if(!runtime.baseUrl) throw new Error('URL do Supabase não configurada.');
+            if(!runtime.credential) throw new Error('Chave Supabase não configurada para ler TAP_ENTRIES.');
             const tapTable = encodeURIComponent(runtime.tapTable || 'tap_entries');
-            const projectsTable = encodeURIComponent(runtime.projectsTable || 'projects');
-            const [tapRows, projects] = await Promise.all([
-                supabaseRequest(`${tapTable}?select=id,project_id,payload,nome_projeto,created_at&order=created_at.desc.nullslast&limit=500`),
-                supabaseRequest(`${projectsTable}?select=id,code,name&limit=500`).catch(() => [])
-            ]);
-            const projectById = Object.fromEntries((projects || []).map(project => [project.id, project]));
+            const tapRows = await supabaseRequest(`${tapTable}?select=id,project_id,payload,nome_projeto,created_at&order=created_at.desc.nullslast&limit=500`);
             const byProject = new Map();
             (tapRows || []).forEach(row => {
                 const merged = mergeTapEntryRow(row);
-                const project = projectById[row.project_id] || {};
-                const code = project.code || row.project_id || row.id;
+                const projectId = `${row.project_id || row.id || ''}`.trim();
                 const tapName = firstTapValue(merged, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']);
-                const label = tapName || project.name || code;
-                if(!code || byProject.has(code)) return;
-                byProject.set(code, { id: code, label, tapEntryId: row.id, projectId: row.project_id, source: 'tap_entries' });
+                const label = tapName || projectId;
+                if(!projectId || byProject.has(projectId)) return;
+                byProject.set(projectId, { id: projectId, label, tapEntryId: row.id, projectId: row.project_id, source: 'tap_entries' });
             });
             return [...byProject.values()];
         }
         function populateTapProjectSelector(select) {
-            renderTapProjectSelectorOptions(select);
+            setTapProjectSelectorMessage(select, 'Carregando TAP_ENTRIES...');
             loadTapProjectSelectorOptions()
-                .then(tapProjects => {
-                    if(tapProjects.length) renderTapProjectSelectorOptions(select, tapProjects);
-                })
-                .catch(error => console.warn('Falha ao carregar projetos da tabela TAP_ENTRIES.', error));
+                .then(tapProjects => renderTapProjectSelectorOptions(select, tapProjects))
+                .catch(error => {
+                    console.warn('Falha ao carregar projetos da tabela TAP_ENTRIES.', error);
+                    setTapProjectSelectorMessage(select, 'Erro ao carregar TAP_ENTRIES', true);
+                });
         }
 
         function generateConfigRows() {
