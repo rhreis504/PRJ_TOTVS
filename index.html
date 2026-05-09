@@ -511,6 +511,27 @@
         }
         .config-source-card:hover { border-color: #cbd5e1; box-shadow: var(--shadow-md); }
         .config-source-card h4 { font-size: 14px; font-weight: 700; color: var(--totvs-brand); text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .tap-project-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .tap-project-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow-sm);
+        }
+        .tap-project-card:hover { border-color: var(--totvs-primary); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+        .tap-project-card.active { border-color: var(--totvs-primary); background: rgba(0, 161, 228, 0.08); box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.12); }
+        .tap-project-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; margin-bottom: 14px; }
+        .tap-project-card h4 { margin: 0; color: var(--totvs-brand); font-size: 15px; line-height: 1.3; }
+        .tap-project-card .badge { white-space: nowrap; }
+        .tap-project-meta { display:flex; flex-direction:column; gap: 8px; color: var(--text-muted); font-size: 12px; }
+        .tap-project-meta strong { color: var(--text-main); font-size: 12px; }
+        .tap-project-id-row { display:flex; align-items:center; justify-content:space-between; gap: 8px; background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 8px 10px; }
+        .tap-project-id-row code { color: var(--totvs-brand); font-size: 11px; word-break: break-all; }
+        .tap-copy-btn { border: none; background: transparent; color: var(--totvs-primary); cursor: pointer; padding: 4px; border-radius: 6px; display: inline-flex; }
+        .tap-copy-btn:hover { background: rgba(0, 161, 228, 0.1); }
         .config-grid { display: grid; grid-template-columns: 2fr 1fr auto; gap: 20px; align-items: end; }
         .config-input-group { display: flex; flex-direction: column; gap: 8px; }
         .config-input-group label { font-size: 12px; font-weight: 600; color: var(--text-main); }
@@ -817,6 +838,10 @@
                     <h3 class="section-title" style="margin: 0;"><i data-lucide="database" size="20"></i> Fontes de Dados (Planilhas Google/CSV)</h3>
                     <button class="btn-ghost" onclick="addConfigSource()"><i data-lucide="plus-circle" size="16"></i> Adicionar Fonte de Dados</button>
                 </div>
+
+                <div id="tap-project-cards-container" class="tap-project-cards-grid" aria-live="polite">
+                    <!-- Cards dos projetos cadastrados na TAP -->
+                </div>
                 
                 <div id="config-rows-container">
                     <!-- Cards dinâmicos aqui -->
@@ -1044,6 +1069,7 @@
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
         let lastSyncStatus = {};
         let lastFetchErrors = {};
+        let cachedTapProjects = [];
 
         let roadmaps = [];
         let agenda = [];
@@ -2201,7 +2227,7 @@ ${hints}`);
             return tapName || tapIdentifier || `${row.id || row.project_id || 'TAP sem identificação'}`;
         }
         function applyTapProjectSelection(selectedId, tapProject = {}) {
-            const tapEntryId = `${tapProject.tapEntryId || selectedId || ''}`.trim();
+            const tapEntryId = `${tapProject.tapEntryId || tapProject.id || ''}`.trim();
             const projectId = `${tapProject.projectId || tapProject.project_id || selectedId || ''}`.trim();
             if(!projectId) return;
             const projectName = `${tapProject.label || tapProject.nomeProjeto || tapProject.nome_projeto || projectId}`.trim();
@@ -2223,6 +2249,7 @@ ${hints}`);
             select.title = isError ? message : '';
         }
         function renderTapProjectSelectorOptions(select, tapProjects = []) {
+            cachedTapProjects = tapProjects;
             if(!tapProjects.length) {
                 setTapProjectSelectorMessage(select, 'Nenhuma TAP encontrada em tap_entries');
                 return;
@@ -2234,16 +2261,89 @@ ${hints}`);
             let selectedTapProject = tapProjects.find(project => project.tapEntryId === config.activeTapEntryId)
                 || tapProjects.find(project => project.projectId === config.activeProjectId)
                 || tapProjects[0];
+            const previousActiveProjectId = config.activeProjectId;
             if(selectedTapProject) applyTapProjectSelection(selectedTapProject.tapEntryId || selectedTapProject.id, selectedTapProject);
+            renderTapProjectCards(tapProjects);
+            if(previousActiveProjectId !== config.activeProjectId && !document.getElementById('page-config')?.classList.contains('hidden')) {
+                generateConfigRows({ skipTapRefresh: true });
+            }
             select.value = selectedTapProject?.tapEntryId || selectedTapProject?.id || '';
             select.onchange = async () => {
                 const selectedId = select.value;
                 const selectedTapProject = tapProjects.find(project => (project.tapEntryId || project.id) === selectedId) || {};
                 applyTapProjectSelection(selectedId, selectedTapProject);
                 showToast('Atualizando contexto da TAP...');
-                generateConfigRows();
+                generateConfigRows({ skipTapRefresh: true });
                 await loadFocusedProjects();
             };
+        }
+        function getTapProjectCardList(tapProjects = cachedTapProjects) {
+            const seenProjectIds = new Set();
+            const fromTap = (tapProjects || []).map(project => ({
+                tapEntryId: project.tapEntryId || project.id || '',
+                projectId: project.projectId || project.project_id || '',
+                label: project.label || project.nomeProjeto || project.nome_projeto || project.projectId || project.id || 'Projeto sem nome',
+                source: project.source || 'tap_entries'
+            })).filter(project => {
+                if(!project.projectId || seenProjectIds.has(project.projectId)) return false;
+                seenProjectIds.add(project.projectId);
+                return true;
+            });
+            if(fromTap.length) return fromTap;
+            return (config.projects || []).map(project => ({
+                tapEntryId: project.tapEntryId || '',
+                projectId: project.id,
+                label: project.name || project.id,
+                source: project.tapEntryId ? 'tap_entries' : 'configuração local'
+            })).filter(project => project.projectId);
+        }
+        function renderTapProjectCards(tapProjects = cachedTapProjects) {
+            const container = document.getElementById('tap-project-cards-container');
+            if(!container) return;
+            const projects = getTapProjectCardList(tapProjects);
+            if(!projects.length) {
+                container.innerHTML = `<div class="card" style="grid-column: 1 / -1; margin-bottom: 0;">Nenhum projeto TAP disponível para vincular às fontes de dados.</div>`;
+                lucide.createIcons();
+                return;
+            }
+            container.innerHTML = projects.map(project => {
+                const selected = project.projectId === config.activeProjectId;
+                return `
+                    <article class="tap-project-card ${selected ? 'active' : ''}" onclick="selectTapProjectCard('${escapeHtml(project.tapEntryId || project.projectId)}')">
+                        <div class="tap-project-card-header">
+                            <h4>${escapeHtml(project.label)}</h4>
+                            <span class="badge">${selected ? 'Selecionado' : 'TAP'}</span>
+                        </div>
+                        <div class="tap-project-meta">
+                            <span><strong>Nome do projeto</strong><br>${escapeHtml(project.label)}</span>
+                            <div class="tap-project-id-row">
+                                <span><strong>project_id</strong><br><code>${escapeHtml(project.projectId)}</code></span>
+                                <button class="tap-copy-btn" type="button" title="Copiar project_id" onclick="event.stopPropagation(); copyProjectId('${escapeHtml(project.projectId)}')"><i data-lucide="copy" size="16"></i></button>
+                            </div>
+                            <small>Referência: ${escapeHtml(project.source || 'tap_entries')}${project.tapEntryId ? ` • TAP ${escapeHtml(project.tapEntryId)}` : ''}</small>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+        async function selectTapProjectCard(selectedId) {
+            const projects = getTapProjectCardList();
+            const selectedProject = projects.find(project => (project.tapEntryId || project.projectId) === selectedId || project.projectId === selectedId) || {};
+            applyTapProjectSelection(selectedId, selectedProject);
+            const sidebarSelect = document.getElementById('sidebar-project-select');
+            if(sidebarSelect && selectedProject.tapEntryId) sidebarSelect.value = selectedProject.tapEntryId;
+            showToast('Projeto TAP vinculado às fontes de dados.');
+            generateConfigRows({ skipTapRefresh: true });
+            await loadFocusedProjects();
+        }
+        async function copyProjectId(projectId) {
+            try {
+                await navigator.clipboard.writeText(projectId);
+                showToast('project_id copiado para a área de transferência.');
+            } catch (_e) {
+                window.prompt('Copie o project_id:', projectId);
+            }
         }
         async function loadTapProjectSelectorOptions() {
             const runtime = getSupabaseRuntimeConfig();
@@ -2275,11 +2375,12 @@ ${hints}`);
                 .then(tapProjects => renderTapProjectSelectorOptions(select, tapProjects))
                 .catch(error => {
                     console.warn('Falha ao carregar TAPs da tabela tap_entries.', error);
+                    renderTapProjectCards();
                     setTapProjectSelectorMessage(select, 'Erro ao carregar tap_entries', true);
                 });
         }
 
-        function generateConfigRows() {
+        function generateConfigRows(options = {}) {
             const container = document.getElementById('config-rows-container');
             const intervalInput = document.getElementById('update-interval');
             if(intervalInput) intervalInput.value = config.interval;
@@ -2298,8 +2399,10 @@ ${hints}`);
             }
 
             const sidebarSelect = document.getElementById('sidebar-project-select');
-            if(sidebarSelect) {
+            if(sidebarSelect && !options.skipTapRefresh) {
                 populateTapProjectSelector(sidebarSelect);
+            } else {
+                renderTapProjectCards();
             }
 
             const supaUrl = document.getElementById('supabase-url'); if(supaUrl) supaUrl.value = config.supabase?.url || '';
@@ -2309,8 +2412,20 @@ ${hints}`);
                     <h4><i data-lucide="${it.icon || 'link-2'}" size="18"></i> ORIGEM DE DADOS: ${it.label}</h4>
                     <div class="config-grid">
                         <div class="config-input-group">
+                            <label>Projeto vinculado (nome)</label>
+                            <input type="text" value="${escapeHtml(active.name || active.id || '')}" readonly>
+                        </div>
+                        <div class="config-input-group">
+                            <label>Project ID vinculado (tap_entries)</label>
+                            <input type="text" value="${escapeHtml(active.id || '')}" readonly>
+                        </div>
+                        <div class="config-input-group">
+                            <label>Ação rápida</label>
+                            <button class="btn-ghost" type="button" onclick="copyProjectId('${escapeHtml(active.id || '')}')"><i data-lucide="copy" size="16"></i> Copiar Project ID</button>
+                        </div>
+                        <div class="config-input-group">
                             <label>Identificação / Rótulo</label>
-                            <input type="text" id="label-${k}" value="${it.label || ''}" placeholder="Ex: Financeiro">
+                            <input type="text" id="label-${k}" value="${escapeHtml(it.label || '')}" placeholder="Ex: Financeiro">
                         </div>
                         <div class="config-input-group">
                             <label>Protocolo de Leitura</label>
@@ -2321,15 +2436,15 @@ ${hints}`);
                         </div>
                         <div class="config-input-group">
                             <label>Endereço de Rede (URL)</label>
-                            <input type="text" id="url-${k}" value="${it.url || ''}" placeholder="https://docs.google.com/spreadsheets/d/...">
+                            <input type="text" id="url-${k}" value="${escapeHtml(it.url || '')}" placeholder="https://docs.google.com/spreadsheets/d/...">
                         </div>
                         <div class="config-input-group">
                             <label>Nome da Aba (Opcional)</label>
-                            <input type="text" id="sheet-${k}" value="${it.sheet || ''}" placeholder="Ex: Aba1">
+                            <input type="text" id="sheet-${k}" value="${escapeHtml(it.sheet || '')}" placeholder="Ex: Aba1">
                         </div>
                         <div class="config-input-group">
                             <label>Limites de Matriz (Opcional)</label>
-                            <input type="text" id="range-${k}" value="${it.range || ''}" placeholder="Ex: A1:Z500">
+                            <input type="text" id="range-${k}" value="${escapeHtml(it.range || '')}" placeholder="Ex: A1:Z500">
                         </div>
                         <label class="config-checkbox">
                             <input type="checkbox" id="header-${k}" ${it.hasHeader ? 'checked' : ''}>
