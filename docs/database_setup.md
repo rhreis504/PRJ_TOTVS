@@ -83,3 +83,36 @@ Se esse teste falhar, geralmente faltou executar a migration `20260504_000002_pr
 - [ ] Endpoint `/rest/v1/projects` responde
 - [ ] Endpoint `/rest/v1/source_rows` responde
 - [ ] Script de importação rodou sem erro
+
+---
+
+## 7) Implantar esta estrutura Supabase em outra Main/projeto
+
+Para replicar a conexão completa em outro projeto, use o implantador versionado neste repositório:
+
+```bash
+node scripts/install_supabase_stack.mjs /caminho/do/outro-projeto --patch-index --force
+```
+
+O script copia automaticamente:
+
+- `supabase/migrations/*.sql`
+- `scripts/import_spreadsheets_to_supabase.mjs`
+- `.env.supabase.example`
+- `supabase/setup/supabase-runtime.js`
+- `supabase/setup/supabase-configurador.html`
+- `docs/implantacao_supabase.md`
+
+Use `--patch-index` quando o outro projeto tiver `index.html` e você quiser que o script tente adicionar o item **Supabase** no menu de configurações. Se o layout for diferente, copie manualmente o conteúdo de `supabase/setup/supabase-configurador.html` para a tela **Configurações** do projeto de destino.
+
+Depois da cópia, entre no projeto de destino e siga o `docs/implantacao_supabase.md` criado pelo script.
+
+## 8) Texto pronto para colar no Codex de outro projeto
+
+Se você não quiser usar o instalador Node e preferir copiar um texto diretamente para o Codex do outro projeto, use o arquivo:
+
+```text
+docs/codex_supabase_implantacao_instrucoes.txt
+```
+
+Ele contém os comandos completos para criar `supabase/migrations`, `scripts/import_spreadsheets_to_supabase.mjs`, `.env.supabase.example`, `docs/implantacao_supabase.md` e orientar a inclusão dos campos Supabase no menu **Configurações**.

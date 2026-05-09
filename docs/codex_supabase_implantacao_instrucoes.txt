@@ -1,0 +1,681 @@
+INSTRUÇÕES PARA COLAR NO CODEX DO OUTRO PROJETO - IMPLANTAÇÃO SUPABASE ROSSI/TOTVS
+======================================================================================
+
+OBJETIVO
+- Criar no outro projeto a mesma estrutura Supabase deste Cockpit.
+- Criar a pasta supabase/migrations com todas as migrations.
+- Criar o script de importação de planilhas para o Supabase.
+- Criar um exemplo de .env e um guia de implantação.
+- Orientar o Codex a colocar no menu Configurações os campos de conexão Supabase.
+
+TEXTO PARA COLAR NO CODEX DO OUTRO PROJETO
+--------------------------------------------------------------------------------------
+
+Você está em outro projeto. Execute exatamente as etapas abaixo para implantar a conexão completa com Supabase do Cockpit Rossi/TOTVS.
+
+1) Primeiro, inspecione o projeto sem usar ls -R/grep -R:
+
+```bash
+pwd
+find .. -name AGENTS.md -print
+rg --files -g '!node_modules' -g '!vendor' | sed -n '1,200p'
+rg -n "Configurações|Configuracoes|settings|menu|nav|sidebar|Supabase|supabase" . -g '!node_modules' -g '!vendor'
+```
+
+2) Crie a estrutura Supabase, as migrations, o importador, o .env de exemplo e a documentação:
+
+```bash
+mkdir -p supabase/migrations supabase/setup scripts docs
+cat > supabase/migrations/20260502_000001_initial_schema.sql <<'SQL'
+-- Rossi Supermercados PMO - Initial relational schema for Supabase/PostgreSQL
+create extension if not exists pgcrypto;
+
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  code text unique,
+  name text not null,
+  client_name text,
+  manager_totvs text,
+  manager_client text,
+  planned_progress numeric(5,2) default 0,
+  actual_progress numeric(5,2) default 0,
+  status text default 'ativo',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.spreadsheet_sources (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  source_type text not null check (source_type in ('geral','pendencias','riscos','gaps','atividades','treinamentos')),
+  source_url text not null,
+  is_active boolean not null default true,
+  last_sync_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(project_id, source_type)
+);
+
+create table if not exists public.issues (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  external_id text,
+  area text,
+  category text,
+  stage text,
+  sprint text,
+  activity text,
+  description text not null,
+  owner text,
+  client_owner text,
+  criticality text,
+  identified_at date,
+  planned_at date,
+  completed_at date,
+  completion_pct numeric(5,2) default 0,
+  status text not null default 'aberta',
+  condition text,
+  source_row_hash text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(project_id, external_id)
+);
+
+create table if not exists public.risks (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  external_id text,
+  identified_at date,
+  process text,
+  owner text,
+  status text,
+  probability int check (probability between 1 and 5),
+  impact int check (impact between 1 and 5),
+  exposure int generated always as (coalesce(probability,0) * coalesce(impact,0)) stored,
+  strategy text,
+  mitigation_plan text,
+  contingency_plan text,
+  trigger_event text,
+  category text,
+  description text not null,
+  life_cycle_status text,
+  analysis_status text,
+  source_row_hash text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(project_id, external_id)
+);
+
+create table if not exists public.gaps (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  external_id text,
+  description text not null,
+  impact text,
+  estimate text,
+  action text,
+  owner text,
+  status text,
+  due_date date,
+  source_row_hash text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(project_id, external_id)
+);
+
+create table if not exists public.activities (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  period text check (period in ('passado','atual','futuro')),
+  description text not null,
+  owner text,
+  status text,
+  reference_date date,
+  source_row_hash text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.import_jobs (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  source_id uuid references public.spreadsheet_sources(id) on delete set null,
+  source_type text,
+  status text not null check (status in ('running','success','failed')),
+  rows_read int default 0,
+  rows_upserted int default 0,
+  error_message text,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz
+);
+
+create index if not exists idx_issues_project_status on public.issues(project_id, status);
+create index if not exists idx_risks_project_exposure on public.risks(project_id, exposure desc);
+create index if not exists idx_gaps_project_status on public.gaps(project_id, status);
+create index if not exists idx_activities_project_period on public.activities(project_id, period);
+
+create or replace function public.touch_updated_at() returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_projects_updated on public.projects;
+drop trigger if exists trg_issues_updated on public.issues;
+drop trigger if exists trg_risks_updated on public.risks;
+drop trigger if exists trg_gaps_updated on public.gaps;
+drop trigger if exists trg_activities_updated on public.activities;
+
+create trigger trg_projects_updated before update on public.projects for each row execute function public.touch_updated_at();
+create trigger trg_issues_updated before update on public.issues for each row execute function public.touch_updated_at();
+create trigger trg_risks_updated before update on public.risks for each row execute function public.touch_updated_at();
+create trigger trg_gaps_updated before update on public.gaps for each row execute function public.touch_updated_at();
+create trigger trg_activities_updated before update on public.activities for each row execute function public.touch_updated_at();
+
+create or replace view public.v_project_health as
+select
+  p.id as project_id,
+  p.name as project_name,
+  p.actual_progress,
+  p.planned_progress,
+  count(i.*) filter (where i.status not in ('concluida','fechada')) as open_issues,
+  count(r.*) filter (where r.life_cycle_status not in ('encerrado','fechado')) as open_risks,
+  coalesce(max(r.exposure),0) as max_risk_exposure,
+  count(g.*) filter (where g.status not in ('concluido','fechado')) as open_gaps
+from public.projects p
+left join public.issues i on i.project_id = p.id
+left join public.risks r on r.project_id = p.id
+left join public.gaps g on g.project_id = p.id
+group by p.id;
+SQL
+
+cat > supabase/migrations/20260504_000002_project_sync_and_tap.sql <<'SQL'
+alter table public.spreadsheet_sources drop constraint if exists spreadsheet_sources_source_type_check;
+alter table public.spreadsheet_sources add constraint spreadsheet_sources_source_type_check check (source_type in ('geral','pendencias','riscos','gaps','atividades','treinamentos','stakeholders','tap'));
+
+create table if not exists public.source_rows (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  source_type text not null,
+  row_data jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.tap_entries (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  identificacao text,
+  data_referencia text,
+  nome_projeto text,
+  coordenador_projeto text,
+  esn text,
+  criticidade_cliente text,
+  drive text,
+  cod_cliente text,
+  gpp text,
+  produto text,
+  arquiteto text,
+  criticidade_totvs text,
+  valor_projeto text,
+  margem_venda_percentual text,
+  margem_venda_valor text,
+  mrr_recorrente_mensal text,
+  mrr_total_contratados text,
+  psa_planejado text,
+  diferenca_psa_projeto text,
+  receita_atual text,
+  margem_atual_percentual text,
+  margem_atual_valor text,
+  investimento_perdas text,
+  investimento_comercial text,
+  investimento_erro_produto text,
+  projeto_em_perda text,
+  data_inicio text,
+  go_live_previsao text,
+  duracao text,
+  pos_producao_meses text,
+  encerramento text,
+  descricao_escopo text,
+  observacoes text,
+  payload jsonb,
+  created_at timestamptz not null default now()
+);
+SQL
+
+cat > supabase/migrations/20260505_000003_api_access_and_rpc.sql <<'SQL'
+-- API access helpers for dashboard synchronization
+
+-- Ensure RLS does not block service_role / authenticated integrations unexpectedly.
+alter table public.projects enable row level security;
+alter table public.spreadsheet_sources enable row level security;
+alter table public.issues enable row level security;
+alter table public.risks enable row level security;
+alter table public.gaps enable row level security;
+alter table public.activities enable row level security;
+alter table public.import_jobs enable row level security;
+alter table public.source_rows enable row level security;
+alter table public.tap_entries enable row level security;
+
+-- Service role bypasses RLS automatically, but these policies keep behavior explicit
+-- and allow authenticated key usage when needed.
+do $$ begin
+  create policy "authenticated_full_projects" on public.projects for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_spreadsheet_sources" on public.spreadsheet_sources for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_issues" on public.issues for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_risks" on public.risks for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_gaps" on public.gaps for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_activities" on public.activities for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_import_jobs" on public.import_jobs for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_source_rows" on public.source_rows for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "authenticated_full_tap_entries" on public.tap_entries for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+
+-- Optional read-only access for anon (public dashboard queries)
+do $$ begin
+  create policy "anon_read_projects" on public.projects for select to anon using (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "anon_read_project_health" on public.issues for select to anon using (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "anon_read_risks" on public.risks for select to anon using (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "anon_read_gaps" on public.gaps for select to anon using (true);
+exception when duplicate_object then null; end $$;
+
+-- Helpful grants for REST roles
+grant usage on schema public to anon, authenticated;
+grant select on public.projects, public.issues, public.risks, public.gaps, public.v_project_health to anon;
+grant all on public.projects, public.spreadsheet_sources, public.issues, public.risks, public.gaps, public.activities, public.import_jobs, public.source_rows, public.tap_entries to authenticated;
+SQL
+
+cat > scripts/import_spreadsheets_to_supabase.mjs <<'JS'
+import crypto from 'node:crypto';
+
+const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SECRET = process.env.SUPABASE_SECRET_KEY;
+const PROJECT_CODE = process.env.PROJECT_CODE || 'ROSSI-PMO';
+const PROJECT_NAME = process.env.PROJECT_NAME || 'Rossi Supermercados';
+
+if (!URL || !SECRET) {
+  throw new Error('Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SECRET_KEY no ambiente.');
+}
+
+const sources = {
+  pendencias: process.env.SHEET_URL_PENDENCIAS,
+  riscos: process.env.SHEET_URL_RISCOS,
+  gaps: process.env.SHEET_URL_GAPS,
+  atividades: process.env.SHEET_URL_ATIVIDADES,
+  geral: process.env.SHEET_URL_GERAL
+};
+
+function parseCSVRow(line, delimiter) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === delimiter && !inQuotes) {
+      out.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (!lines.length) return [];
+
+  const headerIdx = lines.findIndex(l => /\bID\b/i.test(l) && /(Categoria|Descri|Area|Área)/i.test(l));
+  if (headerIdx < 0) return [];
+
+  const headerLine = lines[headerIdx];
+  const delimiter = (headerLine.split(';').length > headerLine.split(',').length) ? ';' : ',';
+  const headers = parseCSVRow(headerLine, delimiter).map(s => s.trim());
+
+  return lines.slice(headerIdx + 1)
+    .map(line => parseCSVRow(line, delimiter))
+    .map(values => Object.fromEntries(headers.map((h, i) => [h, (values[i] || '').trim()])))
+    .filter(row => Object.values(row).some(v => v));
+}
+
+async function supabase(path, method = 'GET', body) {
+  const res = await fetch(`${URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      apikey: SECRET,
+      Authorization: `Bearer ${SECRET}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) throw new Error(`${method} ${path} -> ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+function hashRow(r) { return crypto.createHash('sha1').update(JSON.stringify(r)).digest('hex'); }
+
+async function main() {
+  const [project] = await supabase('projects?code=eq.' + encodeURIComponent(PROJECT_CODE));
+  let projectId = project?.id;
+  if (!projectId) {
+    const created = await supabase('projects', 'POST', [{ code: PROJECT_CODE, name: PROJECT_NAME }]);
+    projectId = created[0].id;
+  }
+
+  for (const [type, sheetUrl] of Object.entries(sources)) {
+    if (!sheetUrl) continue;
+    const csv = await fetch(sheetUrl).then(r => r.text());
+    const rows = parseCSV(csv);
+    if (type === 'pendencias') {
+      const payload = rows.map(r => ({ project_id: projectId, external_id: r.ID, area: r['Área'], category: r.Categoria, description: r.Descrição || r.Descricao || '', owner: r.Responsável || r.Responsavel, status: r.Status || 'Aberta', source_row_hash: hashRow(r) }));
+      await supabase('issues', 'POST', payload);
+    }
+    if (type === 'riscos') {
+      const payload = rows.map(r => ({ project_id: projectId, external_id: r.ID, process: r.Projeto || r.Processo, owner: r.Responsável || r.Responsavel, probability: Number(r.Probabilidade || 0), impact: Number(r.Impacto || 0), strategy: r.Tratamento, description: r.Descrição || r.Descricao || '', life_cycle_status: r['Status Ciclo de Vida'] || r.Status, source_row_hash: hashRow(r) }));
+      await supabase('risks', 'POST', payload);
+    }
+  }
+
+  console.log('Importação concluída com sucesso.');
+}
+
+main();
+JS
+
+cat > .env.supabase.example <<'ENV'
+# Supabase - Cockpit Rossi/TOTVS
+# Copie este arquivo para .env.local e preencha com os dados reais do novo projeto Supabase.
+
+NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJECT-REF.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SECRET_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SCHEMA=public
+SUPABASE_PROJECTS_TABLE=projects
+SUPABASE_TAP_TABLE=tap_entries
+PROJECT_CODE=ROSSI-PMO
+PROJECT_NAME=Rossi Supermercados
+SHEET_URL_PENDENCIAS=
+SHEET_URL_RISCOS=
+SHEET_URL_GAPS=
+SHEET_URL_ATIVIDADES=
+SHEET_URL_GERAL=
+SHEET_URL_TAP=
+ENV
+
+
+cat > supabase/setup/supabase-configurador.html <<'HTML'
+<section id="supabase-configuracoes" class="card supabase-configuracoes">
+  <h3>Configurações Supabase</h3>
+  <p>Use este bloco como base para colar/adaptar dentro do menu Configurações do projeto.</p>
+  <div class="supabase-config-grid">
+    <label>Project URL<input id="supabase-url" type="text" placeholder="https://SEU-PROJECT-REF.supabase.co"></label>
+    <label>Project Ref<input id="supabase-project-ref" type="text" placeholder="SEU-PROJECT-REF"></label>
+    <label>Schema REST<input id="supabase-schema" type="text" value="public"></label>
+    <label>Tabela de Projetos<input id="supabase-projects-table" type="text" value="projects"></label>
+    <label>Tabela TAP<input id="supabase-tap-table" type="text" value="tap_entries"></label>
+    <label>Publishable/Anon Key<input id="supabase-publishable-key" type="password" placeholder="eyJ... ou sb_publishable_..."></label>
+    <label>Service Role/Secret Key<input id="supabase-secret-key" type="password" placeholder="sb_secret_... ou service_role"></label>
+    <label>REST API URL<input id="supabase-api-url" type="text" placeholder="https://SEU-PROJECT-REF.supabase.co/rest/v1/"></label>
+  </div>
+  <div class="supabase-actions">
+    <button type="button" onclick="salvarConfiguracaoSupabase()">Salvar Supabase</button>
+    <button type="button" onclick="testarConfiguracaoSupabase()">Testar Conexão</button>
+  </div>
+  <pre id="supabase-config-log" aria-live="polite"></pre>
+</section>
+<script>
+const SUPABASE_STORAGE_KEY = 'totvs_cockpit_config';
+function normalizarSupabaseUrl(rawUrl) {
+  const input = String(rawUrl || '').trim();
+  if (!input) throw new Error('Informe a Project URL do Supabase.');
+  const candidate = /^https?:\/\//i.test(input) ? input : 'https://' + input;
+  const parsed = new URL(candidate);
+  if (parsed.hostname === 'app.supabase.com') throw new Error('Use a Project URL, não app.supabase.com.');
+  return parsed.protocol + '//' + parsed.hostname;
+}
+function supabaseProjectRef(rawUrl) {
+  return normalizarSupabaseUrl(rawUrl).replace(/^https?:\/\//, '').split('.')[0] || '';
+}
+function lerConfigSupabaseSalva() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SUPABASE_STORAGE_KEY) || '{}');
+    return stored.supabase || {};
+  } catch (_error) {
+    return {};
+  }
+}
+function preencherConfiguracaoSupabase() {
+  const cfg = lerConfigSupabaseSalva();
+  document.getElementById('supabase-url').value = cfg.url || '';
+  document.getElementById('supabase-project-ref').value = cfg.projectRef || '';
+  document.getElementById('supabase-schema').value = cfg.schema || 'public';
+  document.getElementById('supabase-projects-table').value = cfg.projectsTable || 'projects';
+  document.getElementById('supabase-tap-table').value = cfg.tapTable || 'tap_entries';
+  document.getElementById('supabase-publishable-key').value = cfg.publishableKey || cfg.anonKey || '';
+  document.getElementById('supabase-secret-key').value = cfg.secret || cfg.serviceRole || '';
+  document.getElementById('supabase-api-url').value = cfg.apiUrl || '';
+}
+function lerFormularioSupabase() {
+  const url = normalizarSupabaseUrl(document.getElementById('supabase-url').value);
+  const publishableKey = document.getElementById('supabase-publishable-key').value.trim();
+  const secret = document.getElementById('supabase-secret-key').value.trim();
+  return {
+    url,
+    apiUrl: document.getElementById('supabase-api-url').value.trim() || url + '/rest/v1/',
+    projectRef: document.getElementById('supabase-project-ref').value.trim() || supabaseProjectRef(url),
+    schema: document.getElementById('supabase-schema').value.trim() || 'public',
+    projectsTable: document.getElementById('supabase-projects-table').value.trim() || 'projects',
+    tapTable: document.getElementById('supabase-tap-table').value.trim() || 'tap_entries',
+    publishableKey,
+    anonKey: publishableKey,
+    secret,
+    serviceRole: secret,
+    currentKey: '',
+    previousKey: ''
+  };
+}
+function salvarConfiguracaoSupabase() {
+  const log = document.getElementById('supabase-config-log');
+  try {
+    const supabase = lerFormularioSupabase();
+    const stored = JSON.parse(localStorage.getItem(SUPABASE_STORAGE_KEY) || '{}');
+    localStorage.setItem(SUPABASE_STORAGE_KEY, JSON.stringify({ ...stored, supabase }));
+    preencherConfiguracaoSupabase();
+    log.textContent = 'Configuração Supabase salva em ' + SUPABASE_STORAGE_KEY + '. URL: ' + supabase.url;
+  } catch (error) {
+    log.textContent = 'Erro ao salvar: ' + error.message;
+  }
+}
+async function testarConfiguracaoSupabase() {
+  const log = document.getElementById('supabase-config-log');
+  try {
+    const cfg = lerFormularioSupabase();
+    const key = cfg.secret || cfg.serviceRole || cfg.publishableKey || cfg.anonKey;
+    if (!key) throw new Error('Informe uma chave Supabase para testar.');
+    const endpoint = cfg.url + '/rest/v1/' + cfg.projectsTable + '?select=id,code,name&limit=1';
+    const response = await fetch(endpoint, { headers: { apikey: key, Authorization: 'Bearer ' + key } });
+    const text = await response.text();
+    if (!response.ok) throw new Error('HTTP ' + response.status + ': ' + text);
+    salvarConfiguracaoSupabase();
+    log.textContent = 'Conexão OK. Retorno: ' + text;
+  } catch (error) {
+    log.textContent = 'Falha na conexão: ' + error.message;
+  }
+}
+document.addEventListener('DOMContentLoaded', preencherConfiguracaoSupabase);
+</script>
+<style>
+.supabase-configuracoes { padding: 20px; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }
+.supabase-config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.supabase-config-grid label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 13px; }
+.supabase-config-grid input { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; }
+.supabase-actions { display: flex; gap: 10px; margin-top: 14px; }
+.supabase-actions button { padding: 10px 14px; border: 0; border-radius: 8px; background: #0b3f78; color: white; font-weight: 700; cursor: pointer; }
+#supabase-config-log { min-height: 90px; margin-top: 14px; padding: 12px; white-space: pre-wrap; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+</style>
+HTML
+
+cat > docs/implantacao_supabase.md <<'MD'
+# Implantação Supabase - Cockpit Rossi/TOTVS
+
+## 1. Arquivos criados
+
+- `supabase/migrations/20260502_000001_initial_schema.sql`
+- `supabase/migrations/20260504_000002_project_sync_and_tap.sql`
+- `supabase/migrations/20260505_000003_api_access_and_rpc.sql`
+- `scripts/import_spreadsheets_to_supabase.mjs`
+- `.env.supabase.example`
+- `supabase/setup/supabase-configurador.html`
+
+## 2. Ordem correta para executar no Supabase SQL Editor
+
+Execute no SQL Editor do novo projeto Supabase, nesta ordem:
+
+1. `supabase/migrations/20260502_000001_initial_schema.sql`
+2. `supabase/migrations/20260504_000002_project_sync_and_tap.sql`
+3. `supabase/migrations/20260505_000003_api_access_and_rpc.sql`
+
+Essas migrations criam as tabelas `projects`, `spreadsheet_sources`, `issues`, `risks`, `gaps`, `activities`, `import_jobs`, `source_rows`, `tap_entries`, além de RLS, grants, policies e RPCs auxiliares.
+
+## 3. Variáveis de ambiente
+
+Copie `.env.supabase.example` para `.env.local` e preencha:
+
+```bash
+cp .env.supabase.example .env.local
+```
+
+Nunca versionar chaves reais de `service_role`/`secret`.
+
+## 4. Importação inicial
+
+Depois de preencher `.env.local`, rode:
+
+```bash
+node scripts/import_spreadsheets_to_supabase.mjs
+```
+
+## 5. Teste REST
+
+```bash
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/projects?select=id,code,name&limit=1" \
+  -H "apikey: $SUPABASE_SECRET_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SECRET_KEY"
+
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/source_rows?select=id&limit=1" \
+  -H "apikey: $SUPABASE_SECRET_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SECRET_KEY"
+```
+MD
+
+chmod +x scripts/import_spreadsheets_to_supabase.mjs
+node --check scripts/import_spreadsheets_to_supabase.mjs
+```
+
+3) Adicione no menu Configurações do projeto uma seção “Supabase” com estes campos obrigatórios:
+
+- Project URL: `https://SEU-PROJECT-REF.supabase.co`
+- Project Ref
+- Schema REST: `public`
+- Tabela de Projetos: `projects`
+- Tabela TAP: `tap_entries`
+- Publishable/Anon Key
+- Service Role/Secret Key
+- REST API URL: `https://SEU-PROJECT-REF.supabase.co/rest/v1/`
+
+A seção deve salvar no `localStorage` na chave `totvs_cockpit_config`, dentro do objeto `supabase`, neste formato:
+
+```json
+{
+  "supabase": {
+    "url": "https://SEU-PROJECT-REF.supabase.co",
+    "apiUrl": "https://SEU-PROJECT-REF.supabase.co/rest/v1/",
+    "projectRef": "SEU-PROJECT-REF",
+    "schema": "public",
+    "projectsTable": "projects",
+    "tapTable": "tap_entries",
+    "publishableKey": "",
+    "anonKey": "",
+    "secret": "",
+    "serviceRole": "",
+    "currentKey": "",
+    "previousKey": ""
+  }
+}
+```
+
+4) Implemente também no menu Configurações um botão “Testar Conexão Supabase” que execute uma chamada GET para:
+
+```text
+$NEXT_PUBLIC_SUPABASE_URL/rest/v1/projects?select=id,code,name&limit=1
+```
+
+Use os headers:
+
+```text
+apikey: <chave informada>
+Authorization: Bearer <chave informada>
+```
+
+5) Depois de editar o menu Configurações, rode pelo menos estes checks:
+
+```bash
+node --check scripts/import_spreadsheets_to_supabase.mjs
+rg -n "supabase|Supabase|totvs_cockpit_config|projectsTable|tapTable" . -g '!node_modules' -g '!vendor'
+git diff --check
+```
+
+6) Se o projeto tiver testes/build/lint, rode também os comandos existentes no package.json, por exemplo:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+7) Faça commit das alterações no outro projeto:
+
+```bash
+git status --short
+git add supabase/migrations scripts/import_spreadsheets_to_supabase.mjs .env.supabase.example docs/implantacao_supabase.md
+# inclua também os arquivos alterados do menu Configurações, por exemplo:
+# git add index.html src app components
+git commit -m "Add Supabase integration setup"
+```
+
+8) Responda ao final com resumo dos arquivos alterados e comandos de teste executados.
