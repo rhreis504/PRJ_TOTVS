@@ -1102,6 +1102,33 @@
         try { localStorage.setItem('totvs_cockpit_config', JSON.stringify(config)); } catch (_e) {}
         const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0];
         const getSelectedProjects = () => config.projects.filter(p => config.selectedProjectIds.includes(p.id));
+        const parseJsonObject = (value) => {
+            if(value && typeof value === 'object' && !Array.isArray(value)) return value;
+            if(typeof value === 'string') {
+                try {
+                    const parsed = JSON.parse(value);
+                    return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+                } catch (_e) { return {}; }
+            }
+            return {};
+        };
+        function mergeTapEntryRow(row = {}) {
+            const payload = parseJsonObject(row.payload);
+            return { ...row, ...payload, _dbId: row.id, _projectId: row.project_id, _createdAt: row.created_at };
+        }
+        function firstTapValue(row = {}, keys = []) {
+            const normalized = Object.entries(row || {}).reduce((acc, [key, value]) => {
+                const compact = `${key || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+                acc[compact] = value;
+                return acc;
+            }, {});
+            for(const key of keys) {
+                const compact = `${key || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+                const value = normalized[compact];
+                if(value !== undefined && value !== null && `${value}`.trim() !== '') return `${value}`.trim();
+            }
+            return '';
+        }
 
         // --- AUTH ---
         function handleLogin() {
@@ -2167,6 +2194,68 @@ ${hints}`);
                 if(labelField) labelField.focus();
             }, 0);
         }
+        function applyTapProjectSelection(selectedId) {
+            const selectedProject = config.projects.find(p => p.id === selectedId);
+            if(!selectedProject) {
+                config.projects.push({ id: selectedId, name: selectedId, sources: defaultSources() });
+            }
+            config.activeProjectId = selectedId;
+            config.selectedProjectIds = [selectedId];
+            localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+        }
+        function renderTapProjectSelectorOptions(select, tapProjects = []) {
+            const fallbackProjects = config.projects.map(project => ({ id: project.id, label: project.name, source: 'config' }));
+            const projects = tapProjects.length ? tapProjects : fallbackProjects;
+            select.innerHTML = projects.map(project => `<option value="${project.id}">${escapeHtml(project.label || project.id)}</option>`).join('');
+            if(!projects.some(project => project.id === config.activeProjectId) && projects[0]?.id) {
+                applyTapProjectSelection(projects[0].id);
+            }
+            select.value = config.activeProjectId;
+            select.onchange = async () => {
+                const selectedId = select.value;
+                const selectedTapProject = projects.find(project => project.id === selectedId);
+                applyTapProjectSelection(selectedId);
+                if(selectedTapProject?.label) {
+                    const localProject = config.projects.find(p => p.id === selectedId);
+                    if(localProject) localProject.name = selectedTapProject.label;
+                    localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+                }
+                showToast('Atualizando contexto da TAP...');
+                generateConfigRows();
+                await loadFocusedProjects();
+            };
+        }
+        async function loadTapProjectSelectorOptions() {
+            const runtime = getSupabaseRuntimeConfig();
+            if(!runtime.baseUrl || !runtime.credential) return [];
+            const tapTable = encodeURIComponent(runtime.tapTable || 'tap_entries');
+            const projectsTable = encodeURIComponent(runtime.projectsTable || 'projects');
+            const [tapRows, projects] = await Promise.all([
+                supabaseRequest(`${tapTable}?select=id,project_id,payload,nome_projeto,created_at&order=created_at.desc.nullslast&limit=500`),
+                supabaseRequest(`${projectsTable}?select=id,code,name&limit=500`).catch(() => [])
+            ]);
+            const projectById = Object.fromEntries((projects || []).map(project => [project.id, project]));
+            const byProject = new Map();
+            (tapRows || []).forEach(row => {
+                const merged = mergeTapEntryRow(row);
+                const project = projectById[row.project_id] || {};
+                const code = project.code || row.project_id || row.id;
+                const tapName = firstTapValue(merged, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']);
+                const label = tapName || project.name || code;
+                if(!code || byProject.has(code)) return;
+                byProject.set(code, { id: code, label, tapEntryId: row.id, projectId: row.project_id, source: 'tap_entries' });
+            });
+            return [...byProject.values()];
+        }
+        function populateTapProjectSelector(select) {
+            renderTapProjectSelectorOptions(select);
+            loadTapProjectSelectorOptions()
+                .then(tapProjects => {
+                    if(tapProjects.length) renderTapProjectSelectorOptions(select, tapProjects);
+                })
+                .catch(error => console.warn('Falha ao carregar projetos da tabela TAP_ENTRIES.', error));
+        }
+
         function generateConfigRows() {
             const container = document.getElementById('config-rows-container');
             const intervalInput = document.getElementById('update-interval');
@@ -2187,25 +2276,7 @@ ${hints}`);
 
             const sidebarSelect = document.getElementById('sidebar-project-select');
             if(sidebarSelect) {
-                sidebarSelect.innerHTML = config.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-                
-                // Define valor inicial
-                sidebarSelect.value = config.activeProjectId;
-                
-                sidebarSelect.onchange = async () => {
-                    const selectedId = sidebarSelect.value;
-                    config.activeProjectId = selectedId;
-                    config.selectedProjectIds = [selectedId];
-                    localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
-                    
-                    showToast('Atualizando contexto da TAP...');
-                    
-                    // Atualiza configs visuais
-                    generateConfigRows();
-                    
-                    // Recarrega todos os dados
-                    await loadFocusedProjects();
-                };
+                populateTapProjectSelector(sidebarSelect);
             }
 
             const supaUrl = document.getElementById('supabase-url'); if(supaUrl) supaUrl.value = config.supabase?.url || '';

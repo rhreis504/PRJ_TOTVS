@@ -534,6 +534,7 @@
         function tapSearchText(tap = {}) {
             const n = normalizeRow(tap);
             return stripDiacritics([
+                tap._dbId || '', tap._projectId || '',
                 firstFrom(n, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']),
                 firstFrom(n, ['cod cliente', 'cod_cliente', 'codCliente', 'cliente', 'identificacao', 'identificação', 'client_name']),
                 firstFrom(n, ['gpp', 'pmo', 'gerente', 'gerente pmo']),
@@ -588,8 +589,12 @@
         async function loadSupabaseTapRows() {
             const tapTable = getSupabaseTableName('tap', 'tap_entries');
             const projectsTable = getSupabaseTableName('projects', 'projects');
+            const activeProject = await getSupabaseProjectId().catch(() => null);
+            const tapPath = activeProject?.id
+                ? `${tapTable}?project_id=eq.${encodeURIComponent(activeProject.id)}&select=*&order=created_at.desc.nullslast&limit=50`
+                : `${tapTable}?select=*&order=created_at.desc.nullslast&limit=200`;
             const [allTapRows, projects] = await Promise.all([
-                supabaseGet(`${tapTable}?select=*&order=created_at.desc.nullslast&limit=200`),
+                supabaseGet(tapPath),
                 supabaseGet(`${projectsTable}?select=id,code,name&limit=500`).catch(() => [])
             ]);
             const projectById = Object.fromEntries((projects || []).map(project => [project.id, project]));
@@ -598,7 +603,7 @@
                 _projectCode: projectById[row.project_id]?.code || '',
                 _projectName: projectById[row.project_id]?.name || ''
             }));
-            const bestTap = selectBestTapForStatus(enrichedTapRows);
+            const bestTap = activeProject?.id ? selectBestTapForStatus(enrichedTapRows) || (enrichedTapRows[0] ? mergeTapRow(enrichedTapRows[0]) : null) : selectBestTapForStatus(enrichedTapRows);
             return bestTap ? [bestTap] : [];
         }
         async function loadSupabaseRows(sourceType) {
@@ -611,6 +616,10 @@
             } catch (e) { console.warn(`Falha ao buscar ${sourceType} no Supabase.`, e); return []; }
         }
         async function loadRows(sourceKey, fallbackPage = '', fallbackConst = '') {
+            if (sourceKey === 'tap') {
+                const tapRows = await loadSupabaseRows(sourceKey);
+                if (tapRows.length) return tapRows;
+            }
             const source = getConfiguredSource(sourceKey);
             const url = resolveConfiguredCsvUrl(source);
             if (url) { try { return await fetchCsv(url); } catch (e) { console.warn(`Falha ao carregar fonte configurada ${sourceKey}.`, e); } }
@@ -657,7 +666,7 @@
             const n = normalizeRow(tap);
             const cliente = firstFrom(n, ['cod cliente', 'cod_cliente', 'codCliente', 'cliente', 'identificacao', 'identificação', 'client_name']);
             const tapPeriod = getTapPeriod(n);
-            const tapGoLive = formatDate(firstFrom(n, ['go live', 'goLive', 'go_live_previsao', 'go live previsao', 'go live previsão']));
+            const tapGoLive = formatDate(firstFrom(n, ['go live', 'goLive', 'go_live', 'go_live_previsao', 'go live previsao', 'go live previsão']));
             const tapManager = firstFrom(n, ['coordenador', 'coordenador projeto', 'coordenador_projeto', 'coordenador do projeto', 'manager_totvs']);
             const tapPmo = firstFrom(n, ['gpp', 'pmo', 'gerente', 'gerente pmo']);
             data.projectInfo = {
@@ -670,9 +679,9 @@
                 pmo: tapManager || tapPmo || data.projectInfo.pmo || '',
                 product: firstFrom(n, ['produto', 'produtos', 'produtos contratados']),
                 value: firstFrom(n, ['valor projeto', 'valorProjeto', 'valor_projeto']),
-                margin: firstFrom(n, ['margem atual percentual', 'margemAtual', 'margem_atual_percentual', 'margem venda percentual']),
+                margin: firstFrom(n, ['margem atual percentual', 'margemAtual', 'margem_atual', 'margem_atual_percentual', 'margem venda percentual', 'margem_venda']),
                 loss: firstFrom(n, ['projeto em perda', 'projetoEmPerda', 'projeto_em_perda']),
-                scope: firstFrom(n, ['descricao escopo', 'descrição escopo', 'descricao_escopo'])
+                scope: firstFrom(n, ['descricao escopo', 'descrição escopo', 'descricao_escopo', 'observacao', 'observação', 'observacoes'])
             };
         }
         function criticityWeight(value = '') {
