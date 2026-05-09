@@ -2197,11 +2197,8 @@ ${hints}`);
         }
         function buildTapEntryOptionLabel(row = {}, merged = {}) {
             const tapName = firstTapValue(merged, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']);
-            const tapDate = firstTapValue(merged, ['dataTap', 'data_tap', 'data referencia', 'data_referencia', 'data']);
             const tapIdentifier = firstTapValue(merged, ['identificacao', 'id', 'tap_payload_id']);
-            const labelParts = [tapName, tapDate].filter(Boolean);
-            if(labelParts.length) return labelParts.join(' · ');
-            return tapIdentifier || `${row.id || row.project_id || 'TAP sem identificação'}`;
+            return tapName || tapIdentifier || `${row.id || row.project_id || 'TAP sem identificação'}`;
         }
         function applyTapProjectSelection(selectedId, tapProject = {}) {
             const tapEntryId = `${tapProject.tapEntryId || selectedId || ''}`.trim();
