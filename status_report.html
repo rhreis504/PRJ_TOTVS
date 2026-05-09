@@ -487,23 +487,52 @@
             if (!resp.ok) throw new Error(`Supabase GET ${path} -> ${resp.status}`);
             return resp.json();
         }
+        function getSupabaseTableName(key, fallback) {
+            const cfg = getCockpitConfig();
+            const configured = cfg?.supabase?.[`${key}Table`] || cfg?.supabase?.tables?.[key];
+            return (configured || fallback).trim();
+        }
+        function parseSupabasePayload(payload) {
+            if (payload && typeof payload === 'object' && !Array.isArray(payload)) return payload;
+            if (typeof payload === 'string') {
+                try {
+                    const parsed = JSON.parse(payload);
+                    return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+                } catch (_e) { return {}; }
+            }
+            return {};
+        }
+        function mergeTapRow(row = {}) {
+            const payload = parseSupabasePayload(row.payload);
+            return { ...row, ...payload };
+        }
+        function hasTapProjectData(row = {}) {
+            const merged = mergeTapRow(row);
+            const n = normalizeRow(merged);
+            return Boolean(firstFrom(n, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name'])
+                || firstFrom(n, ['go live', 'goLive', 'go_live_previsao', 'go live previsao', 'go live previsão'])
+                || firstFrom(n, ['coordenador', 'coordenador projeto', 'coordenador_projeto', 'coordenador do projeto', 'manager_totvs'])
+                || firstFrom(n, ['gpp', 'pmo', 'gerente', 'gerente pmo']));
+        }
         async function getSupabaseProjectId() {
             const cfg = getCockpitConfig(); const active = getActiveProjectConfig(cfg);
             const projectCode = cfg?.supabase?.projectCode || cfg?.activeProjectId || active?.id || 'default';
-            const projects = await supabaseGet(`projects?code=eq.${encodeURIComponent(projectCode)}&select=*`);
+            const projectsTable = getSupabaseTableName('projects', 'projects');
+            const projects = await supabaseGet(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=*`);
             return projects?.[0] || null;
         }
         async function loadSupabaseRows(sourceType) {
             try {
                 const project = await getSupabaseProjectId(); if (!project?.id) return [];
                 if (sourceType === 'tap') {
-                    const tap = await supabaseGet(`tap_entries?project_id=eq.${project.id}&select=*&order=created_at.desc&limit=1`);
-                    if (!tap?.[0]) return [];
-                    const row = tap[0];
-                    const payload = (row.payload && typeof row.payload === 'object') ? row.payload : {};
-                    return [{ ...row, ...payload }];
+                    const tapTable = getSupabaseTableName('tap', 'tap_entries');
+                    const tapRows = await supabaseGet(`${tapTable}?project_id=eq.${project.id}&select=*&order=created_at.desc.nullslast&limit=20`);
+                    const validTapRows = (tapRows || []).filter(row => !parseSupabasePayload(row.payload).test_connection);
+                    const latestWithProjectData = validTapRows.find(hasTapProjectData) || validTapRows[0];
+                    return latestWithProjectData ? [mergeTapRow(latestWithProjectData)] : [];
                 }
-                const rows = await supabaseGet(`source_rows?project_id=eq.${project.id}&source_type=eq.${sourceType}&select=row_data,created_at&order=created_at.desc&limit=500`);
+                const rowsTable = getSupabaseTableName('sourceRows', 'source_rows');
+                const rows = await supabaseGet(`${rowsTable}?project_id=eq.${project.id}&source_type=eq.${sourceType}&select=row_data,created_at&order=created_at.desc&limit=500`);
                 return rows.map(r => r.row_data).filter(Boolean);
             } catch (e) { console.warn(`Falha ao buscar ${sourceType} no Supabase.`, e); return []; }
         }
