@@ -1167,7 +1167,19 @@
                     return;
                 }
                 const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id,payload,created_at&order=created_at.desc.nullslast`);
+                const legacyColumns = [
+                    'id', 'project_id', 'payload', 'created_at', 'identificacao', 'data_referencia',
+                    'nome_projeto', 'coordenador_projeto', 'esn', 'criticidade_cliente', 'drive',
+                    'cod_cliente', 'gpp', 'produto', 'arquiteto', 'criticidade_totvs', 'valor_projeto',
+                    'margem_venda_percentual', 'margem_venda_valor', 'mrr_recorrente_mensal',
+                    'mrr_total_contratados', 'psa_planejado', 'diferenca_psa_projeto', 'receita_atual',
+                    'margem_atual_percentual', 'margem_atual_valor', 'investimento_perdas',
+                    'investimento_comercial', 'investimento_erro_produto', 'projeto_em_perda',
+                    'data_inicio', 'go_live_previsao', 'duracao', 'pos_producao_meses', 'encerramento',
+                    'observacoes'
+                ].join(',');
+                const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=${legacyColumns}&order=created_at.desc.nullslast`);
+                await backfillTapColumnsFromPayload(rows, tapTable);
                 taps = rows.map((r) => {
                     const base = (r.payload && typeof r.payload === 'object') ? r.payload : {};
                     return { ...base, id: String(r.id), _dbId: r.id };
@@ -1177,6 +1189,136 @@
                 taps = [];
                 renderCards();
                 showToast(`Falha ao carregar TAPs: ${e.message || e}`, true, e);
+            }
+        }
+
+        let tapNormalizedSchemaSupport = null;
+
+        function normalizeTapArray(value) {
+            if (Array.isArray(value)) return value;
+            if (value === null || value === undefined || value === '') return [];
+            return String(value).split(',').map(item => item.trim()).filter(Boolean);
+        }
+
+        function normalizeTapObject(value) {
+            return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        }
+
+        function buildTapEntryLegacyRow(tapData, projectId) {
+            const codCliente = normalizeTapArray(tapData.codCliente);
+            const produtos = normalizeTapArray(tapData.produtos);
+            const produtoText = produtos.join(', ');
+
+            return {
+                project_id: projectId,
+                identificacao: tapData.id || null,
+                data_referencia: tapData.dataTap || null,
+                cod_cliente: codCliente.join(', ') || null,
+                nome_projeto: tapData.nomeProjeto || null,
+                gpp: tapData.gpp || null,
+                coordenador_projeto: tapData.coordenador || null,
+                esn: tapData.esn || null,
+                arquiteto: tapData.arquiteto || null,
+                criticidade_cliente: tapData.criticidadeCliente || null,
+                criticidade_totvs: tapData.criticidadeTotvs || null,
+                drive: tapData.drive || null,
+                produto: produtoText || null,
+                valor_projeto: tapData.valorProjeto || null,
+                receita_atual: tapData.receitaAtual || null,
+                margem_venda_percentual: tapData.margemVenda || null,
+                margem_atual_percentual: tapData.margemAtual || null,
+                margem_venda_valor: tapData.margemVendaValor || null,
+                margem_atual_valor: tapData.margemAtualValor || null,
+                mrr_recorrente_mensal: tapData.mrrMensal || null,
+                investimento_perdas: tapData.investimentoPerdas || null,
+                mrr_total_contratados: tapData.mrrTotal || null,
+                investimento_comercial: tapData.investimentoComercial || null,
+                psa_planejado: tapData.psaPlanejado || null,
+                investimento_erro_produto: tapData.investimentoErro || null,
+                diferenca_psa_projeto: tapData.diferencaPsa || null,
+                projeto_em_perda: tapData.projetoEmPerda || null,
+                data_inicio: tapData.dataInicio || null,
+                go_live_previsao: tapData.goLive || null,
+                duracao: tapData.duracao || null,
+                pos_producao_meses: tapData.posProducao || null,
+                encerramento: tapData.encerramento || null,
+                observacoes: tapData.observacao || null,
+                payload: tapData
+            };
+        }
+
+        function buildTapEntryRow(tapData, projectId) {
+            const codCliente = normalizeTapArray(tapData.codCliente);
+            const produtos = normalizeTapArray(tapData.produtos);
+            const detalhesProdutos = normalizeTapObject(tapData.detalhesProdutos);
+            const produtoText = produtos.join(', ');
+
+            return {
+                ...buildTapEntryLegacyRow(tapData, projectId),
+                tap_payload_id: tapData.id || null,
+                data_tap: tapData.dataTap || null,
+                cod_cliente: codCliente,
+                coordenador: tapData.coordenador || null,
+                produtos,
+                produto: produtoText || null,
+                detalhes_produtos: detalhesProdutos,
+                margem_venda: tapData.margemVenda || null,
+                margem_atual: tapData.margemAtual || null,
+                mrr_mensal: tapData.mrrMensal || null,
+                mrr_total: tapData.mrrTotal || null,
+                investimento_erro: tapData.investimentoErro || null,
+                diferenca_psa: tapData.diferencaPsa || null,
+                go_live: tapData.goLive || null,
+                pos_producao: tapData.posProducao || null,
+                observacao: tapData.observacao || null,
+                payload: tapData
+            };
+        }
+
+        function legacyTapRowNeedsSync(row, payload, projectId) {
+            const normalized = buildTapEntryLegacyRow(payload, projectId || row.project_id);
+            return Object.keys(normalized).some((key) => {
+                if (key === 'payload' || key === 'project_id') return false;
+                const current = row[key];
+                const next = normalized[key];
+                return (current ?? null) !== (next ?? null);
+            });
+        }
+
+        async function detectTapNormalizedSchema(tapTable) {
+            if (tapNormalizedSchemaSupport !== null) return tapNormalizedSchemaSupport;
+            try {
+                await tapSupabaseRequest(`${tapTable}?select=id,tap_payload_id,produtos,detalhes_produtos&limit=1`);
+                tapNormalizedSchemaSupport = true;
+            } catch (error) {
+                tapNormalizedSchemaSupport = false;
+                console.warn('Colunas normalizadas da TAP ainda não disponíveis; usando colunas legadas.', error);
+            }
+            return tapNormalizedSchemaSupport;
+        }
+
+        async function buildTapEntryRequestRow(tapData, projectId, tapTable) {
+            const supportsNormalized = await detectTapNormalizedSchema(tapTable);
+            return supportsNormalized ? buildTapEntryRow(tapData, projectId) : buildTapEntryLegacyRow(tapData, projectId);
+        }
+
+        async function backfillTapColumnsFromPayload(rows, tapTable) {
+            const supportsNormalized = await detectTapNormalizedSchema(tapTable);
+            const updates = rows
+                .filter((row) => row.payload && typeof row.payload === 'object')
+                .filter((row) => supportsNormalized || legacyTapRowNeedsSync(row, row.payload, row.project_id))
+                .map((row) => tapSupabaseRequest(
+                    `${tapTable}?id=eq.${encodeURIComponent(row.id)}`,
+                    'PATCH',
+                    supportsNormalized ? buildTapEntryRow(row.payload, row.project_id) : buildTapEntryLegacyRow(row.payload, row.project_id)
+                ));
+
+            if (!updates.length) return;
+            try {
+                await Promise.all(updates);
+                showToast('Campos da tabela TAP sincronizados com o payload atual.');
+            } catch (error) {
+                console.warn('Não foi possível sincronizar automaticamente as colunas da TAP com o payload.', error);
             }
         }
 
@@ -1221,13 +1363,13 @@
 
             try {
                 const { projectId } = await runSupabaseHealthCheck();
+                const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                const tapEntryRow = await buildTapEntryRequestRow(tapData, projectId, tapTable);
                 if (currentEditId) {
-                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                    await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(currentEditId)}`, 'PATCH', { payload: tapData, project_id: projectId });
+                    await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(currentEditId)}`, 'PATCH', tapEntryRow);
                     showToast('TAP atualizada com sucesso!');
                 } else {
-                    const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                    await tapSupabaseRequest(tapTable, 'POST', [{ project_id: projectId, payload: tapData }]);
+                    await tapSupabaseRequest(tapTable, 'POST', [tapEntryRow]);
                     showToast('Nova TAP criada com sucesso!');
                 }
                 await loadTapsFromSupabase();
