@@ -983,7 +983,35 @@
             const cfg = getCockpitConfig();
             const activeProject = (Array.isArray(cfg?.projects) ? cfg.projects : [])
                 .find(project => project.id === cfg?.activeProjectId || project.id === params.get('primaryProject'));
-            return (params.get('tapEntry') || cfg?.activeTapEntryId || activeProject?.tapEntryId || '').trim();
+            return (params.get('tapEntry') || cfg?.activeTapEntryId || cfg?.activeTapProject?.tapEntryId || activeProject?.tapEntryId || '').trim();
+        }
+
+        function mergeSelectedTapRow(row = {}) {
+            const payload = (row.payload && typeof row.payload === 'object') ? row.payload : {};
+            return { ...payload, id: String(row.id || payload.id || ''), _dbId: row.id || null, _projectId: row.project_id || null };
+        }
+
+        function getSelectedTapProjectCache() {
+            const cfg = getCockpitConfig();
+            const cached = cfg?.activeTapProject;
+            if(cached?.row) return cached;
+            const selectedTapEntryId = getSelectedTapEntryId();
+            const activeProject = (Array.isArray(cfg?.projects) ? cfg.projects : [])
+                .find(project => project.tapEntryId === selectedTapEntryId || project.id === cfg?.activeProjectId);
+            return activeProject?.tapRow ? { tapEntryId: activeProject.tapEntryId, projectId: activeProject.id, label: activeProject.name, row: activeProject.tapRow } : null;
+        }
+
+        function renderSelectedTapFromCache() {
+            const cached = getSelectedTapProjectCache();
+            if(!cached?.row) return false;
+            const selected = mergeSelectedTapRow(cached.row);
+            if(!selected.id) selected.id = String(cached.tapEntryId || cached.row.id || Date.now());
+            if(!selected._projectId) selected._projectId = cached.projectId || cached.row.project_id || null;
+            if(!selected.nomeProjeto && cached.label) selected.nomeProjeto = cached.label;
+            taps = [selected];
+            tapProjectContext = { code: getPrimaryProjectCode(), id: selected._projectId || cached.projectId || null };
+            renderCards();
+            return true;
         }
 
         function isUuid(value = '') {
@@ -1203,16 +1231,26 @@
                 let rows = [];
                 if(selectedTapEntryId) {
                     rows = await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(selectedTapEntryId)}&select=${legacyColumns}&limit=1`);
+                    if(!rows.length) {
+                        const cached = getSelectedTapProjectCache();
+                        const selectedProjectId = cached?.projectId || getPrimaryProjectCode();
+                        if(selectedProjectId) {
+                            rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${encodeURIComponent(selectedProjectId)}&select=${legacyColumns}&order=created_at.desc.nullslast&limit=1`);
+                        }
+                    }
+                    if(!rows.length && renderSelectedTapFromCache()) return;
                     const selectedProjectId = rows[0]?.project_id;
                     if(selectedProjectId) tapProjectContext = { code: getPrimaryProjectCode(), id: selectedProjectId };
                 } else {
                     const projectId = await resolveTapProjectId({ createIfMissing: false });
                     if(!projectId) {
+                        if(renderSelectedTapFromCache()) return;
                         taps = [];
                         renderCards();
                         return;
                     }
                     rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${encodeURIComponent(projectId)}&select=${legacyColumns}&order=created_at.desc.nullslast`);
+                    if(!rows.length && renderSelectedTapFromCache()) return;
                 }
 
                 await backfillTapColumnsFromPayload(rows, tapTable);
