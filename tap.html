@@ -1180,6 +1180,74 @@
             }
         }
 
+        function normalizeTapArray(value) {
+            if (Array.isArray(value)) return value;
+            if (value === null || value === undefined || value === '') return [];
+            return [String(value)];
+        }
+
+        function normalizeTapObject(value) {
+            return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        }
+
+        function buildTapEntryRow(tapData, projectId) {
+            const codCliente = normalizeTapArray(tapData.codCliente);
+            const produtos = normalizeTapArray(tapData.produtos);
+            const detalhesProdutos = normalizeTapObject(tapData.detalhesProdutos);
+            const produtoText = produtos.join(', ');
+
+            return {
+                project_id: projectId,
+                tap_payload_id: tapData.id || null,
+                identificacao: tapData.id || null,
+                data_tap: tapData.dataTap || null,
+                data_referencia: tapData.dataTap || null,
+                cod_cliente: codCliente,
+                nome_projeto: tapData.nomeProjeto || null,
+                gpp: tapData.gpp || null,
+                coordenador: tapData.coordenador || null,
+                coordenador_projeto: tapData.coordenador || null,
+                esn: tapData.esn || null,
+                arquiteto: tapData.arquiteto || null,
+                criticidade_cliente: tapData.criticidadeCliente || null,
+                criticidade_totvs: tapData.criticidadeTotvs || null,
+                drive: tapData.drive || null,
+                produtos,
+                produto: produtoText || null,
+                detalhes_produtos: detalhesProdutos,
+                valor_projeto: tapData.valorProjeto || null,
+                receita_atual: tapData.receitaAtual || null,
+                margem_venda: tapData.margemVenda || null,
+                margem_venda_percentual: tapData.margemVenda || null,
+                margem_atual: tapData.margemAtual || null,
+                margem_atual_percentual: tapData.margemAtual || null,
+                margem_venda_valor: tapData.margemVendaValor || null,
+                margem_atual_valor: tapData.margemAtualValor || null,
+                mrr_mensal: tapData.mrrMensal || null,
+                mrr_recorrente_mensal: tapData.mrrMensal || null,
+                investimento_perdas: tapData.investimentoPerdas || null,
+                mrr_total: tapData.mrrTotal || null,
+                mrr_total_contratados: tapData.mrrTotal || null,
+                investimento_comercial: tapData.investimentoComercial || null,
+                psa_planejado: tapData.psaPlanejado || null,
+                investimento_erro: tapData.investimentoErro || null,
+                investimento_erro_produto: tapData.investimentoErro || null,
+                diferenca_psa: tapData.diferencaPsa || null,
+                diferenca_psa_projeto: tapData.diferencaPsa || null,
+                projeto_em_perda: tapData.projetoEmPerda || null,
+                data_inicio: tapData.dataInicio || null,
+                go_live: tapData.goLive || null,
+                go_live_previsao: tapData.goLive || null,
+                duracao: tapData.duracao || null,
+                pos_producao: tapData.posProducao || null,
+                pos_producao_meses: tapData.posProducao || null,
+                encerramento: tapData.encerramento || null,
+                observacao: tapData.observacao || null,
+                observacoes: tapData.observacao || null,
+                payload: tapData
+            };
+        }
+
         async function saveTap(event) {
             event.preventDefault();
             
@@ -1223,11 +1291,11 @@
                 const { projectId } = await runSupabaseHealthCheck();
                 if (currentEditId) {
                     const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                    await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(currentEditId)}`, 'PATCH', { payload: tapData, project_id: projectId });
+                    await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(currentEditId)}`, 'PATCH', buildTapEntryRow(tapData, projectId));
                     showToast('TAP atualizada com sucesso!');
                 } else {
                     const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
-                    await tapSupabaseRequest(tapTable, 'POST', [{ project_id: projectId, payload: tapData }]);
+                    await tapSupabaseRequest(tapTable, 'POST', [buildTapEntryRow(tapData, projectId)]);
                     showToast('Nova TAP criada com sucesso!');
                 }
                 await loadTapsFromSupabase();
