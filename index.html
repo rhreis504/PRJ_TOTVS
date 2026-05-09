@@ -1159,6 +1159,12 @@
         try { localStorage.setItem('totvs_cockpit_config', JSON.stringify(config)); } catch (_e) {}
         const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0];
         const getSelectedProjects = () => config.projects.filter(p => config.selectedProjectIds.includes(p.id));
+        const isUuidLike = (value = '') => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(`${value || ''}`.trim());
+        const getDashboardProjectId = () => `${getActiveProject()?.id || config.activeProjectId || ''}`.trim();
+        const isInactiveStatus = (value = '') => {
+            const normalizedStatus = `${value || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+            return ['concluida', 'concluido', 'fechada', 'fechado', 'encerrada', 'encerrado', 'cancelada', 'cancelado'].includes(normalizedStatus);
+        };
         const parseJsonObject = (value) => {
             if(value && typeof value === 'object' && !Array.isArray(value)) return value;
             if(typeof value === 'string') {
@@ -1355,18 +1361,53 @@
             }
             return parseRiscosPageRows(fallbackCsv).length;
         }
+        function countLocalActiveRows(key) {
+            const rows = dataStore[key] || [];
+            if(!Array.isArray(rows)) return 0;
+            if(!['pendencias', 'riscos', 'gaps'].includes(key)) return rows.length;
+            const statusIndexByKey = { pendencias: 16, riscos: 5, gaps: 5 };
+            const statusIndex = statusIndexByKey[key];
+            return rows.filter(row => !isInactiveStatus(row?.[statusIndex] || '')).length;
+        }
+        function countActiveSupabaseRows(rows = [], statusFields = []) {
+            return (rows || []).filter(row => {
+                const statusValue = statusFields.map(field => row?.[field]).find(value => value !== undefined && value !== null && `${value}`.trim() !== '');
+                return !isInactiveStatus(statusValue || '');
+            }).length;
+        }
+        async function loadProjectDashboardStatsFromSupabase(projectId) {
+            if(!projectId) throw new Error('Project ID não definido para carregar o dashboard.');
+            const encodedProjectId = encodeURIComponent(projectId);
+            const [issuesResult, risksResult, gapsResult] = await Promise.allSettled([
+                supabaseRequest(`issues?select=id,status&project_id=eq.${encodedProjectId}&limit=10000`),
+                supabaseRequest(`risks?select=id,status,life_cycle_status,analysis_status&project_id=eq.${encodedProjectId}&limit=10000`),
+                supabaseRequest(`gaps?select=id,status&project_id=eq.${encodedProjectId}&limit=10000`)
+            ]);
+            const stats = {};
+            if(issuesResult.status === 'fulfilled') stats.pendencias = countActiveSupabaseRows(issuesResult.value, ['status']);
+            if(risksResult.status === 'fulfilled') stats.riscos = countActiveSupabaseRows(risksResult.value, ['life_cycle_status', 'status', 'analysis_status']);
+            if(gapsResult.status === 'fulfilled') stats.gaps = countActiveSupabaseRows(gapsResult.value, ['status']);
+            const rejected = [issuesResult, risksResult, gapsResult].find(result => result.status === 'rejected');
+            if(rejected && Object.keys(stats).length === 0) throw rejected.reason;
+            return stats;
+        }
         async function updateDashboardStats() {
             const safeSetText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+            const projectIdAtRequest = getDashboardProjectId();
             
-            safeSetText('val-pendencias', dataStore.pendencias.length);
-            safeSetText('val-riscos', dataStore.riscos.length);
-            safeSetText('val-gaps', dataStore.gaps.length);
+            safeSetText('val-pendencias', countLocalActiveRows('pendencias'));
+            safeSetText('val-riscos', countLocalActiveRows('riscos'));
+            safeSetText('val-gaps', countLocalActiveRows('gaps'));
             safeSetText('val-stakeholders', dataStore.stakeholders.length);
 
-            Promise.allSettled([loadPendenciasMenuCount(), loadRiscosMenuCount()]).then(([pendenciasResult, riscosResult]) => {
-                if(pendenciasResult.status === 'fulfilled') safeSetText('val-pendencias', pendenciasResult.value);
-                if(riscosResult.status === 'fulfilled') safeSetText('val-riscos', riscosResult.value);
-            });
+            loadProjectDashboardStatsFromSupabase(projectIdAtRequest)
+                .then(stats => {
+                    if(projectIdAtRequest !== getDashboardProjectId()) return;
+                    if(Number.isFinite(stats.pendencias)) safeSetText('val-pendencias', stats.pendencias);
+                    if(Number.isFinite(stats.riscos)) safeSetText('val-riscos', stats.riscos);
+                    if(Number.isFinite(stats.gaps)) safeSetText('val-gaps', stats.gaps);
+                })
+                .catch(error => console.warn(`Falha ao carregar KPIs do dashboard para o project_id ${projectIdAtRequest}; mantendo dados das fontes configuradas.`, error));
 
             safeSetText('val-trein-periodo', agenda.length);
             safeSetText('val-trein-ministrados', agenda.filter(a => a.status === 'completed').length);
@@ -1876,10 +1917,18 @@
             }
             let projectId = null;
             try {
-                const existing = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}`);
-                projectId = existing[0]?.id;
+                if(isUuidLike(project.id)) {
+                    const existingById = await supabaseRequest(`projects?id=eq.${encodeURIComponent(project.id)}&limit=1`);
+                    projectId = existingById[0]?.id || null;
+                }
                 if(!projectId) {
-                    const created = await supabaseRequest('projects', 'POST', [{ code: project.id, name: project.name }]);
+                    const existingByCode = await supabaseRequest(`projects?code=eq.${encodeURIComponent(project.id)}&limit=1`);
+                    projectId = existingByCode[0]?.id || null;
+                }
+                if(!projectId) {
+                    const payload = { code: project.id, name: project.name };
+                    if(isUuidLike(project.id)) payload.id = project.id;
+                    const created = await supabaseRequest('projects', 'POST', [payload]);
                     projectId = created[0]?.id;
                 }
             } catch (e) {
@@ -2305,6 +2354,9 @@ ${hints}`);
             renderTapProjectCards(tapProjects);
             if(previousActiveProjectId !== config.activeProjectId && !document.getElementById('page-config')?.classList.contains('hidden')) {
                 generateConfigRows({ skipTapRefresh: true });
+            }
+            if(previousActiveProjectId !== config.activeProjectId) {
+                startSync();
             }
             select.value = selectedTapProject?.tapEntryId || selectedTapProject?.id || '';
             select.onchange = async () => {
