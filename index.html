@@ -487,12 +487,20 @@
         }
         .editor-field input:focus, .editor-field select:focus { border-color: var(--totvs-primary); box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.15); }
 
-        #agenda-modal, #reuniao-modal { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        #agenda-modal, #reuniao-modal, #data-source-modal { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
         #agenda-modal .card, #reuniao-modal .card { 
             width: 100%; max-width: 650px; padding: 0; overflow: hidden; 
             border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             animation: fadeIn 0.3s ease-out;
         }
+        .data-source-modal-card {
+            width: 100%; max-width: 1280px; max-height: 92vh; padding: 0; overflow: hidden;
+            border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: fadeIn 0.3s ease-out; display: flex; flex-direction: column;
+        }
+        .data-source-modal-body { overflow-y: auto; }
+        .data-source-modal-actions { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+        .modal-subtitle { margin-top: 6px; color: var(--text-muted); font-size: 13px; }
         .modal-header {
             background: var(--bg-card); padding: 24px 32px; border-bottom: 1px solid var(--border-color);
             display: flex; justify-content: space-between; align-items: center;
@@ -835,16 +843,14 @@
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin: 32px 0 16px;">
-                    <h3 class="section-title" style="margin: 0;"><i data-lucide="database" size="20"></i> Fontes de Dados (Planilhas Google/CSV)</h3>
-                    <button class="btn-ghost" onclick="addConfigSource()"><i data-lucide="plus-circle" size="16"></i> Adicionar Fonte de Dados</button>
+                    <div>
+                        <h3 class="section-title" style="margin: 0;"><i data-lucide="database" size="20"></i> Fontes de Dados (Planilhas Google/CSV)</h3>
+                        <p style="margin-top: 8px; color: var(--text-muted); font-size: 14px;">Clique no card do projeto para abrir as origens de dados em um modal de configuração.</p>
+                    </div>
                 </div>
 
                 <div id="tap-project-cards-container" class="tap-project-cards-grid" aria-live="polite">
                     <!-- Cards dos projetos cadastrados na TAP -->
-                </div>
-                
-                <div id="config-rows-container">
-                    <!-- Cards dinâmicos aqui -->
                 </div>
 
                 <div class="card">
@@ -856,6 +862,31 @@
                 </div>
             </div>
         </main>
+    </div>
+
+
+    <div id="data-source-modal" class="generic-modal" style="display: none; align-items: center; justify-content: center; padding: 20px;">
+        <div class="card data-source-modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3><i data-lucide="database" size="20"></i> Origens de Dados</h3>
+                    <p id="data-source-modal-project-name" class="modal-subtitle">Configure as fontes do projeto selecionado.</p>
+                </div>
+                <button class="modal-close" onclick="closeDataSourcesModal()" aria-label="Fechar modal de origens de dados"><i data-lucide="x" size="24"></i></button>
+            </div>
+            <div class="modal-body data-source-modal-body">
+                <div class="data-source-modal-actions">
+                    <button class="btn-ghost" type="button" onclick="addConfigSource()"><i data-lucide="plus-circle" size="16"></i> Adicionar Fonte de Dados</button>
+                </div>
+                <div id="config-rows-container">
+                    <!-- Cards dinâmicos aqui -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" type="button" onclick="closeDataSourcesModal()">Cancelar</button>
+                <button class="btn-primary" type="button" onclick="saveDataSourcesModal()"><i data-lucide="save" size="18"></i> Salvar Configurações</button>
+            </div>
+        </div>
     </div>
 
     <div id="db-config-modal" class="roadmap-editor" style="display:none; z-index:1200;">
@@ -2309,7 +2340,7 @@ ${hints}`);
             container.innerHTML = projects.map(project => {
                 const selected = project.projectId === config.activeProjectId;
                 return `
-                    <article class="tap-project-card ${selected ? 'active' : ''}" onclick="selectTapProjectCard('${escapeHtml(project.tapEntryId || project.projectId)}')">
+                    <article class="tap-project-card ${selected ? 'active' : ''}" onclick="openDataSourcesModal('${escapeHtml(project.tapEntryId || project.projectId)}')">
                         <div class="tap-project-card-header">
                             <h4>${escapeHtml(project.label)}</h4>
                             <span class="badge">${selected ? 'Selecionado' : 'TAP'}</span>
@@ -2333,9 +2364,27 @@ ${hints}`);
             applyTapProjectSelection(selectedId, selectedProject);
             const sidebarSelect = document.getElementById('sidebar-project-select');
             if(sidebarSelect && selectedProject.tapEntryId) sidebarSelect.value = selectedProject.tapEntryId;
-            showToast('Projeto TAP vinculado às fontes de dados.');
             generateConfigRows({ skipTapRefresh: true });
             await loadFocusedProjects();
+            return getActiveProject();
+        }
+        async function openDataSourcesModal(selectedId) {
+            await selectTapProjectCard(selectedId);
+            const active = getActiveProject();
+            const modal = document.getElementById('data-source-modal');
+            const title = document.getElementById('data-source-modal-project-name');
+            if(title) title.textContent = `Configure as origens de dados de ${active.name || active.id || 'projeto selecionado'}.`;
+            if(modal) modal.style.display = 'flex';
+            showToast('Origens de dados abertas para configuração.');
+            lucide.createIcons();
+        }
+        function closeDataSourcesModal() {
+            const modal = document.getElementById('data-source-modal');
+            if(modal) modal.style.display = 'none';
+        }
+        function saveDataSourcesModal() {
+            saveConfig();
+            closeDataSourcesModal();
         }
         async function copyProjectId(projectId) {
             try {
