@@ -969,9 +969,25 @@
             }
         }
 
+        function getUrlParams() {
+            return new URLSearchParams(window.location.search);
+        }
+
         function getPrimaryProjectCode() {
-            const params = new URLSearchParams(window.location.search);
+            const params = getUrlParams();
             return params.get('primaryProject') || getCockpitConfig()?.activeProjectId || 'default';
+        }
+
+        function getSelectedTapEntryId() {
+            const params = getUrlParams();
+            const cfg = getCockpitConfig();
+            const activeProject = (Array.isArray(cfg?.projects) ? cfg.projects : [])
+                .find(project => project.id === cfg?.activeProjectId || project.id === params.get('primaryProject'));
+            return (params.get('tapEntry') || cfg?.activeTapEntryId || activeProject?.tapEntryId || '').trim();
+        }
+
+        function isUuid(value = '') {
+            return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value).trim());
         }
 
         function normalizeSupabaseBaseUrl(rawUrl = '') {
@@ -1116,6 +1132,16 @@
             if(tapProjectContext.id && tapProjectContext.code === projectCode) return tapProjectContext.id;
             tapProjectContext = { code: projectCode, id: null };
             const projectsTable = getCockpitConfig()?.supabase?.projectsTable || 'projects';
+
+            if(isUuid(projectCode)) {
+                const rowsById = await tapSupabaseRequest(`${projectsTable}?id=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
+                if(rowsById[0]?.id) {
+                    tapProjectContext.id = rowsById[0].id;
+                    return tapProjectContext.id;
+                }
+                if(!createIfMissing) return null;
+            }
+
             const rows = await tapSupabaseRequest(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id,code&limit=1`);
             const existingId = rows[0]?.id;
             if(existingId) {
@@ -1160,13 +1186,8 @@
 
         async function loadTapsFromSupabase() {
             try {
-                const projectId = await resolveTapProjectId({ createIfMissing: false });
-                if(!projectId) {
-                    taps = [];
-                    renderCards();
-                    return;
-                }
                 const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
+                const selectedTapEntryId = getSelectedTapEntryId();
                 const legacyColumns = [
                     'id', 'project_id', 'payload', 'created_at', 'identificacao', 'data_referencia',
                     'nome_projeto', 'coordenador_projeto', 'esn', 'criticidade_cliente', 'drive',
@@ -1178,11 +1199,26 @@
                     'data_inicio', 'go_live_previsao', 'duracao', 'pos_producao_meses', 'encerramento',
                     'observacoes'
                 ].join(',');
-                const rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=${legacyColumns}&order=created_at.desc.nullslast`);
+
+                let rows = [];
+                if(selectedTapEntryId) {
+                    rows = await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(selectedTapEntryId)}&select=${legacyColumns}&limit=1`);
+                    const selectedProjectId = rows[0]?.project_id;
+                    if(selectedProjectId) tapProjectContext = { code: getPrimaryProjectCode(), id: selectedProjectId };
+                } else {
+                    const projectId = await resolveTapProjectId({ createIfMissing: false });
+                    if(!projectId) {
+                        taps = [];
+                        renderCards();
+                        return;
+                    }
+                    rows = await tapSupabaseRequest(`${tapTable}?project_id=eq.${encodeURIComponent(projectId)}&select=${legacyColumns}&order=created_at.desc.nullslast`);
+                }
+
                 await backfillTapColumnsFromPayload(rows, tapTable);
                 taps = rows.map((r) => {
                     const base = (r.payload && typeof r.payload === 'object') ? r.payload : {};
-                    return { ...base, id: String(r.id), _dbId: r.id };
+                    return { ...base, id: String(r.id), _dbId: r.id, _projectId: r.project_id };
                 });
                 renderCards();
             } catch (e) {

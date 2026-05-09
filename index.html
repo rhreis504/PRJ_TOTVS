@@ -1246,7 +1246,9 @@
             const params = new URLSearchParams();
             params.set('primaryProject', config.activeProjectId);
             params.set('projects', (config.selectedProjectIds || []).join(','));
-            if(config.activeTapEntryId) params.set('tapEntry', config.activeTapEntryId);
+            const activeProject = getActiveProject();
+            const activeTapEntryId = config.activeTapEntryId || activeProject?.tapEntryId || '';
+            if(activeTapEntryId) params.set('tapEntry', activeTapEntryId);
             const srcWithProjects = `${fileName}?${params.toString()}`;
             if (iframe && iframe.getAttribute('src') !== srcWithProjects) {
                 iframe.setAttribute('src', srcWithProjects);
