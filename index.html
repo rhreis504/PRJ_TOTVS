@@ -1189,6 +1189,7 @@
             const params = new URLSearchParams();
             params.set('primaryProject', config.activeProjectId);
             params.set('projects', (config.selectedProjectIds || []).join(','));
+            if(config.activeTapEntryId) params.set('tapEntry', config.activeTapEntryId);
             const srcWithProjects = `${fileName}?${params.toString()}`;
             if (iframe && iframe.getAttribute('src') !== srcWithProjects) {
                 iframe.setAttribute('src', srcWithProjects);
@@ -1779,20 +1780,20 @@
                 return { response, mode: 'query-param-fallback', headerError };
             }
         }
-        async function supabaseRequest(path, method='GET', body) {
+        async function supabaseRequestWithCredential(path, credential, method='GET', body) {
             const runtime = getSupabaseRuntimeConfig();
             if(!runtime.baseUrl) throw new Error('URL do Supabase não configurada.');
-            if(!runtime.credential) throw new Error('Nenhuma chave Supabase configurada. Informe Service Role, Publishable ou Anon.');
+            if(!credential) throw new Error('Nenhuma chave Supabase configurada. Informe Service Role, Publishable ou Anon.');
             const endpoint = `${runtime.baseUrl}/rest/v1/${path}`;
             const requestMethod = method.toUpperCase();
             let res;
             if(requestMethod === 'GET') {
-                const result = await fetchSupabaseGetWithFallback(endpoint, runtime.credential);
+                const result = await fetchSupabaseGetWithFallback(endpoint, credential);
                 res = result.response;
             } else {
                 res = await fetch(endpoint, {
                     method,
-                    headers: buildSupabaseHeaders(runtime.credential),
+                    headers: buildSupabaseHeaders(credential),
                     body: body ? JSON.stringify(body) : undefined
                 });
             }
@@ -1806,6 +1807,10 @@
             }
             if(res.status === 204 || !text) return [];
             return JSON.parse(text);
+        }
+        async function supabaseRequest(path, method='GET', body) {
+            const runtime = getSupabaseRuntimeConfig();
+            return supabaseRequestWithCredential(path, runtime.credential, method, body);
         }
         async function syncProjectToSupabase(project, keys, rowsByKey = {}) {
             const runtime = getSupabaseRuntimeConfig();
@@ -2194,19 +2199,29 @@ ${hints}`);
                 if(labelField) labelField.focus();
             }, 0);
         }
+        function buildTapEntryOptionLabel(row = {}, merged = {}) {
+            const tapName = firstTapValue(merged, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']);
+            const tapDate = firstTapValue(merged, ['dataTap', 'data_tap', 'data referencia', 'data_referencia', 'data']);
+            const tapIdentifier = firstTapValue(merged, ['identificacao', 'id', 'tap_payload_id']);
+            const labelParts = [tapName, tapDate].filter(Boolean);
+            if(labelParts.length) return labelParts.join(' · ');
+            return tapIdentifier || `${row.id || row.project_id || 'TAP sem identificação'}`;
+        }
         function applyTapProjectSelection(selectedId, tapProject = {}) {
-            const normalizedId = `${selectedId || ''}`.trim();
-            if(!normalizedId) return;
-            const projectName = `${tapProject.label || tapProject.nomeProjeto || normalizedId}`.trim();
-            const selectedProject = config.projects.find(p => p.id === normalizedId);
+            const tapEntryId = `${tapProject.tapEntryId || selectedId || ''}`.trim();
+            const projectId = `${tapProject.projectId || tapProject.project_id || selectedId || ''}`.trim();
+            if(!projectId) return;
+            const projectName = `${tapProject.label || tapProject.nomeProjeto || tapProject.nome_projeto || projectId}`.trim();
+            const selectedProject = config.projects.find(p => p.id === projectId);
             if(!selectedProject) {
-                config.projects.push({ id: normalizedId, name: projectName, sources: defaultSources(), tapEntryId: tapProject.tapEntryId || null });
+                config.projects.push({ id: projectId, name: projectName, sources: defaultSources(), tapEntryId: tapEntryId || null });
             } else {
                 selectedProject.name = projectName;
-                selectedProject.tapEntryId = tapProject.tapEntryId || selectedProject.tapEntryId || null;
+                selectedProject.tapEntryId = tapEntryId || selectedProject.tapEntryId || null;
             }
-            config.activeProjectId = normalizedId;
-            config.selectedProjectIds = [normalizedId];
+            config.activeProjectId = projectId;
+            config.activeTapEntryId = tapEntryId || null;
+            config.selectedProjectIds = [projectId];
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
         }
         function setTapProjectSelectorMessage(select, message, isError = false) {
@@ -2216,19 +2231,21 @@ ${hints}`);
         }
         function renderTapProjectSelectorOptions(select, tapProjects = []) {
             if(!tapProjects.length) {
-                setTapProjectSelectorMessage(select, 'Nenhuma TAP encontrada em TAP_ENTRIES');
+                setTapProjectSelectorMessage(select, 'Nenhuma TAP encontrada em tap_entries');
                 return;
             }
             select.disabled = false;
             select.title = '';
-            select.innerHTML = tapProjects.map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.label || project.id)}</option>`).join('');
-            if(!tapProjects.some(project => project.id === config.activeProjectId) && tapProjects[0]?.id) {
-                applyTapProjectSelection(tapProjects[0].id, tapProjects[0]);
-            }
-            select.value = config.activeProjectId;
+            select.innerHTML = tapProjects.map(project => `<option value="${escapeHtml(project.tapEntryId || project.id)}">${escapeHtml(project.label || project.id)}</option>`).join('');
+
+            let selectedTapProject = tapProjects.find(project => project.tapEntryId === config.activeTapEntryId)
+                || tapProjects.find(project => project.projectId === config.activeProjectId)
+                || tapProjects[0];
+            if(selectedTapProject) applyTapProjectSelection(selectedTapProject.tapEntryId || selectedTapProject.id, selectedTapProject);
+            select.value = selectedTapProject?.tapEntryId || selectedTapProject?.id || '';
             select.onchange = async () => {
                 const selectedId = select.value;
-                const selectedTapProject = tapProjects.find(project => project.id === selectedId) || {};
+                const selectedTapProject = tapProjects.find(project => (project.tapEntryId || project.id) === selectedId) || {};
                 applyTapProjectSelection(selectedId, selectedTapProject);
                 showToast('Atualizando contexto da TAP...');
                 generateConfigRows();
@@ -2238,27 +2255,52 @@ ${hints}`);
         async function loadTapProjectSelectorOptions() {
             const runtime = getSupabaseRuntimeConfig();
             if(!runtime.baseUrl) throw new Error('URL do Supabase não configurada.');
-            if(!runtime.credential) throw new Error('Chave Supabase não configurada para ler TAP_ENTRIES.');
+            if(!runtime.credential) throw new Error('Chave Supabase não configurada para ler tap_entries.');
             const tapTable = encodeURIComponent(runtime.tapTable || 'tap_entries');
-            const tapRows = await supabaseRequest(`${tapTable}?select=id,project_id,payload,nome_projeto,created_at&order=created_at.desc.nullslast&limit=500`);
-            const byProject = new Map();
-            (tapRows || []).forEach(row => {
-                const merged = mergeTapEntryRow(row);
-                const projectId = `${row.project_id || row.id || ''}`.trim();
-                const tapName = firstTapValue(merged, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']);
-                const label = tapName || projectId;
-                if(!projectId || byProject.has(projectId)) return;
-                byProject.set(projectId, { id: projectId, label, tapEntryId: row.id, projectId: row.project_id, source: 'tap_entries' });
-            });
-            return [...byProject.values()];
+            const path = `${tapTable}?select=*&order=created_at.desc.nullslast&limit=500`;
+            let tapRows = [];
+            let lastError = null;
+            let gotResponse = false;
+            for(const credential of runtime.credentials) {
+                try {
+                    const rows = await supabaseRequestWithCredential(path, credential);
+                    gotResponse = true;
+                    if((rows || []).length) {
+                        tapRows = rows;
+                        break;
+                    }
+                    tapRows = rows || [];
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`Falha ao consultar tap_entries com a credencial ${credential.label}.`, error);
+                }
+            }
+            if(!gotResponse && lastError) throw lastError;
+            return (tapRows || [])
+                .map(row => {
+                    const merged = mergeTapEntryRow(row);
+                    const projectId = `${row.project_id || merged.projectId || merged.project_id || ''}`.trim();
+                    const tapEntryId = `${row.id || merged._dbId || ''}`.trim();
+                    const label = buildTapEntryOptionLabel(row, merged);
+                    if(!projectId || !tapEntryId) return null;
+                    return {
+                        id: tapEntryId,
+                        tapEntryId,
+                        projectId,
+                        label,
+                        row,
+                        source: runtime.tapTable || 'tap_entries'
+                    };
+                })
+                .filter(Boolean);
         }
         function populateTapProjectSelector(select) {
-            setTapProjectSelectorMessage(select, 'Carregando TAP_ENTRIES...');
+            setTapProjectSelectorMessage(select, 'Carregando tap_entries...');
             loadTapProjectSelectorOptions()
                 .then(tapProjects => renderTapProjectSelectorOptions(select, tapProjects))
                 .catch(error => {
-                    console.warn('Falha ao carregar projetos da tabela TAP_ENTRIES.', error);
-                    setTapProjectSelectorMessage(select, 'Erro ao carregar TAP_ENTRIES', true);
+                    console.warn('Falha ao carregar TAPs da tabela tap_entries.', error);
+                    setTapProjectSelectorMessage(select, 'Erro ao carregar tap_entries', true);
                 });
         }
 
