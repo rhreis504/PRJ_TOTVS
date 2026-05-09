@@ -498,7 +498,10 @@
                 const project = await getSupabaseProjectId(); if (!project?.id) return [];
                 if (sourceType === 'tap') {
                     const tap = await supabaseGet(`tap_entries?project_id=eq.${project.id}&select=*&order=created_at.desc&limit=1`);
-                    return tap?.[0] ? [tap[0].payload || tap[0]] : [];
+                    if (!tap?.[0]) return [];
+                    const row = tap[0];
+                    const payload = (row.payload && typeof row.payload === 'object') ? row.payload : {};
+                    return [{ ...row, ...payload }];
                 }
                 const rows = await supabaseGet(`source_rows?project_id=eq.${project.id}&source_type=eq.${sourceType}&select=row_data,created_at&order=created_at.desc&limit=500`);
                 return rows.map(r => r.row_data).filter(Boolean);
@@ -532,23 +535,40 @@
                 evolutionPlanned: toNumber(kv.evolucao_planejada || kv['evolução planejada'] || firstFrom(mit013, ['evolução planejada', 'evolucao planejada', 'planejada']))
             };
         }
+        function getTapPeriod(n = {}) {
+            const explicitPeriod = firstFrom(n, ['periodo', 'período', 'period']);
+            if (explicitPeriod) return explicitPeriod;
+
+            const start = firstFrom(n, ['data inicio', 'data início', 'data_inicio', 'dataInicio']);
+            const end = firstFrom(n, ['encerramento', 'data encerramento', 'data_encerramento', 'dataEncerramento']);
+            const formattedStart = formatDate(start);
+            const formattedEnd = formatDate(end);
+
+            if (formattedStart && formattedEnd) return `${formattedStart} a ${formattedEnd}`;
+            if (formattedStart) return formattedStart;
+            return formatDate(firstFrom(n, ['data referencia', 'data_referencia', 'data tap', 'dataTap']));
+        }
         function applyTap(rowsOrTap = []) {
             const tap = Array.isArray(rowsOrTap) ? (rowsOrTap[0] || {}) : rowsOrTap;
             if (!tap || !Object.keys(tap).length) return;
             const n = normalizeRow(tap);
-            const cliente = firstFrom(n, ['cod cliente', 'cod_cliente', 'cliente', 'identificacao', 'identificação', 'client_name']);
+            const cliente = firstFrom(n, ['cod cliente', 'cod_cliente', 'codCliente', 'cliente', 'identificacao', 'identificação', 'client_name']);
+            const tapPeriod = getTapPeriod(n);
+            const tapGoLive = formatDate(firstFrom(n, ['go live', 'goLive', 'go_live_previsao', 'go live previsao', 'go live previsão']));
+            const tapManager = firstFrom(n, ['coordenador', 'coordenador projeto', 'coordenador_projeto', 'coordenador do projeto', 'manager_totvs']);
+            const tapPmo = firstFrom(n, ['gpp', 'pmo', 'gerente', 'gerente pmo']);
             data.projectInfo = {
                 ...data.projectInfo,
-                name: firstFrom(n, ['nome projeto', 'nome_projeto', 'project_name', 'name']) || data.projectInfo.name || getActiveProjectConfig().name || '',
+                name: firstFrom(n, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']) || data.projectInfo.name || getActiveProjectConfig().name || '',
                 client: cliente || data.projectInfo.client || 'Rossi Supermercados',
-                period: data.statusInput.period || data.projectInfo.period || formatDate(firstFrom(n, ['data referencia', 'data_referencia', 'data tap', 'data_inicio', 'data inicio'])),
-                goLive: formatDate(firstFrom(n, ['go live', 'go_live_previsao', 'go live previsao', 'go live previsão'])) || data.projectInfo.goLive || '',
-                pm: firstFrom(n, ['coordenador', 'coordenador projeto', 'coordenador_projeto', 'manager_totvs']) || data.projectInfo.pm || '',
-                pmo: firstFrom(n, ['gpp', 'pmo']) || data.projectInfo.pmo || '',
-                product: firstFrom(n, ['produto', 'produtos contratados']),
-                value: firstFrom(n, ['valor projeto', 'valor_projeto']),
-                margin: firstFrom(n, ['margem atual percentual', 'margem_atual_percentual', 'margem venda percentual']),
-                loss: firstFrom(n, ['projeto em perda', 'projeto_em_perda']),
+                period: tapPeriod || data.projectInfo.period || data.statusInput.period || '',
+                goLive: tapGoLive || data.projectInfo.goLive || '',
+                pm: tapManager || data.projectInfo.pm || '',
+                pmo: tapPmo || data.projectInfo.pmo || '',
+                product: firstFrom(n, ['produto', 'produtos', 'produtos contratados']),
+                value: firstFrom(n, ['valor projeto', 'valorProjeto', 'valor_projeto']),
+                margin: firstFrom(n, ['margem atual percentual', 'margemAtual', 'margem_atual_percentual', 'margem venda percentual']),
+                loss: firstFrom(n, ['projeto em perda', 'projetoEmPerda', 'projeto_em_perda']),
                 scope: firstFrom(n, ['descricao escopo', 'descrição escopo', 'descricao_escopo'])
             };
         }
