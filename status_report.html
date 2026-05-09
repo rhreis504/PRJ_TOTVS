@@ -70,24 +70,24 @@
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 items-center">
             <div class="col-span-2">
                 <p class="text-xs text-slate-400 font-semibold uppercase">Projeto / Cliente</p>
-                <p class="text-sm font-bold text-slate-800" id="hdr-projeto">Implantação RH Tech</p>
+                <p class="text-sm font-bold text-slate-800" id="hdr-projeto">-</p>
                 <p class="text-xs text-slate-600" id="hdr-cliente">Rossi Supermercados</p>
             </div>
             <div>
                 <p class="text-xs text-slate-400 font-semibold uppercase">Fase Atual</p>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1" id="hdr-fase">Planejamento</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1" id="hdr-fase">-</span>
             </div>
             <div>
                 <p class="text-xs text-slate-400 font-semibold uppercase">Período</p>
-                <p class="text-sm font-medium text-slate-800 mt-1" id="hdr-periodo">04/05/26 a 08/05/26</p>
+                <p class="text-sm font-medium text-slate-800 mt-1" id="hdr-periodo">-</p>
             </div>
             <div>
                 <p class="text-xs text-slate-400 font-semibold uppercase">Go Live Previsto</p>
-                <p class="text-sm font-bold text-slate-800 mt-1" id="hdr-golive">15/10/2026</p>
+                <p class="text-sm font-bold text-slate-800 mt-1" id="hdr-golive">-</p>
             </div>
             <div>
                 <p class="text-xs text-slate-400 font-semibold uppercase">Gerente / PMO</p>
-                <p class="text-xs font-medium text-slate-800 mt-1" id="hdr-pm">João Silva</p>
+                <p class="text-xs font-medium text-slate-800 mt-1" id="hdr-pm">-</p>
             </div>
             <div class="col-span-2 flex justify-end">
                 <div class="text-right">
@@ -391,11 +391,28 @@
             } catch (_e) {}
             return localCfg;
         }
+        function getUrlProjectParams() {
+            const params = new URLSearchParams(window.location.search || '');
+            const primaryProject = params.get('primaryProject') || '';
+            const selectedProjects = (params.get('projects') || '').split(',').map(v => v.trim()).filter(Boolean);
+            return { primaryProject, selectedProjects };
+        }
+        function getActiveProjectCode(cfg = getCockpitConfig()) {
+            const urlParams = getUrlProjectParams();
+            return urlParams.primaryProject || cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds[0] : '') || 'default';
+        }
+        function getSelectedProjectCodes(cfg = getCockpitConfig()) {
+            const urlParams = getUrlProjectParams();
+            const codes = [urlParams.primaryProject, ...urlParams.selectedProjects, cfg?.activeProjectId, ...(Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds : [])]
+                .map(v => `${v || ''}`.trim())
+                .filter(Boolean);
+            return [...new Set(codes.length ? codes : ['default'])];
+        }
         function getActiveProjectConfig(cfg = getCockpitConfig()) {
             const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
             if (!projects.length) return {};
-            const activeId = cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds[0] : '');
-            return projects.find(p => p.id === activeId) || projects[0] || {};
+            const activeId = getActiveProjectCode(cfg);
+            return projects.find(p => p.id === activeId) || projects.find(p => getSelectedProjectCodes(cfg).includes(p.id)) || projects[0] || {};
         }
         function resolveSourceByLabel(sources = {}, aliases = []) {
             const normalizedAliases = aliases.map(normalizeKey);
@@ -504,7 +521,7 @@
         }
         function mergeTapRow(row = {}) {
             const payload = parseSupabasePayload(row.payload);
-            return { ...row, ...payload };
+            return { ...row, ...payload, _dbId: row.id, _projectId: row.project_id, _createdAt: row.created_at };
         }
         function hasTapProjectData(row = {}) {
             const merged = mergeTapRow(row);
@@ -514,23 +531,80 @@
                 || firstFrom(n, ['coordenador', 'coordenador projeto', 'coordenador_projeto', 'coordenador do projeto', 'manager_totvs'])
                 || firstFrom(n, ['gpp', 'pmo', 'gerente', 'gerente pmo']));
         }
+        function tapSearchText(tap = {}) {
+            const n = normalizeRow(tap);
+            return stripDiacritics([
+                firstFrom(n, ['nome projeto', 'nomeProjeto', 'nome_projeto', 'project_name', 'name']),
+                firstFrom(n, ['cod cliente', 'cod_cliente', 'codCliente', 'cliente', 'identificacao', 'identificação', 'client_name']),
+                firstFrom(n, ['gpp', 'pmo', 'gerente', 'gerente pmo']),
+                firstFrom(n, ['coordenador', 'coordenador projeto', 'coordenador_projeto', 'coordenador do projeto', 'manager_totvs']),
+                tap._projectCode || '', tap._projectName || ''
+            ].join(' ')).toLowerCase();
+        }
+        function projectSearchTerms(cfg = getCockpitConfig()) {
+            const selectedCodes = getSelectedProjectCodes(cfg);
+            const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
+            const terms = [];
+            selectedCodes.forEach(code => {
+                const project = projects.find(p => p.id === code);
+                terms.push(code, project?.name || '');
+            });
+            const active = getActiveProjectConfig(cfg);
+            terms.push(active?.id || '', active?.name || '');
+            return [...new Set(terms.map(v => stripDiacritics(`${v || ''}`).toLowerCase().trim()).filter(Boolean))];
+        }
+        function scoreTapForSelectedProject(tap = {}, cfg = getCockpitConfig()) {
+            const searchText = tapSearchText(tap);
+            const compactSearch = compactKey(searchText);
+            let score = hasTapProjectData(tap) ? 10 : 0;
+            projectSearchTerms(cfg).forEach(term => {
+                const compactTerm = compactKey(term);
+                if (!compactTerm) return;
+                if (compactSearch.includes(compactTerm)) score += 100;
+                stripDiacritics(term).toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 4).forEach(token => {
+                    if (searchText.includes(token) || compactSearch.includes(compactKey(token))) score += 8;
+                });
+            });
+            return score;
+        }
+        function selectBestTapForStatus(tapRows = []) {
+            const cfg = getCockpitConfig();
+            const validTapRows = (tapRows || [])
+                .filter(row => !parseSupabasePayload(row.payload).test_connection)
+                .map(mergeTapRow)
+                .filter(hasTapProjectData);
+            if (!validTapRows.length) return null;
+            return validTapRows
+                .map(tap => ({ tap, score: scoreTapForSelectedProject(tap, cfg) }))
+                .sort((a, b) => b.score - a.score || `${b.tap._createdAt || ''}`.localeCompare(`${a.tap._createdAt || ''}`))[0].tap;
+        }
         async function getSupabaseProjectId() {
-            const cfg = getCockpitConfig(); const active = getActiveProjectConfig(cfg);
-            const projectCode = cfg?.supabase?.projectCode || cfg?.activeProjectId || active?.id || 'default';
+            const cfg = getCockpitConfig();
+            const projectCode = cfg?.supabase?.projectCode || getActiveProjectCode(cfg);
             const projectsTable = getSupabaseTableName('projects', 'projects');
             const projects = await supabaseGet(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=*`);
             return projects?.[0] || null;
         }
+        async function loadSupabaseTapRows() {
+            const tapTable = getSupabaseTableName('tap', 'tap_entries');
+            const projectsTable = getSupabaseTableName('projects', 'projects');
+            const [allTapRows, projects] = await Promise.all([
+                supabaseGet(`${tapTable}?select=*&order=created_at.desc.nullslast&limit=200`),
+                supabaseGet(`${projectsTable}?select=id,code,name&limit=500`).catch(() => [])
+            ]);
+            const projectById = Object.fromEntries((projects || []).map(project => [project.id, project]));
+            const enrichedTapRows = (allTapRows || []).map(row => ({
+                ...row,
+                _projectCode: projectById[row.project_id]?.code || '',
+                _projectName: projectById[row.project_id]?.name || ''
+            }));
+            const bestTap = selectBestTapForStatus(enrichedTapRows);
+            return bestTap ? [bestTap] : [];
+        }
         async function loadSupabaseRows(sourceType) {
             try {
+                if (sourceType === 'tap') return await loadSupabaseTapRows();
                 const project = await getSupabaseProjectId(); if (!project?.id) return [];
-                if (sourceType === 'tap') {
-                    const tapTable = getSupabaseTableName('tap', 'tap_entries');
-                    const tapRows = await supabaseGet(`${tapTable}?project_id=eq.${project.id}&select=*&order=created_at.desc.nullslast&limit=20`);
-                    const validTapRows = (tapRows || []).filter(row => !parseSupabasePayload(row.payload).test_connection);
-                    const latestWithProjectData = validTapRows.find(hasTapProjectData) || validTapRows[0];
-                    return latestWithProjectData ? [mergeTapRow(latestWithProjectData)] : [];
-                }
                 const rowsTable = getSupabaseTableName('sourceRows', 'source_rows');
                 const rows = await supabaseGet(`${rowsTable}?project_id=eq.${project.id}&source_type=eq.${sourceType}&select=row_data,created_at&order=created_at.desc&limit=500`);
                 return rows.map(r => r.row_data).filter(Boolean);
@@ -592,8 +666,8 @@
                 client: cliente || data.projectInfo.client || 'Rossi Supermercados',
                 period: tapPeriod || data.projectInfo.period || data.statusInput.period || '',
                 goLive: tapGoLive || data.projectInfo.goLive || '',
-                pm: tapManager || data.projectInfo.pm || '',
-                pmo: tapPmo || data.projectInfo.pmo || '',
+                pm: tapPmo || tapManager || data.projectInfo.pm || '',
+                pmo: tapManager || tapPmo || data.projectInfo.pmo || '',
                 product: firstFrom(n, ['produto', 'produtos', 'produtos contratados']),
                 value: firstFrom(n, ['valor projeto', 'valorProjeto', 'valor_projeto']),
                 margin: firstFrom(n, ['margem atual percentual', 'margemAtual', 'margem_atual_percentual', 'margem venda percentual']),
@@ -743,7 +817,8 @@
             document.getElementById('hdr-fase').innerText = data.projectInfo.phase || '-';
             document.getElementById('hdr-periodo').innerText = data.projectInfo.period || data.statusInput.period || '-';
             document.getElementById('hdr-golive').innerText = data.projectInfo.goLive || '-';
-            document.getElementById('hdr-pm').innerText = `${data.projectInfo.pm || '-'} / ${data.projectInfo.pmo || '-'}`;
+            const managerPmo = [data.projectInfo.pm, data.projectInfo.pmo].filter(Boolean).join(' / ');
+            document.getElementById('hdr-pm').innerText = managerPmo || '-';
             document.getElementById('hdr-status').innerText = data.projectInfo.statusGeral || '-';
         }
         function generateExecutiveSummary() {
