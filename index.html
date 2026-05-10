@@ -1760,10 +1760,27 @@
                 const t = await r.text();
                 if(/<html/i.test(t) && /404|File not found|Page not found/i.test(t)) throw new Error('URL inválida (404). Para links /d/e/ use /pub?output=csv');
                 const allRows = mode === "web" ? parseHtmlTable(t) : parseCsv(t, { preserveEmptyRows: true });
+                const rangeInfo = parseA1Range(s.range);
                 const rangedRows = applyRangeToRows(allRows, s.range);
-                const parsedRows = s.hasHeader ? rangedRows.slice(1) : rangedRows;
-                const dataRows = parsedRows.filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
-                lastFetchMeta[key] = { connected: true, matrixRows: rangedRows.length, dataRows: dataRows.length, hasHeader: !!s.hasHeader, range: s.range || '', mode };
+                const headerRow = s.hasHeader ? (rangedRows[0] || []) : [];
+                const firstSourceRow = rangeInfo ? rangeInfo.startRow + 1 : 1;
+                const parsedRows = (s.hasHeader ? rangedRows.slice(1) : rangedRows).map((row, index) => ({
+                    row,
+                    sourceRowNumber: firstSourceRow + index + (s.hasHeader ? 1 : 0)
+                }));
+                const dataEntries = parsedRows.filter(entry => entry.row.some(cell => String(cell ?? '').trim() !== ''));
+                const dataRows = dataEntries.map(entry => entry.row);
+                lastFetchMeta[key] = {
+                    connected: true,
+                    matrixRows: rangedRows.length,
+                    dataRows: dataRows.length,
+                    hasHeader: !!s.hasHeader,
+                    range: s.range || '',
+                    mode,
+                    sheet: s.sheet || '',
+                    headers: headerRow.map(cell => String(cell ?? '').trim()),
+                    sourceRowNumbers: dataEntries.map(entry => entry.sourceRowNumber)
+                };
                 lastFetchErrors[key] = '';
                 return dataRows;
             } catch (e) {
@@ -1792,6 +1809,113 @@
                 pos_producao_meses: map('posProducaoMeses'), encerramento: map('dataEncerramento'),
                 descricao_escopo: map('itemEscopo'), observacoes: map('observacoesGerais'), payload: raw
             };
+        }
+        function safeIssueText(value) {
+            return value === null || value === undefined ? '' : String(value).trim();
+        }
+        function issueRowHash(value) {
+            const input = JSON.stringify(value || {});
+            let h1 = 0xdeadbeef ^ input.length;
+            let h2 = 0x41c6ce57 ^ input.length;
+            for(let i = 0, ch; i < input.length; i++) {
+                ch = input.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            return `${(h2 >>> 0).toString(16).padStart(8, '0')}${(h1 >>> 0).toString(16).padStart(8, '0')}`;
+        }
+        function parseIssueDate(value) {
+            const raw = safeIssueText(value);
+            if(!raw || raw === '-') return null;
+            const dmyMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if(dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+            const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            return isoMatch ? `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}` : null;
+        }
+        function parseIssuePercent(value) {
+            const raw = safeIssueText(value).replace('%', '').replace(',', '.');
+            const num = Number(raw);
+            return Number.isFinite(num) ? num : 0;
+        }
+        function normalizeIssueHeader(value = '') {
+            return normalizeKey(value);
+        }
+        function buildIssueRowObject(row = [], headers = []) {
+            const rowObject = {};
+            const effectiveHeaders = headers.length ? headers : row.map((_cell, index) => `Coluna ${index + 1}`);
+            effectiveHeaders.forEach((header, index) => {
+                const label = safeIssueText(header) || `Coluna ${index + 1}`;
+                rowObject[label] = safeIssueText(row[index]);
+            });
+            return rowObject;
+        }
+        function firstIssueValue(rowObject = {}, aliases = []) {
+            const normalized = Object.fromEntries(Object.entries(rowObject).map(([key, value]) => [normalizeIssueHeader(key), value]));
+            for(const alias of aliases) {
+                const value = normalized[normalizeIssueHeader(alias)];
+                if(value !== undefined) return value;
+            }
+            return '';
+        }
+        function buildIssuePayload(rowObject, sourceConfig, project, projectId, sourceRowNumber, tapEntryId) {
+            return {
+                source_type: 'pendencias',
+                source_label: sourceConfig?.label || 'Pendências',
+                project_id: projectId,
+                project_linked_name: project?.name || project?.id || '',
+                tap_entries_project_id: project?.id || '',
+                tap_entry_id: tapEntryId || project?.tapEntryId || config.activeTapEntryId || null,
+                sheet: {
+                    tab_name: sourceConfig?.sheet || 'Pendências',
+                    range: sourceConfig?.range || '',
+                    has_header: !!sourceConfig?.hasHeader,
+                    source_row_number: sourceRowNumber || null
+                },
+                row: rowObject
+            };
+        }
+        function rowsToIssueEntries(rows = [], project = {}, projectId = '') {
+            const sourceConfig = project.sources?.pendencias || {};
+            const meta = lastFetchMeta.pendencias || {};
+            const headers = (meta.headers || []).filter(header => safeIssueText(header));
+            const sourceRowNumbers = meta.sourceRowNumbers || [];
+            const rawTapEntryId = project.tapEntryId || config.activeTapEntryId || config.activeTapProject?.tapEntryId || null;
+            const tapEntryId = isUuidLike(rawTapEntryId) ? rawTapEntryId : null;
+            return rows.map((row, index) => {
+                const rowObject = buildIssueRowObject(row, headers);
+                const sourceRowNumber = sourceRowNumbers[index] || null;
+                const payloadIssue = buildIssuePayload(rowObject, sourceConfig, project, projectId, sourceRowNumber, tapEntryId);
+                return {
+                    project_id: projectId,
+                    tap_entry_id: tapEntryId || null,
+                    tap_entries_project_id: project.id || '',
+                    project_linked_name: project.name || project.id || '',
+                    source_row_number: sourceRowNumber,
+                    external_id: firstIssueValue(rowObject, ['ID', 'external_id']),
+                    area: firstIssueValue(rowObject, ['Área', 'Area']),
+                    category: firstIssueValue(rowObject, ['Categoria', 'Category']),
+                    stage: firstIssueValue(rowObject, ['Etapa do Projeto', 'Etapa', 'Stage']),
+                    project_stage: firstIssueValue(rowObject, ['Etapa do Projeto', 'Etapa', 'Stage']),
+                    sprint: firstIssueValue(rowObject, ['Sprint']),
+                    activity: firstIssueValue(rowObject, ['Atividade', 'Activity']),
+                    description: firstIssueValue(rowObject, ['Descrição', 'Descricao', 'Description', 'Atividade']) || 'Pendência sem descrição',
+                    owner: firstIssueValue(rowObject, ['Responsável', 'Responsavel', 'Owner']),
+                    client_owner: firstIssueValue(rowObject, ['Responsável Cliente', 'Responsavel Cliente', 'Client Owner']),
+                    criticality: firstIssueValue(rowObject, ['Criticidade', 'Prioridade', 'Criticality']),
+                    identified_at: parseIssueDate(firstIssueValue(rowObject, ['Data Identificação', 'Data Identificacao', 'Identified At'])),
+                    planned_at: parseIssueDate(firstIssueValue(rowObject, ['Data Planejada', 'Vencimento', 'Planned At'])),
+                    days_to_complete: firstIssueValue(rowObject, ['Dias para Concluir', 'Dias Concluir']),
+                    condition: firstIssueValue(rowObject, ['Condição Pendência', 'Condicao Pendencia', 'Condition']),
+                    issue_condition: firstIssueValue(rowObject, ['Condição Pendência', 'Condicao Pendencia', 'Condition']),
+                    completed_at: parseIssueDate(firstIssueValue(rowObject, ['Data Conclusão', 'Data Conclusao', 'Completed At'])),
+                    completion_pct: parseIssuePercent(firstIssueValue(rowObject, ['% Conclusão', '% Conclusao', 'Completion Pct'])),
+                    status: firstIssueValue(rowObject, ['Status']) || 'Aberta',
+                    payload_issue: payloadIssue,
+                    source_row_hash: issueRowHash(payloadIssue)
+                };
+            }).filter(issue => Object.values(issue.payload_issue.row || {}).some(value => safeIssueText(value) && safeIssueText(value) !== '-'));
         }
         async function syncAll() {
             const selectedProjects = getSelectedProjects();
@@ -2002,10 +2126,15 @@
                         await supabaseRequest(`tap_entries?project_id=eq.${projectId}`, 'DELETE');
                         if(total) await supabaseRequest('tap_entries', 'POST', [tapToEntry(rowsByKey.tap || [], projectId)]);
                     }
+                    if(sourceKey === 'pendencias'){
+                        const issuesPayload = rowsToIssueEntries(rowsByKey.pendencias || [], project, projectId);
+                        await supabaseRequest(`issues?project_id=eq.${projectId}`, 'DELETE');
+                        if(issuesPayload.length) await supabaseRequest('issues', 'POST', issuesPayload);
+                    }
                     lastSyncStatus[sourceKey] = { ok: true, total, ...(lastFetchMeta[sourceKey] || {}), readError: '', warning: sourceRowsWarning };
                 } catch (e) {
                     const readError = lastFetchErrors[sourceKey] ? String(e.message || e) : '';
-                    const writeWarning = lastFetchErrors[sourceKey] ? sourceRowsWarning : [sourceRowsWarning, `Backup Supabase/tap_entries não gravado: ${String(e.message || e)}`].filter(Boolean).join(' | ');
+                    const writeWarning = lastFetchErrors[sourceKey] ? sourceRowsWarning : [sourceRowsWarning, `Backup Supabase/${sourceKey === 'pendencias' ? 'issues' : 'tap_entries'} não gravado: ${String(e.message || e)}`].filter(Boolean).join(' | ');
                     lastSyncStatus[sourceKey] = { ok: !readError, total, ...(lastFetchMeta[sourceKey] || {}), readError, warning: writeWarning };
                 }
             }

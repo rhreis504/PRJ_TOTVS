@@ -18,6 +18,8 @@ const REQUIRED_MIGRATIONS = [
   '20260502_000001_initial_schema.sql',
   '20260504_000002_project_sync_and_tap.sql',
   '20260505_000003_api_access_and_rpc.sql',
+  '20260509_000004_normalize_tap_entries.sql',
+  '20260510_000005_normalize_issues_payload.sql',
 ];
 
 const args = process.argv.slice(2);
@@ -88,7 +90,66 @@ function configuratorHtmlTemplate() {
 }
 
 function docsTemplate() {
-  return `# Implantação Supabase - Cockpit Rossi/TOTVS\n\nEste projeto recebeu a estrutura Supabase copiada do Cockpit Rossi/TOTVS.\n\n## 1. Arquivos instalados\n\n- \`supabase/migrations/20260502_000001_initial_schema.sql\`\n- \`supabase/migrations/20260504_000002_project_sync_and_tap.sql\`\n- \`supabase/migrations/20260505_000003_api_access_and_rpc.sql\`\n- \`scripts/import_spreadsheets_to_supabase.mjs\`\n- \`supabase/setup/supabase-runtime.js\`\n- \`supabase/setup/supabase-configurador.html\`\n- \`.env.supabase.example\`\n\n## 2. Executar SQL no novo Supabase\n\nNo SQL Editor do novo projeto Supabase, execute as migrations nesta ordem:\n\n1. \`supabase/migrations/20260502_000001_initial_schema.sql\`\n2. \`supabase/migrations/20260504_000002_project_sync_and_tap.sql\`\n3. \`supabase/migrations/20260505_000003_api_access_and_rpc.sql\`\n\nEssas migrations criam \`projects\`, \`spreadsheet_sources\`, \`issues\`, \`risks\`, \`gaps\`, \`activities\`, \`import_jobs\`, \`source_rows\`, \`tap_entries\`, grants, policies RLS e RPCs auxiliares.\n\n## 3. Configurar variáveis\n\nCopie \`.env.supabase.example\` para \`.env.local\` e preencha:\n\n\`\`\`env\nNEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJECT-REF.supabase.co\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...\nSUPABASE_SECRET_KEY=...\nPROJECT_CODE=ROSSI-PMO\nPROJECT_NAME=Rossi Supermercados\n\`\`\`\n\nNunca versionar chaves reais de service role/secret.\n\n## 4. Menu Configurações\n\nSe o \`index.html\` foi atualizado com \`--patch-index\`, haverá um item "Supabase" no menu e uma área "Configurações Supabase".\n\nSe o patch automático não foi possível, copie o conteúdo de \`supabase/setup/supabase-configurador.html\` para a tela/menu de configurações do projeto de destino e mantenha o arquivo \`supabase/setup/supabase-runtime.js\` publicado junto com a aplicação.\n\n## 5. Importação inicial\n\nDepois de preencher as variáveis, rode no terminal do projeto de destino:\n\n\`\`\`bash\nnode scripts/import_spreadsheets_to_supabase.mjs\n\`\`\`\n\n## 6. Testes rápidos\n\n\`\`\`bash\ncurl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/projects?select=id,code,name&limit=1" \\\n  -H "apikey: $SUPABASE_SECRET_KEY" \\\n  -H "Authorization: Bearer $SUPABASE_SECRET_KEY"\n\nnode scripts/import_spreadsheets_to_supabase.mjs\n\`\`\`\n`;
+  const migrationList = REQUIRED_MIGRATIONS.map(file => `- \`${MIGRATION_DIR}/${file}\``).join('\n');
+  const migrationSteps = REQUIRED_MIGRATIONS.map((file, index) => `${index + 1}. \`${MIGRATION_DIR}/${file}\``).join('\n');
+  return `# Implantação Supabase - Cockpit Rossi/TOTVS
+
+Este projeto recebeu a estrutura Supabase copiada do Cockpit Rossi/TOTVS.
+
+## 1. Arquivos instalados
+
+${migrationList}
+- \`${IMPORT_SCRIPT}\`
+- \`supabase/setup/supabase-runtime.js\`
+- \`supabase/setup/supabase-configurador.html\`
+- \`.env.supabase.example\`
+
+## 2. Executar SQL no novo Supabase
+
+No SQL Editor do novo projeto Supabase, execute as migrations nesta ordem:
+
+${migrationSteps}
+
+Essas migrations criam \`projects\`, \`spreadsheet_sources\`, \`issues\`, \`risks\`, \`gaps\`, \`activities\`, \`import_jobs\`, \`source_rows\`, \`tap_entries\`, grants, policies RLS e RPCs auxiliares.
+
+## 3. Configurar variáveis
+
+Copie \`.env.supabase.example\` para \`.env.local\` e preencha:
+
+\`\`\`env
+NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJECT-REF.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+SUPABASE_SECRET_KEY=...
+PROJECT_CODE=ROSSI-PMO
+PROJECT_NAME=Rossi Supermercados
+\`\`\`
+
+Nunca versionar chaves reais de service role/secret.
+
+## 4. Menu Configurações
+
+Se o \`index.html\` foi atualizado com \`--patch-index\`, haverá um item "Supabase" no menu e uma área "Configurações Supabase".
+
+Se o patch automático não foi possível, copie o conteúdo de \`supabase/setup/supabase-configurador.html\` para a tela/menu de configurações do projeto de destino e mantenha o arquivo \`supabase/setup/supabase-runtime.js\` publicado junto com a aplicação.
+
+## 5. Importação inicial
+
+Depois de preencher as variáveis, rode no terminal do projeto de destino:
+
+\`\`\`bash
+node ${IMPORT_SCRIPT}
+\`\`\`
+
+## 6. Testes rápidos
+
+\`\`\`bash
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/projects?select=id,code,name&limit=1" \\
+  -H "apikey: $SUPABASE_SECRET_KEY" \\
+  -H "Authorization: Bearer $SUPABASE_SECRET_KEY"
+
+node ${IMPORT_SCRIPT}
+\`\`\`
+`;
 }
 
 async function patchIndexHtml() {
@@ -156,7 +217,7 @@ async function main() {
 
   console.log('\nConcluído. Próximos passos no projeto de destino:');
   console.log('1. Copie .env.supabase.example para .env.local e preencha as chaves reais.');
-  console.log('2. Execute as 3 migrations no SQL Editor do Supabase, na ordem indicada.');
+  console.log('2. Execute as 5 migrations no SQL Editor do Supabase, na ordem indicada.');
   console.log('3. Rode: node scripts/import_spreadsheets_to_supabase.mjs');
   console.log('4. Abra o menu Configurações/Supabase e clique em Testar Conexão.');
 }
