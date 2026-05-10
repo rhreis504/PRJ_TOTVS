@@ -1104,7 +1104,7 @@
             atividades: { label: 'Atividades', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'calendar-check' },
             treinamentos: { label: 'Treinamentos', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'graduation-cap' },
         });
-        let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
+        let config = { password: 'admin', interval: 5, activeProjectId: '', selectedProjectIds: [], projects: [], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
         let lastSyncStatus = {};
         let lastFetchErrors = {};
         let lastFetchMeta = {};
@@ -1139,7 +1139,8 @@
         function normalizePersistedConfig() {
             if(!config || typeof config !== 'object') config = {};
             if(!config.password || typeof config.password !== 'string') config.password = 'admin';
-            if(!Array.isArray(config.projects) || !config.projects.length) config.projects = [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }];
+            if(!Array.isArray(config.projects)) config.projects = [];
+            config.projects = config.projects.filter(project => project && project.id !== 'default' && project.name !== 'Projeto Padrão' && project.name !== 'PRJ-ROSSI SUPERMERCADOS');
             const canonicalSources = defaultSources();
             config.projects.forEach(project => {
                 if(!project.sources || typeof project.sources !== 'object') project.sources = {};
@@ -1147,8 +1148,11 @@
                     project.sources[key] = { ...source, ...(project.sources[key] || {}) };
                 });
             });
-            if(!config.activeProjectId) config.activeProjectId = config.projects[0].id;
-            if(!Array.isArray(config.selectedProjectIds) || !config.selectedProjectIds.length) config.selectedProjectIds = [config.activeProjectId];
+            if(config.activeProjectId && !config.projects.some(project => project.id === config.activeProjectId)) config.activeProjectId = '';
+            if(!config.activeProjectId && config.projects.length) config.activeProjectId = config.projects[0].id;
+            if(!Array.isArray(config.selectedProjectIds)) config.selectedProjectIds = [];
+            config.selectedProjectIds = config.selectedProjectIds.filter(projectId => config.projects.some(project => project.id === projectId));
+            if(!config.selectedProjectIds.length && config.activeProjectId) config.selectedProjectIds = [config.activeProjectId];
             config.supabase = { ...SUPABASE_DEFAULT_CONFIG, ...(config.supabase || {}) };
             const persistedUrlRef = extractProjectRefFromUrl(config.supabase.url) || '';
             const persistedFieldRef = config.supabase.projectRef || '';
@@ -1165,7 +1169,7 @@
         loadSavedData();
         normalizePersistedConfig();
         try { localStorage.setItem('totvs_cockpit_config', JSON.stringify(config)); } catch (_e) {}
-        const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0];
+        const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0] || { id: '', name: '', sources: defaultSources() };
         const getSelectedProjects = () => config.projects.filter(p => config.selectedProjectIds.includes(p.id));
         const isUuidLike = (value = '') => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(`${value || ''}`.trim());
         const getDashboardProjectId = () => `${getActiveProject()?.id || config.activeProjectId || ''}`.trim();
@@ -2147,8 +2151,8 @@
                 try {
                     if(lastFetchErrors[sourceKey]) throw new Error(lastFetchErrors[sourceKey]);
                     if(sourceKey === 'tap'){
-                        await supabaseRequest(`tap_entries?project_id=eq.${projectId}`, 'DELETE');
-                        if(total) await supabaseRequest('tap_entries', 'POST', [tapToEntry(rowsByKey.tap || [], projectId)]);
+                        lastSyncStatus[sourceKey] = { ok: true, total, ...(lastFetchMeta[sourceKey] || {}), readError: '', warning: 'A TAP é preservada em tap_entries e deve ser criada/alterada pela tela Detalhes da TAP.' };
+                        continue;
                     }
                     if(sourceKey === 'pendencias'){
                         const issuesPayload = rowsToIssueEntries(rowsByKey.pendencias || [], project, projectId);
@@ -2599,17 +2603,11 @@ ${hints}`);
                 label: project.label || project.nomeProjeto || project.nome_projeto || project.projectId || project.id || 'Projeto sem nome',
                 source: project.source || 'tap_entries'
             })).filter(project => {
-                if(!project.projectId || seenProjectIds.has(project.projectId)) return false;
+                if(!project.tapEntryId || !project.projectId || seenProjectIds.has(project.projectId)) return false;
                 seenProjectIds.add(project.projectId);
                 return true;
             });
-            if(fromTap.length) return fromTap;
-            return (config.projects || []).map(project => ({
-                tapEntryId: project.tapEntryId || '',
-                projectId: project.id,
-                label: project.name || project.id,
-                source: project.tapEntryId ? 'tap_entries' : 'configuração local'
-            })).filter(project => project.projectId);
+            return fromTap;
         }
         function renderTapProjectCards(tapProjects = cachedTapProjects) {
             const container = document.getElementById('tap-project-cards-container');
