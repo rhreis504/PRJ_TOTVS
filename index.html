@@ -1887,13 +1887,15 @@
                 const rowObject = buildIssueRowObject(row, headers);
                 const sourceRowNumber = sourceRowNumbers[index] || null;
                 const payloadIssue = buildIssuePayload(rowObject, sourceConfig, project, projectId, sourceRowNumber, tapEntryId);
+                const rowHash = issueRowHash(payloadIssue);
+                const externalId = firstIssueValue(rowObject, ['ID', 'external_id']) || `pendencias-linha-${sourceRowNumber || index + 1}-${rowHash.slice(0, 8)}`;
                 return {
                     project_id: projectId,
                     tap_entry_id: tapEntryId || null,
                     tap_entries_project_id: project.id || '',
                     project_linked_name: project.name || project.id || '',
                     source_row_number: sourceRowNumber,
-                    external_id: firstIssueValue(rowObject, ['ID', 'external_id']),
+                    external_id: externalId,
                     area: firstIssueValue(rowObject, ['Área', 'Area']),
                     category: firstIssueValue(rowObject, ['Categoria', 'Category']),
                     stage: firstIssueValue(rowObject, ['Etapa do Projeto', 'Etapa', 'Stage']),
@@ -1913,7 +1915,7 @@
                     completion_pct: parseIssuePercent(firstIssueValue(rowObject, ['% Conclusão', '% Conclusao', 'Completion Pct'])),
                     status: firstIssueValue(rowObject, ['Status']) || 'Aberta',
                     payload_issue: payloadIssue,
-                    source_row_hash: issueRowHash(payloadIssue)
+                    source_row_hash: rowHash
                 };
             }).filter(issue => Object.values(issue.payload_issue.row || {}).some(value => safeIssueText(value) && safeIssueText(value) !== '-'));
         }
@@ -2028,10 +2030,19 @@
         function buildSupabaseHeaders(credential, extraHeaders = {}, options = {}) {
             if(!credential?.value) throw new Error('Nenhuma chave Supabase configurada. Informe uma chave no Configurador de Banco.');
             const headers = { apikey: credential.value };
-            if(credential.keyType === 'legacy_jwt') headers.Authorization = `Bearer ${credential.value}`;
+            if(credential.keyType === 'legacy_jwt' || credential.keyType === 'secret') headers.Authorization = `Bearer ${credential.value}`;
             if(options.includeJson !== false) headers['Content-Type'] = 'application/json';
             if(options.includePrefer !== false) headers.Prefer = 'return=representation,resolution=merge-duplicates';
             return { ...headers, ...extraHeaders };
+        }
+        function getSupabaseWriteCredentials(credentials = []) {
+            const weight = (credential = {}) => {
+                if(credential.keyType === 'secret' || /service[_ -]?role|secret/i.test(credential.label || '')) return 0;
+                if(credential.keyType === 'legacy_jwt' && !/anon|publishable/i.test(credential.label || '')) return 1;
+                if(credential.label === 'currentKey' || credential.label === 'previousKey') return 2;
+                return 3;
+            };
+            return [...credentials].sort((a, b) => weight(a) - weight(b));
         }
         async function fetchSupabaseGetWithFallback(endpoint, credential, headerOptions = {}) {
             try {
@@ -2054,27 +2065,40 @@
             if(!runtime.credential) throw new Error('Nenhuma chave Supabase configurada. Informe Service Role, Publishable ou Anon.');
             const endpoint = `${runtime.baseUrl}/rest/v1/${path}`;
             const requestMethod = method.toUpperCase();
-            let res;
+            const parseSupabaseResponse = async (res, credential) => {
+                const text = await res.text();
+                if(!res.ok) {
+                    const contentType = res.headers.get('content-type') || '';
+                    if(contentType.includes('text/html') || /^\s*<!doctype html>/i.test(text)) {
+                        throw new Error(`Resposta HTML recebida do Supabase usando ${credential?.label || 'credencial'}. Verifique a chave de serviço.`);
+                    }
+                    throw new Error(text || `${res.status} ${res.statusText}`.trim());
+                }
+                if(res.status === 204 || !text) return [];
+                return JSON.parse(text);
+            };
             if(requestMethod === 'GET') {
                 const result = await fetchSupabaseGetWithFallback(endpoint, runtime.credential);
-                res = result.response;
-            } else {
-                res = await fetch(endpoint, {
-                    method,
-                    headers: buildSupabaseHeaders(runtime.credential),
-                    body: body ? JSON.stringify(body) : undefined
-                });
+                return parseSupabaseResponse(result.response, runtime.credential);
             }
-            const text = await res.text();
-            if(!res.ok) {
-                const contentType = res.headers.get('content-type') || '';
-                if(contentType.includes('text/html') || /^\s*<!doctype html>/i.test(text)) {
-                    throw new Error('Resposta HTML recebida do Supabase. Verifique a chave de serviço.');
+            const credentials = getSupabaseWriteCredentials(runtime.credentials?.length ? runtime.credentials : [runtime.credential]);
+            const errors = [];
+            for(const credential of credentials) {
+                try {
+                    const res = await fetch(endpoint, {
+                        method,
+                        headers: buildSupabaseHeaders(credential),
+                        body: body ? JSON.stringify(body) : undefined
+                    });
+                    return await parseSupabaseResponse(res, credential);
+                } catch (e) {
+                    errors.push(`${credential.label}/${credential.keyType}: ${String(e.message || e)}`);
+                    const errorText = String(e.message || e);
+                    const canTryNextCredential = /42501|row-level security|permission denied|401|403|invalid api key|JWSError|PGRST301/i.test(errorText);
+                    if(!canTryNextCredential) break;
                 }
-                throw new Error(text);
             }
-            if(res.status === 204 || !text) return [];
-            return JSON.parse(text);
+            throw new Error(errors.join(' | '));
         }
         async function syncProjectToSupabase(project, keys, rowsByKey = {}) {
             const runtime = getSupabaseRuntimeConfig();
@@ -2179,7 +2203,7 @@
             syncAll();
             timerInterval = setInterval(() => { syncAll(); }, config.interval * 60 * 1000);
         }
-        function saveConfig() {
+        function saveConfig(options = {}) {
             config.interval = parseInt(document.getElementById('update-interval').value) || 5;
             const active = getActiveProject();
             Object.keys(active.sources).forEach(k => {
@@ -2200,7 +2224,8 @@
             config.supabase.url = document.getElementById('supabase-url').value.trim();
             config.supabase.secret = document.getElementById('supabase-secret').value.trim();
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
-            showToast("Configurações sistêmicas atualizadas."); startSync();
+            showToast("Configurações sistêmicas atualizadas.");
+            if(!options.silentSync) startSync();
         }
         function toggleDbConfiguratorHelp() {
             const help = document.getElementById('dbconf-help');
@@ -2640,9 +2665,28 @@ ${hints}`);
             const modal = document.getElementById('data-source-modal');
             if(modal) modal.style.display = 'none';
         }
-        function saveDataSourcesModal() {
-            saveConfig();
-            closeDataSourcesModal();
+        async function saveDataSourcesModal() {
+            const saveButton = document.querySelector('#data-source-modal .btn-primary[onclick*="saveDataSourcesModal"]');
+            const originalHtml = saveButton ? saveButton.innerHTML : '';
+            if(saveButton) {
+                saveButton.disabled = true;
+                saveButton.innerHTML = '<i data-lucide="loader-2" size="18"></i> Salvando...';
+                lucide.createIcons();
+            }
+            try {
+                saveConfig({ silentSync: true });
+                await syncAll();
+                showToast('Configurações salvas e pendências enviadas para a tabela Issues.');
+                closeDataSourcesModal();
+            } catch (e) {
+                showToast(`Falha ao salvar configurações: ${String(e.message || e).slice(0, 160)}`);
+            } finally {
+                if(saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.innerHTML = originalHtml;
+                    lucide.createIcons();
+                }
+            }
         }
         async function copyProjectId(projectId) {
             try {
