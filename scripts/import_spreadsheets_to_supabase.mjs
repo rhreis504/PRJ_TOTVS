@@ -77,6 +77,29 @@ async function supabase(path, method = 'GET', body) {
 }
 
 function hashRow(r) { return crypto.createHash('sha1').update(JSON.stringify(r)).digest('hex'); }
+function parseDateValue(value) {
+  const raw = `${value || ''}`.trim();
+  if (!raw || raw === '-') return null;
+  const dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : null;
+}
+function parsePercentValue(value) {
+  const num = Number(`${value || ''}`.replace('%', '').replace(',', '.').trim());
+  return Number.isFinite(num) ? num : 0;
+}
+function issuePayload(row, projectId) {
+  return {
+    source_type: 'pendencias',
+    source_label: 'Pendências',
+    project_id: projectId,
+    project_linked_name: PROJECT_NAME,
+    tap_entries_project_id: PROJECT_CODE,
+    sheet: { tab_name: 'Pendências', range: '', has_header: true, source_row_number: null },
+    row
+  };
+}
 
 async function main() {
   const [project] = await supabase('projects?code=eq.' + encodeURIComponent(PROJECT_CODE));
@@ -91,8 +114,37 @@ async function main() {
     const csv = await fetch(sheetUrl).then(r => r.text());
     const rows = parseCSV(csv);
     if (type === 'pendencias') {
-      const payload = rows.map(r => ({ project_id: projectId, external_id: r.ID, area: r['Área'], category: r.Categoria, description: r.Descrição || r.Descricao || '', owner: r.Responsável || r.Responsavel, status: r.Status || 'Aberta', source_row_hash: hashRow(r) }));
-      await supabase('issues', 'POST', payload);
+      const payload = rows.map(r => {
+        const payloadIssue = issuePayload(r, projectId);
+        return {
+          project_id: projectId,
+          tap_entries_project_id: PROJECT_CODE,
+          project_linked_name: PROJECT_NAME,
+          external_id: r.ID,
+          area: r['Área'] || r.Area,
+          category: r.Categoria,
+          stage: r['Etapa do Projeto'] || r.Etapa,
+          project_stage: r['Etapa do Projeto'] || r.Etapa,
+          sprint: r.Sprint,
+          activity: r.Atividade,
+          description: r.Descrição || r.Descricao || r.Atividade || 'Pendência sem descrição',
+          owner: r.Responsável || r.Responsavel,
+          client_owner: r['Responsável Cliente'] || r['Responsavel Cliente'],
+          criticality: r.Criticidade || r.Prioridade,
+          identified_at: parseDateValue(r['Data Identificação'] || r['Data Identificacao']),
+          planned_at: parseDateValue(r['Data Planejada'] || r.Vencimento),
+          days_to_complete: r['Dias para Concluir'],
+          condition: r['Condição Pendência'] || r['Condicao Pendencia'],
+          issue_condition: r['Condição Pendência'] || r['Condicao Pendencia'],
+          completed_at: parseDateValue(r['Data Conclusão'] || r['Data Conclusao']),
+          completion_pct: parsePercentValue(r['% Conclusão'] || r['% Conclusao']),
+          status: r.Status || 'Aberta',
+          payload_issue: payloadIssue,
+          source_row_hash: hashRow(payloadIssue)
+        };
+      });
+      await supabase(`issues?project_id=eq.${projectId}`, 'DELETE');
+      if (payload.length) await supabase('issues', 'POST', payload);
     }
     if (type === 'riscos') {
       const payload = rows.map(r => ({ project_id: projectId, external_id: r.ID, process: r.Projeto || r.Processo, owner: r.Responsável || r.Responsavel, probability: Number(r.Probabilidade || 0), impact: Number(r.Impacto || 0), strategy: r.Tratamento, description: r.Descrição || r.Descricao || '', life_cycle_status: r['Status Ciclo de Vida'] || r.Status, source_row_hash: hashRow(r) }));
