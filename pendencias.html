@@ -221,28 +221,54 @@
       const [error, setError] = useState(null);
       const [lastUpdated, setLastUpdated] = useState(null);
 
-      const [searchTerm, setSearchTerm] = useState('');
-      const [statusFilter, setStatusFilter] = useState('');
-      const [criticidadeFilter, setCriticidadeFilter] = useState('');
-      const [responsavelFilter, setResponsavelFilter] = useState('');
-      const [areaFilter, setAreaFilter] = useState('');
-      const [etapaFilter, setEtapaFilter] = useState('');
-      const [condicaoFilter, setCondicaoFilter] = useState('');
+      const defaultFilters = {
+        searchTerm: '', statusFilter: '', criticidadeFilter: '', responsavelFilter: '', responsavelClienteFilter: '',
+        areaFilter: '', categoriaFilter: '', etapaFilter: '', sprintFilter: '', condicaoFilter: '', plannedFrom: '', plannedTo: '',
+        onlyAtrasadas: false, onlyNaoConcluidas: false, onlySemResponsavel: false, onlySemResponsavelTotvs: false, onlySemResponsavelCliente: false, onlyVencendo7: false, onlyDependenciaCliente: false, onlyRiscoGoLive: false,
+      };
+
+      const [filters, setFilters] = useState(defaultFilters);
       const [viewMode, setViewMode] = useState('lista');
-      const [groupBy, setGroupBy] = useState('');
-      const [sortBy, setSortBy] = useState('criticidade');
+      const [groupByPrimary, setGroupByPrimary] = useState('');
+      const [groupBySecondary, setGroupBySecondary] = useState('');
+      const [sortBy, setSortBy] = useState('priority');
+      const [selectedViewId, setSelectedViewId] = useState('');
+      const [saveModalOpen, setSaveModalOpen] = useState(false);
+      const [saveForm, setSaveForm] = useState({ name: '', description: '', setAsDefault: false });
+      const [selectedTask, setSelectedTask] = useState(null);
       const [savedViews, setSavedViews] = useState(() => {
         const storedViews = localStorage.getItem('totvs-pendencias-views');
         if (!storedViews) return [];
         try {
           const parsedViews = JSON.parse(storedViews);
-          return Array.isArray(parsedViews) ? parsedViews : [];
+          if (!Array.isArray(parsedViews)) return [];
+          return parsedViews.map((view, index) => ({
+            id: view.id || `legacy-${index}`,
+            name: view.name || `Visão ${index + 1}`,
+            description: view.description || '',
+            createdAt: view.createdAt || new Date().toISOString(),
+            isDefault: Boolean(view.isDefault),
+            config: {
+              viewMode: view.config?.viewMode || 'lista',
+              filters: { ...defaultFilters, ...(view.config?.filters || {}),
+                searchTerm: view.config?.searchTerm || view.config?.filters?.searchTerm || '',
+                statusFilter: view.config?.statusFilter || view.config?.filters?.statusFilter || '',
+                criticidadeFilter: view.config?.criticidadeFilter || view.config?.filters?.criticidadeFilter || '',
+                responsavelFilter: view.config?.responsavelFilter || view.config?.filters?.responsavelFilter || '',
+                areaFilter: view.config?.areaFilter || view.config?.filters?.areaFilter || '',
+                etapaFilter: view.config?.etapaFilter || view.config?.filters?.etapaFilter || '',
+                condicaoFilter: view.config?.condicaoFilter || view.config?.filters?.condicaoFilter || '',
+              },
+              groupByPrimary: view.config?.groupByPrimary || view.config?.groupBy || '',
+              groupBySecondary: view.config?.groupBySecondary || '',
+              sortBy: view.config?.sortBy === 'criticidade' ? 'priority' : (view.config?.sortBy || 'priority'),
+            },
+          }));
         } catch (err) {
           console.warn('Não foi possível carregar visões salvas:', err);
           return [];
         }
       });
-      const [selectedViewId, setSelectedViewId] = useState('');
 
       const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv";
 
@@ -252,488 +278,325 @@
         try {
           const response = await fetch(CSV_URL);
           if (!response.ok) throw new Error("Falha na comunicação com o Google Sheets.");
-          
           const csvText = await response.text();
           const parsed = parseCSVToObjects(csvText);
-          
           setDataset(parsed);
           setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         } catch (err) {
           console.error("Erro no fetch, usando fallback:", err);
           setError("Bloqueio de rede identificado (CORS). Carregando base de segurança.");
-          const parsedFallback = parseCSVToObjects(FALLBACK_CSV);
-          setDataset(parsedFallback);
+          setDataset(parseCSVToObjects(FALLBACK_CSV));
           setLastUpdated("Offline (Fallback)");
         } finally {
           setLoading(false);
         }
       };
 
+      useEffect(() => { loadData(); }, []);
+      useEffect(() => { localStorage.setItem('totvs-pendencias-views', JSON.stringify(savedViews)); }, [savedViews]);
       useEffect(() => {
-        loadData();
+        const defaultView = savedViews.find(view => view.isDefault);
+        if (defaultView) {
+          setSelectedViewId(defaultView.id);
+          applyViewConfig(defaultView.config);
+        }
       }, []);
 
-      useEffect(() => {
-        localStorage.setItem('totvs-pendencias-views', JSON.stringify(savedViews));
-      }, [savedViews]);
-
-      const uniqueValues = useMemo(() => {
-        const data = dataset.data;
-        const sortValues = (values) => [...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-        return {
-          status: sortValues(data.map(item => item['Status'])),
-          criticidade: sortValues(data.map(item => item['Criticidade'])),
-          responsaveis: sortValues(data.map(item => item['Responsável'])),
-          areas: sortValues(data.map(item => item['Área'])),
-          etapas: sortValues(data.map(item => item['Etapa do Projeto'])),
-          condicoes: sortValues(data.map(item => item['Condição Pendência'])),
-        };
-      }, [dataset]);
-
-      const normalizeText = (value) => (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const normalizeStatus = (status) => normalizeText(status);
-
+      const normalizeText = (value) => (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      const updateFilter = (key, value) => { setFilters(prev => ({ ...prev, [key]: value })); setSelectedViewId(''); };
       const getProgressNumber = (valueStr) => {
-        const numValue = parseInt((valueStr || '').toString().replace('%', ''));
+        const numValue = parseInt((valueStr || '').toString().replace('%', '').replace(',', '.'));
         return isNaN(numValue) ? 0 : numValue;
       };
-
-      const criticidadeWeight = (criticidade) => {
+      const getCriticidadeWeight = (criticidade) => {
         const c = normalizeText(criticidade);
-        if (c.includes('critica')) return 4;
-        if (c.includes('alta')) return 3;
-        if (c.includes('media')) return 2;
-        if (c.includes('baixa')) return 1;
+        if (c.includes('critica')) return 100;
+        if (c.includes('alta')) return 70;
+        if (c.includes('media')) return 40;
+        if (c.includes('baixa')) return 15;
         return 0;
       };
+      const parseDate = (value) => {
+        if (!value) return null;
+        const clean = value.toString().trim();
+        const br = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (br) return new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1]));
+        const iso = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+        const date = new Date(clean);
+        return isNaN(date.getTime()) ? null : date;
+      };
+      const daysBetween = (from, to) => Math.ceil((to.setHours(0,0,0,0) - from.setHours(0,0,0,0)) / 86400000);
+
+      const enrichedData = useMemo(() => {
+        const today = new Date();
+        return dataset.data.map((item) => {
+          const progressNumber = getProgressNumber(item['% Conclusão']);
+          const criticidadeWeight = getCriticidadeWeight(item['Criticidade']);
+          const status = normalizeText(item['Status']);
+          const condicao = normalizeText(item['Condição Pendência']);
+          const plannedDate = parseDate(item['Data Planejada']);
+          const venceEmDias = plannedDate ? daysBetween(new Date(today), new Date(plannedDate)) : null;
+          const isConcluida = status.includes('concluida') || progressNumber >= 100;
+          const isPendente = status.includes('pendente');
+          const isEmExecucao = status.includes('em execucao');
+          const isAtrasada = !isConcluida && venceEmDias !== null && venceEmDias < 0;
+          const diasAtraso = isAtrasada ? Math.abs(venceEmDias) : 0;
+          const isVencendoNosProximos7Dias = !isConcluida && venceEmDias !== null && venceEmDias >= 0 && venceEmDias <= 7;
+          const semResponsavelTotvs = !item['Responsável'] || ['-', 'sem responsavel', 'nao definido', 'n/a'].includes(normalizeText(item['Responsável']));
+          const semResponsavelCliente = !item['Responsável Cliente'] || ['-', 'sem responsavel', 'nao definido', 'n/a'].includes(normalizeText(item['Responsável Cliente']));
+          const condicaoCritica = ['atrasado', 'bloqueado', 'impedido', 'dependencia', 'cliente'].some(term => condicao.includes(term));
+          let priorityScore = criticidadeWeight;
+          if (isPendente) priorityScore += 20;
+          if (isEmExecucao) priorityScore += 12;
+          if (isAtrasada) priorityScore += 45 + Math.min(diasAtraso, 30);
+          if (isVencendoNosProximos7Dias) priorityScore += 25;
+          if (progressNumber < 25) priorityScore += 18; else if (progressNumber < 50) priorityScore += 12; else if (progressNumber < 80) priorityScore += 6;
+          if (semResponsavelTotvs) priorityScore += 18;
+          if (semResponsavelCliente) priorityScore += 10;
+          if (condicaoCritica) priorityScore += 20;
+          if (isConcluida) priorityScore = Math.max(0, priorityScore - 80);
+          return { ...item, progressNumber, criticidadeWeight, isConcluida, isPendente, isEmExecucao, isAtrasada, diasAtraso, venceEmDias, isVencendoNosProximos7Dias, semResponsavelTotvs, semResponsavelCliente, priorityScore: Math.max(0, Math.min(199, Math.round(priorityScore))) };
+        });
+      }, [dataset.data]);
+
+      const uniqueValues = useMemo(() => {
+        const sortValues = (values) => [...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        return {
+          status: sortValues(dataset.data.map(item => item['Status'])), criticidade: sortValues(dataset.data.map(item => item['Criticidade'])),
+          responsaveis: sortValues(dataset.data.map(item => item['Responsável'])), responsaveisCliente: sortValues(dataset.data.map(item => item['Responsável Cliente'])),
+          areas: sortValues(dataset.data.map(item => item['Área'])), categorias: sortValues(dataset.data.map(item => item['Categoria'])),
+          etapas: sortValues(dataset.data.map(item => item['Etapa do Projeto'])), sprints: sortValues(dataset.data.map(item => item['Sprint'])), condicoes: sortValues(dataset.data.map(item => item['Condição Pendência'])),
+        };
+      }, [dataset.data]);
 
       const groupOptions = [
-        { value: '', label: 'Sem agrupamento' },
-        { value: 'Status', label: 'Status' },
-        { value: 'Criticidade', label: 'Criticidade' },
-        { value: 'Responsável', label: 'Responsável TOTVS' },
-        { value: 'Área', label: 'Área' },
-        { value: 'Etapa do Projeto', label: 'Etapa do Projeto' },
-        { value: 'Condição Pendência', label: 'Condição da Pendência' },
+        { value: '', label: 'Sem agrupamento' }, { value: 'Status', label: 'Status' }, { value: 'Criticidade', label: 'Criticidade' },
+        { value: 'Responsável', label: 'Responsável TOTVS' }, { value: 'Responsável Cliente', label: 'Responsável Cliente' }, { value: 'Área', label: 'Área' },
+        { value: 'Categoria', label: 'Categoria' }, { value: 'Etapa do Projeto', label: 'Etapa do Projeto' }, { value: 'Sprint', label: 'Sprint' }, { value: 'Condição Pendência', label: 'Condição Pendência' },
       ];
-
       const sortOptions = [
-        { value: 'criticidade', label: 'Prioridade inteligente' },
-        { value: 'status', label: 'Status' },
-        { value: 'responsavel', label: 'Responsável' },
-        { value: 'progresso', label: '% Conclusão' },
-        { value: 'id', label: 'ID' },
+        { value: 'priority', label: 'Prioridade inteligente' }, { value: 'maisAtrasadas', label: 'Mais atrasadas' }, { value: 'vencimento', label: 'Vencimento mais próximo' },
+        { value: 'menorProgresso', label: 'Menor progresso' }, { value: 'maiorProgresso', label: 'Maior progresso' }, { value: 'criticidade', label: 'Criticidade' },
+        { value: 'status', label: 'Status' }, { value: 'responsavel', label: 'Responsável TOTVS' }, { value: 'responsavelCliente', label: 'Responsável Cliente' },
+        { value: 'etapa', label: 'Etapa do Projeto' }, { value: 'id', label: 'ID' },
       ];
 
       const filteredData = useMemo(() => {
-        const data = dataset.data.filter(row => {
-          const matchesSearch = Object.values(row).some(val => normalizeText(val).includes(normalizeText(searchTerm)));
-          const matchesStatus = statusFilter === '' || row['Status'] === statusFilter;
-          const matchesCriticidade = criticidadeFilter === '' || row['Criticidade'] === criticidadeFilter;
-          const matchesResponsavel = responsavelFilter === '' || row['Responsável'] === responsavelFilter;
-          const matchesArea = areaFilter === '' || row['Área'] === areaFilter;
-          const matchesEtapa = etapaFilter === '' || row['Etapa do Projeto'] === etapaFilter;
-          const matchesCondicao = condicaoFilter === '' || row['Condição Pendência'] === condicaoFilter;
-
-          return matchesSearch && matchesStatus && matchesCriticidade && matchesResponsavel && matchesArea && matchesEtapa && matchesCondicao;
+        const plannedFromDate = parseDate(filters.plannedFrom);
+        const plannedToDate = parseDate(filters.plannedTo);
+        const data = enrichedData.filter(row => {
+          const rowDate = parseDate(row['Data Planejada']);
+          const matchesSearch = !filters.searchTerm || Object.values(row).some(val => normalizeText(val).includes(normalizeText(filters.searchTerm)));
+          const matchesDates = (!plannedFromDate || (rowDate && rowDate >= plannedFromDate)) && (!plannedToDate || (rowDate && rowDate <= plannedToDate));
+          return matchesSearch
+            && (!filters.statusFilter || row['Status'] === filters.statusFilter)
+            && (!filters.criticidadeFilter || row['Criticidade'] === filters.criticidadeFilter)
+            && (!filters.responsavelFilter || row['Responsável'] === filters.responsavelFilter)
+            && (!filters.responsavelClienteFilter || row['Responsável Cliente'] === filters.responsavelClienteFilter)
+            && (!filters.areaFilter || row['Área'] === filters.areaFilter)
+            && (!filters.categoriaFilter || row['Categoria'] === filters.categoriaFilter)
+            && (!filters.etapaFilter || row['Etapa do Projeto'] === filters.etapaFilter)
+            && (!filters.sprintFilter || row['Sprint'] === filters.sprintFilter)
+            && (!filters.condicaoFilter || row['Condição Pendência'] === filters.condicaoFilter)
+            && matchesDates
+            && (!filters.onlyAtrasadas || row.isAtrasada)
+            && (!filters.onlyNaoConcluidas || !row.isConcluida)
+            && (!filters.onlySemResponsavel || row.semResponsavelTotvs || row.semResponsavelCliente)
+            && (!filters.onlySemResponsavelTotvs || row.semResponsavelTotvs)
+            && (!filters.onlySemResponsavelCliente || row.semResponsavelCliente)
+            && (!filters.onlyVencendo7 || row.isVencendoNosProximos7Dias)
+            && (!filters.onlyDependenciaCliente || ['dependencia', 'cliente'].some(term => normalizeText(row['Condição Pendência']).includes(term)))
+            && (!filters.onlyRiscoGoLive || (!row.isConcluida && (row.priorityScore >= 90 || row.isAtrasada || normalizeText(row['Criticidade']).includes('critica') || ['bloqueado', 'impedido'].some(term => normalizeText(row['Condição Pendência']).includes(term)))));
         });
-
         return [...data].sort((a, b) => {
-          if (sortBy === 'criticidade') return criticidadeWeight(b['Criticidade']) - criticidadeWeight(a['Criticidade']) || getProgressNumber(a['% Conclusão']) - getProgressNumber(b['% Conclusão']);
+          if (sortBy === 'priority') return b.priorityScore - a.priorityScore;
+          if (sortBy === 'maisAtrasadas') return b.diasAtraso - a.diasAtraso || b.priorityScore - a.priorityScore;
+          if (sortBy === 'vencimento') return (a.venceEmDias ?? 99999) - (b.venceEmDias ?? 99999);
+          if (sortBy === 'menorProgresso') return a.progressNumber - b.progressNumber;
+          if (sortBy === 'maiorProgresso') return b.progressNumber - a.progressNumber;
+          if (sortBy === 'criticidade') return b.criticidadeWeight - a.criticidadeWeight;
           if (sortBy === 'status') return (a['Status'] || '').localeCompare(b['Status'] || '', 'pt-BR');
           if (sortBy === 'responsavel') return (a['Responsável'] || '').localeCompare(b['Responsável'] || '', 'pt-BR');
-          if (sortBy === 'progresso') return getProgressNumber(a['% Conclusão']) - getProgressNumber(b['% Conclusão']);
+          if (sortBy === 'responsavelCliente') return (a['Responsável Cliente'] || '').localeCompare(b['Responsável Cliente'] || '', 'pt-BR');
+          if (sortBy === 'etapa') return (a['Etapa do Projeto'] || '').localeCompare(b['Etapa do Projeto'] || '', 'pt-BR');
           if (sortBy === 'id') return Number(a['ID'] || 0) - Number(b['ID'] || 0);
           return 0;
         });
-      }, [dataset, searchTerm, statusFilter, criticidadeFilter, responsavelFilter, areaFilter, etapaFilter, condicaoFilter, sortBy]);
+      }, [enrichedData, filters, sortBy]);
 
-      const kpis = useMemo(() => {
-        const total = filteredData.length;
-        const concluidas = filteredData.filter(d => normalizeStatus(d['Status']).includes('concluida')).length;
-        const emExecucao = filteredData.filter(d => normalizeStatus(d['Status']).includes('em execucao')).length;
-        const pendentes = filteredData.filter(d => normalizeStatus(d['Status']).includes('pendente')).length;
-        const criticas = filteredData.filter(d => normalizeText(d['Criticidade']).includes('critica')).length;
-        
-        return { total, concluidas, emExecucao, pendentes, criticas };
-      }, [filteredData]);
-
-      const renderStatusBadge = (status) => {
-        if (!status) return <span className="text-slate-400">-</span>;
-        const s = normalizeText(status);
-        if (s.includes('concluida')) {
-          return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200"><IconCheckCircle2 size={12} /> {status}</span>;
-        }
-        if (s.includes('em execucao')) {
-          return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"><IconTrendingUp size={12} /> {status}</span>;
-        }
-        if (s.includes('pendente')) {
-          return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"><IconClock size={12} /> {status}</span>;
-        }
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{status}</span>;
-      };
-
-      const renderCriticidadeBadge = (criticidade) => {
-        if (!criticidade) return <span className="text-slate-400">-</span>;
-        const c = normalizeText(criticidade);
-        if (c.includes('baixa')) return <span className="text-slate-500 font-medium">{criticidade}</span>;
-        if (c.includes('media')) return <span className="text-amber-600 font-medium">{criticidade}</span>;
-        if (c.includes('alta')) return <span className="text-orange-600 font-semibold">{criticidade}</span>;
-        if (c.includes('critica')) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200"><IconAlertTriangle size={12} /> {criticidade}</span>;
-        return <span>{criticidade}</span>;
-      };
-
-      const renderProgressBar = (valueStr) => {
-        if (!valueStr) return <span className="text-slate-400">-</span>;
-        const numValue = parseInt(valueStr.replace('%', ''));
-        if (isNaN(numValue)) return <span>{valueStr}</span>;
-        
-        let colorClass = 'bg-blue-500';
-        if (numValue === 100) colorClass = 'bg-emerald-500';
-        else if (numValue === 0) colorClass = 'bg-slate-300';
-        else if (numValue > 0 && numValue < 50) colorClass = 'bg-amber-500';
-
-        return (
-          <div className="w-full max-w-[120px]">
-            <div className="flex justify-between items-center mb-1 text-xs">
-              <span className="font-medium text-slate-700">{valueStr}</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-              <div className={`${colorClass} h-1.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(100, Math.max(0, numValue))}%` }}></div>
-            </div>
-          </div>
-        );
-      };
-
-      const setSmartFilter = (type) => {
-        if (type === 'criticas') {
-          const criticalValue = uniqueValues.criticidade.find(value => normalizeText(value).includes('critica')) || 'Crítica';
-          setCriticidadeFilter(criticalValue);
-          setStatusFilter('');
-        }
-        if (type === 'pendentes') {
-          const pendingValue = uniqueValues.status.find(value => normalizeText(value).includes('pendente')) || 'Pendente';
-          setStatusFilter(pendingValue);
-          setCriticidadeFilter('');
-        }
-        if (type === 'emExecucao') {
-          const executionValue = uniqueValues.status.find(value => normalizeText(value).includes('em execucao')) || 'Em execução';
-          setStatusFilter(executionValue);
-          setCriticidadeFilter('');
-        }
-        setSelectedViewId('');
-      };
-
-      const resetFilters = () => {
-        setSearchTerm('');
-        setStatusFilter('');
-        setCriticidadeFilter('');
-        setResponsavelFilter('');
-        setAreaFilter('');
-        setEtapaFilter('');
-        setCondicaoFilter('');
-        setGroupBy('');
-        setSortBy('criticidade');
-        setSelectedViewId('');
-      };
-
-      const currentViewConfig = () => ({
-        viewMode, searchTerm, statusFilter, criticidadeFilter, responsavelFilter,
-        areaFilter, etapaFilter, condicaoFilter, groupBy, sortBy,
-      });
-
-      const applyViewConfig = (config) => {
-        setViewMode(config.viewMode || 'lista');
-        setSearchTerm(config.searchTerm || '');
-        setStatusFilter(config.statusFilter || '');
-        setCriticidadeFilter(config.criticidadeFilter || '');
-        setResponsavelFilter(config.responsavelFilter || '');
-        setAreaFilter(config.areaFilter || '');
-        setEtapaFilter(config.etapaFilter || '');
-        setCondicaoFilter(config.condicaoFilter || '');
-        setGroupBy(config.groupBy || '');
-        setSortBy(config.sortBy || 'criticidade');
-      };
-
-      const saveCurrentView = () => {
-        const defaultName = `${viewMode === 'kanban' ? 'Kanban' : 'Lista'} - ${groupBy ? `por ${groupBy}` : 'personalizada'}`;
-        const name = window.prompt('Nome da visão:', defaultName);
-        if (!name || !name.trim()) return;
-        const newView = {
-          id: `view-${Date.now()}`,
-          name: name.trim(),
-          createdAt: new Date().toISOString(),
-          config: currentViewConfig(),
-        };
-        setSavedViews(prev => [...prev, newView]);
-        setSelectedViewId(newView.id);
-      };
-
-      const handleSelectedViewChange = (id) => {
-        setSelectedViewId(id);
-        const selected = savedViews.find(view => view.id === id);
-        if (selected) applyViewConfig(selected.config);
-      };
-
-      const removeSelectedView = () => {
-        if (!selectedViewId) return;
-        setSavedViews(prev => prev.filter(view => view.id !== selectedViewId));
-        setSelectedViewId('');
+      const getGroupStats = (rows) => {
+        const total = rows.length;
+        const avg = total ? Math.round(rows.reduce((sum, row) => sum + row.progressNumber, 0) / total) : 0;
+        return { total, criticas: rows.filter(row => normalizeText(row['Criticidade']).includes('critica')).length, atrasadas: rows.filter(row => row.isAtrasada).length, pendentes: rows.filter(row => row.isPendente).length, avgProgress: avg };
       };
 
       const groupedData = useMemo(() => {
-        const activeGroup = groupBy || (viewMode === 'kanban' ? 'Status' : '');
-        if (!activeGroup) return [{ key: 'Todos', label: 'Todos os registros', rows: filteredData }];
+        const activeGroup = groupByPrimary || (viewMode === 'kanban' ? 'Status' : '');
+        if (!activeGroup) return [{ key: 'Todos', label: 'Todos os registros', rows: filteredData, stats: getGroupStats(filteredData), children: [] }];
         const groups = filteredData.reduce((acc, row) => {
           const key = row[activeGroup] || 'Sem preenchimento';
           if (!acc[key]) acc[key] = [];
           acc[key].push(row);
           return acc;
         }, {});
-        return Object.entries(groups).map(([key, rows]) => ({ key, label: key, rows }));
-      }, [filteredData, groupBy, viewMode]);
+        return Object.entries(groups).map(([key, rows]) => {
+          const children = groupBySecondary ? Object.entries(rows.reduce((acc, row) => {
+            const childKey = row[groupBySecondary] || 'Sem preenchimento';
+            if (!acc[childKey]) acc[childKey] = [];
+            acc[childKey].push(row);
+            return acc;
+          }, {})).map(([childKey, childRows]) => ({ key: `${key}-${childKey}`, label: childKey, rows: childRows, stats: getGroupStats(childRows) })) : [];
+          return { key, label: key, rows, stats: getGroupStats(rows), children };
+        });
+      }, [filteredData, groupByPrimary, groupBySecondary, viewMode]);
 
-      const visibleColumns = ['ID', 'Área', 'Etapa do Projeto', 'Atividade', 'Responsável', 'Criticidade', '% Conclusão', 'Status'];
-      const hasActiveFilters = searchTerm || statusFilter || criticidadeFilter || responsavelFilter || areaFilter || etapaFilter || condicaoFilter || groupBy || sortBy !== 'criticidade';
+      const kpis = useMemo(() => ({
+        total: filteredData.length, concluidas: filteredData.filter(d => d.isConcluida).length, emExecucao: filteredData.filter(d => d.isEmExecucao).length,
+        pendentes: filteredData.filter(d => d.isPendente).length, criticas: filteredData.filter(d => normalizeText(d['Criticidade']).includes('critica')).length, atrasadas: filteredData.filter(d => d.isAtrasada).length,
+      }), [filteredData]);
+
+      const quickViews = [
+        { id: 'all', title: 'Todas as pendências', hint: 'Visão completa ordenada por risco', accent: 'indigo', config: { filters: defaultFilters, groupByPrimary: '', groupBySecondary: '', sortBy: 'priority', viewMode: 'lista' } },
+        { id: 'criticas', title: 'Críticas em aberto', hint: 'Criticidade máxima sem conclusão', accent: 'rose', config: { filters: { ...defaultFilters, criticidadeFilter: uniqueValues.criticidade.find(v => normalizeText(v).includes('critica')) || 'Crítica', onlyNaoConcluidas: true }, groupByPrimary: 'Etapa do Projeto', groupBySecondary: 'Responsável', sortBy: 'priority', viewMode: 'lista' } },
+        { id: 'atrasadas', title: 'Atrasadas', hint: 'Pendências fora do prazo', accent: 'red', config: { filters: { ...defaultFilters, onlyAtrasadas: true }, groupByPrimary: 'Responsável', groupBySecondary: 'Criticidade', sortBy: 'maisAtrasadas', viewMode: 'lista' } },
+        { id: 'vence7', title: 'Vencem nos próximos 7 dias', hint: 'Janela de atenção imediata', accent: 'amber', config: { filters: { ...defaultFilters, onlyVencendo7: true }, groupByPrimary: 'Etapa do Projeto', groupBySecondary: 'Criticidade', sortBy: 'vencimento', viewMode: 'lista' } },
+        { id: 'semTotvs', title: 'Sem responsável TOTVS', hint: 'Itens sem owner interno', accent: 'slate', config: { filters: { ...defaultFilters, onlySemResponsavelTotvs: true }, groupByPrimary: 'Área', groupBySecondary: 'Status', sortBy: 'priority', viewMode: 'lista' } },
+        { id: 'semCliente', title: 'Sem responsável cliente', hint: 'Itens sem contraparte', accent: 'slate', config: { filters: { ...defaultFilters, onlySemResponsavelCliente: true }, groupByPrimary: 'Responsável Cliente', groupBySecondary: 'Status', sortBy: 'priority', viewMode: 'lista' } },
+        { id: 'dependenciaCliente', title: 'Dependência do cliente', hint: 'Condição com dependência/cliente', accent: 'purple', config: { filters: { ...defaultFilters, onlyDependenciaCliente: true }, groupByPrimary: 'Condição Pendência', groupBySecondary: 'Responsável Cliente', sortBy: 'priority', viewMode: 'lista' } },
+        { id: 'execucao', title: 'Em execução', hint: 'Trabalho em andamento', accent: 'blue', config: { filters: { ...defaultFilters, statusFilter: uniqueValues.status.find(v => normalizeText(v).includes('em execucao')) || 'Em execução' }, groupByPrimary: 'Responsável', groupBySecondary: 'Criticidade', sortBy: 'priority', viewMode: 'kanban' } },
+        { id: 'pendentes', title: 'Pendentes', hint: 'Fila de ação', accent: 'amber', config: { filters: { ...defaultFilters, statusFilter: uniqueValues.status.find(v => normalizeText(v).includes('pendente')) || 'Pendente' }, groupByPrimary: 'Etapa do Projeto', groupBySecondary: 'Criticidade', sortBy: 'priority', viewMode: 'lista' } },
+        { id: 'concluidas', title: 'Concluídas', hint: 'Entregas finalizadas', accent: 'emerald', config: { filters: { ...defaultFilters, statusFilter: uniqueValues.status.find(v => normalizeText(v).includes('concluida')) || 'Concluída' }, groupByPrimary: 'Etapa do Projeto', groupBySecondary: '', sortBy: 'maiorProgresso', viewMode: 'lista' } },
+        { id: 'golive', title: 'Risco para Go Live', hint: 'Críticas, atrasos e bloqueios', accent: 'rose', config: { filters: { ...defaultFilters, onlyNaoConcluidas: true, onlyRiscoGoLive: true }, groupByPrimary: 'Etapa do Projeto', groupBySecondary: 'Criticidade', sortBy: 'priority', viewMode: 'kanban' } },
+      ];
+
+      const applyViewConfig = (config = {}) => {
+        setFilters({ ...defaultFilters, ...(config.filters || {}) });
+        setViewMode(config.viewMode || 'lista');
+        setGroupByPrimary(config.groupByPrimary || config.groupBy || '');
+        setGroupBySecondary(config.groupBySecondary || '');
+        setSortBy(config.sortBy === 'criticidade' ? 'priority' : (config.sortBy || 'priority'));
+      };
+      const applyQuickView = (quick) => { applyViewConfig(quick.config); setSelectedViewId(''); };
+      const resetFilters = () => { setFilters(defaultFilters); setGroupByPrimary(''); setGroupBySecondary(''); setSortBy('priority'); setSelectedViewId(''); };
+      const currentViewConfig = () => ({ viewMode, filters, groupByPrimary, groupBySecondary, sortBy });
+      const openSaveModal = () => {
+        setSaveForm({ name: `${viewMode === 'kanban' ? 'Kanban' : 'Lista'} executivo${groupByPrimary ? ` por ${groupByPrimary}` : ''}`, description: '', setAsDefault: false });
+        setSaveModalOpen(true);
+      };
+      const saveCurrentView = () => {
+        if (!saveForm.name.trim()) return;
+        const newView = { id: `view-${Date.now()}`, name: saveForm.name.trim(), description: saveForm.description.trim(), createdAt: new Date().toISOString(), isDefault: saveForm.setAsDefault, config: currentViewConfig() };
+        setSavedViews(prev => [...prev.map(v => saveForm.setAsDefault ? { ...v, isDefault: false } : v), newView]);
+        setSelectedViewId(newView.id);
+        setSaveModalOpen(false);
+      };
+      const handleSelectedViewChange = (id) => { setSelectedViewId(id); const selected = savedViews.find(view => view.id === id); if (selected) applyViewConfig(selected.config); };
+      const removeSelectedView = () => { if (!selectedViewId) return; setSavedViews(prev => prev.filter(view => view.id !== selectedViewId)); setSelectedViewId(''); };
+      const setDefaultView = () => { if (!selectedViewId) return; setSavedViews(prev => prev.map(view => ({ ...view, isDefault: view.id === selectedViewId }))); };
+
+      const activeChips = useMemo(() => {
+        const chips = [];
+        const add = (key, label, value, resetValue = '') => { if (value) chips.push({ key, label, value, onRemove: () => updateFilter(key, resetValue) }); };
+        add('searchTerm', 'Busca', filters.searchTerm); add('statusFilter', 'Status', filters.statusFilter); add('criticidadeFilter', 'Criticidade', filters.criticidadeFilter);
+        add('responsavelFilter', 'Responsável TOTVS', filters.responsavelFilter); add('responsavelClienteFilter', 'Responsável Cliente', filters.responsavelClienteFilter);
+        add('areaFilter', 'Área', filters.areaFilter); add('categoriaFilter', 'Categoria', filters.categoriaFilter); add('etapaFilter', 'Etapa', filters.etapaFilter); add('sprintFilter', 'Sprint', filters.sprintFilter); add('condicaoFilter', 'Condição', filters.condicaoFilter);
+        add('plannedFrom', 'Data planejada de', filters.plannedFrom); add('plannedTo', 'Data planejada até', filters.plannedTo);
+        if (filters.onlyAtrasadas) chips.push({ key: 'onlyAtrasadas', label: 'Flag', value: 'Apenas atrasadas', onRemove: () => updateFilter('onlyAtrasadas', false) });
+        if (filters.onlyNaoConcluidas) chips.push({ key: 'onlyNaoConcluidas', label: 'Flag', value: 'Apenas não concluídas', onRemove: () => updateFilter('onlyNaoConcluidas', false) });
+        if (filters.onlySemResponsavel) chips.push({ key: 'onlySemResponsavel', label: 'Flag', value: 'Apenas sem responsável', onRemove: () => updateFilter('onlySemResponsavel', false) });
+        if (filters.onlySemResponsavelTotvs) chips.push({ key: 'onlySemResponsavelTotvs', label: 'Flag', value: 'Sem responsável TOTVS', onRemove: () => updateFilter('onlySemResponsavelTotvs', false) });
+        if (filters.onlySemResponsavelCliente) chips.push({ key: 'onlySemResponsavelCliente', label: 'Flag', value: 'Sem responsável cliente', onRemove: () => updateFilter('onlySemResponsavelCliente', false) });
+        if (filters.onlyVencendo7) chips.push({ key: 'onlyVencendo7', label: 'Flag', value: 'Vencendo em 7 dias', onRemove: () => updateFilter('onlyVencendo7', false) });
+        if (filters.onlyDependenciaCliente) chips.push({ key: 'onlyDependenciaCliente', label: 'Flag', value: 'Dependência do cliente', onRemove: () => updateFilter('onlyDependenciaCliente', false) });
+        if (filters.onlyRiscoGoLive) chips.push({ key: 'onlyRiscoGoLive', label: 'Flag', value: 'Risco para Go Live', onRemove: () => updateFilter('onlyRiscoGoLive', false) });
+        return chips;
+      }, [filters]);
+      const hasActiveFilters = activeChips.length > 0 || groupByPrimary || groupBySecondary || sortBy !== 'priority';
+
+      const renderStatusBadge = (status) => {
+        if (!status) return <span className="text-slate-400">-</span>;
+        const s = normalizeText(status);
+        if (s.includes('concluida')) return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200"><IconCheckCircle2 size={12} /> {status}</span>;
+        if (s.includes('em execucao')) return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"><IconTrendingUp size={12} /> {status}</span>;
+        if (s.includes('pendente')) return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"><IconClock size={12} /> {status}</span>;
+        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{status}</span>;
+      };
+      const renderCriticidadeBadge = (criticidade) => {
+        if (!criticidade) return <span className="text-slate-400">-</span>;
+        const c = normalizeText(criticidade);
+        if (c.includes('critica')) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200"><IconAlertTriangle size={12} /> {criticidade}</span>;
+        if (c.includes('alta')) return <span className="text-orange-600 font-semibold">{criticidade}</span>;
+        if (c.includes('media')) return <span className="text-amber-600 font-medium">{criticidade}</span>;
+        if (c.includes('baixa')) return <span className="text-slate-500 font-medium">{criticidade}</span>;
+        return <span>{criticidade}</span>;
+      };
+      const renderProgressBar = (valueStr) => {
+        const numValue = getProgressNumber(valueStr);
+        let colorClass = numValue === 100 ? 'bg-emerald-500' : numValue === 0 ? 'bg-slate-300' : numValue < 50 ? 'bg-amber-500' : 'bg-blue-500';
+        return <div className="w-full min-w-[110px]"><div className="flex justify-between items-center mb-1 text-xs"><span className="font-medium text-slate-700">{valueStr || '0%'}</span></div><div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`${colorClass} h-1.5 rounded-full`} style={{ width: `${Math.min(100, Math.max(0, numValue))}%` }}></div></div></div>;
+      };
+      const renderLateBadge = (row) => row.isAtrasada ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200"><IconAlertTriangle size={11} /> {row.diasAtraso}d atraso</span> : null;
+      const renderScoreBadge = (row) => <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">Score {row.priorityScore}</span>;
+      const renderGroupBadges = (stats) => <div className="flex flex-wrap gap-1.5"><span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[11px] font-semibold">{stats.total} registros</span><span className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-100 text-rose-700 text-[11px] font-semibold">{stats.criticas} críticas</span><span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-100 text-red-700 text-[11px] font-semibold">{stats.atrasadas} atrasadas</span><span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-semibold">{stats.pendentes} pendentes</span><span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-semibold">{stats.avgProgress}% médio</span></div>;
 
       const renderTaskCard = (row) => (
-        <article key={row['ID'] || row['Atividade']} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">#{row['ID']} · {row['Área'] || 'Sem área'}</p>
-              <h3 className="text-sm font-semibold text-slate-800 leading-snug mt-1">{row['Atividade'] || 'Atividade sem título'}</h3>
-            </div>
-            {renderCriticidadeBadge(row['Criticidade'])}
-          </div>
+        <article key={row['ID'] || row['Atividade']} onClick={() => setSelectedTask(row)} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer">
+          <div className="flex items-start justify-between gap-3 mb-3"><div><p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">#{row['ID']} · {row['Área'] || 'Sem área'}</p><h3 className="text-sm font-semibold text-slate-800 leading-snug mt-1">{row['Atividade'] || 'Atividade sem título'}</h3></div><div className="flex flex-col items-end gap-1">{renderCriticidadeBadge(row['Criticidade'])}{renderScoreBadge(row)}</div></div>
           <p className="text-xs text-slate-500 line-clamp-3 mb-4">{row['Descrição'] || 'Sem descrição cadastrada.'}</p>
-          <div className="grid grid-cols-2 gap-3 text-xs mb-4">
-            <div className="bg-slate-50 rounded-lg p-2">
-              <span className="block text-slate-400">Responsável</span>
-              <strong className="text-slate-700">{row['Responsável'] || '-'}</strong>
-            </div>
-            <div className="bg-slate-50 rounded-lg p-2">
-              <span className="block text-slate-400">Etapa</span>
-              <strong className="text-slate-700">{row['Etapa do Projeto'] || '-'}</strong>
-            </div>
+          <div className="grid grid-cols-2 gap-2 text-xs mb-4">
+            <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Resp. TOTVS</span><strong className="text-slate-700">{row['Responsável'] || '-'}</strong></div>
+            <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Resp. Cliente</span><strong className="text-slate-700">{row['Responsável Cliente'] || '-'}</strong></div>
+            <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Data Planejada</span><strong className="text-slate-700">{row['Data Planejada'] || '-'}</strong></div>
+            <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Dias p/ concluir</span><strong className="text-slate-700">{row['Dias para Concluir'] || '-'}</strong></div>
           </div>
-          <div className="flex items-center justify-between gap-3">
-            {renderProgressBar(row['% Conclusão'])}
-            {renderStatusBadge(row['Status'])}
-          </div>
+          <div className="flex items-center justify-between gap-3">{renderProgressBar(row['% Conclusão'])}<div className="flex flex-col items-end gap-1">{renderStatusBadge(row['Status'])}{renderLateBadge(row)}</div></div>
         </article>
       );
 
-      const renderListTable = (rows) => (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
-            <thead>
-              <tr>
-                {visibleColumns.map((header) => (
-                  <th key={header} className="bg-slate-50 border-b border-slate-200 px-4 py-3 text-xs uppercase tracking-wider font-semibold text-slate-600 sticky top-0 z-10 text-left">
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={`${row['ID']}-${rowIndex}`} className="hover:bg-indigo-50/40 transition-colors group">
-                  {visibleColumns.map((header) => {
-                    const cellValue = row[header];
-                    let content = cellValue || <span className="text-slate-400">-</span>;
-                    if (header === 'Status') content = renderStatusBadge(cellValue);
-                    else if (header === 'Criticidade') content = renderCriticidadeBadge(cellValue);
-                    else if (header === '% Conclusão') content = renderProgressBar(cellValue);
-                    let cellClass = "border-b border-slate-100 px-4 py-3 text-sm text-slate-700 max-w-[280px] truncate group-hover:text-slate-900 text-left align-top";
-                    if (header === 'ID') cellClass += " font-semibold text-slate-500";
-                    if (header === 'Atividade') cellClass += " whitespace-normal min-w-[320px] font-medium text-slate-800";
-                    return <td key={header} className={cellClass} title={typeof cellValue === 'string' ? cellValue : ''}>{content}</td>;
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
+      const renderListTable = (rows) => {
+        const listColumns = [...(dataset.headers.length ? dataset.headers : EXPECTED_HEADERS), 'Score Prioridade', 'Indicador de atraso'];
+        return <div className="overflow-x-auto"><table className="w-full text-left min-w-[1900px]"><thead className="bg-slate-50 border-b border-slate-200"><tr>{listColumns.map(header => <th key={header} className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{header}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row['ID']}-${rowIndex}`} className="hover:bg-indigo-50/40 transition-colors group">{listColumns.map((header) => { let content = row[header] || <span className="text-slate-400">-</span>; if (header === 'Status') content = renderStatusBadge(row[header]); else if (header === 'Criticidade') content = renderCriticidadeBadge(row[header]); else if (header === '% Conclusão') content = renderProgressBar(row[header]); else if (header === 'Score Prioridade') content = renderScoreBadge(row); else if (header === 'Indicador de atraso') content = renderLateBadge(row) || <span className="text-slate-400">Sem atraso</span>; let cellClass = "border-b border-slate-100 px-4 py-3 text-sm text-slate-700 max-w-[320px] truncate group-hover:text-slate-900 text-left align-top"; if (header === 'Descrição' || header === 'Atividade') cellClass += " whitespace-normal min-w-[320px]"; if (header === 'ID') cellClass += " font-semibold text-slate-500"; return <td key={header} className={cellClass} title={typeof row[header] === 'string' ? row[header] : ''}>{content}</td>; })}</tr>)}</tbody></table></div>;
+      };
+
+      const SelectField = ({ label, value, onChange, options }) => <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>{label}</span><select value={value} onChange={e => onChange(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"><option value="">Todos</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></label>;
+      const ToggleField = ({ label, checked, onChange }) => <label className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 font-medium"><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />{label}</label>;
 
       return (
         <div className="min-h-screen bg-slate-50/50 flex flex-col">
           <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-2 rounded-lg shadow-sm">
-                <IconLayoutDashboard size={20} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-800 leading-tight">Painel de Pendências</h1>
-                <p className="text-xs text-slate-500">Gestão e acompanhamento do projeto</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm w-full sm:w-auto">
-              {error && (
-                <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-md font-medium text-xs">
-                  <IconAlertCircle size={14} /> <span className="hidden md:inline">{error}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-slate-500 text-xs font-medium ml-auto sm:ml-0">
-                <span>Sincronizado:</span>
-                <span className="bg-slate-100 px-2 py-1 rounded text-slate-700">{lastUpdated || 'Carregando...'}</span>
-              </div>
-              <button 
-                onClick={loadData}
-                disabled={loading}
-                className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50 font-medium ml-auto sm:ml-0"
-              >
-                <IconRefreshCw size={16} className={loading ? "animate-spin text-indigo-600" : "text-slate-400"} />
-                <span className="hidden sm:inline">Sincronizar Dados</span>
-              </button>
-              <a href="index.html?menu=1" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-medium">
-                Voltar ao Menu Principal
-              </a>
-            </div>
+            <div className="flex items-center gap-3"><div className="bg-indigo-600 p-2 rounded-lg shadow-sm"><IconLayoutDashboard size={20} className="text-white" /></div><div><h1 className="text-xl font-bold text-slate-800 leading-tight">Painel de Pendências</h1><p className="text-xs text-slate-500">Gestão e acompanhamento do projeto</p></div></div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm w-full sm:w-auto">{error && <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-md font-medium text-xs"><IconAlertCircle size={14} /> <span className="hidden md:inline">{error}</span></div>}<div className="flex items-center gap-2 text-slate-500 text-xs font-medium ml-auto sm:ml-0"><span>Sincronizado:</span><span className="bg-slate-100 px-2 py-1 rounded text-slate-700">{lastUpdated || 'Carregando...'}</span></div><button onClick={loadData} disabled={loading} className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50 font-medium ml-auto sm:ml-0"><IconRefreshCw size={16} className={loading ? "animate-spin text-indigo-600" : "text-slate-400"} /><span className="hidden sm:inline">Sincronizar Dados</span></button><a href="index.html?menu=1" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-medium">Voltar ao Menu Principal</a></div>
           </header>
 
           <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto flex flex-col gap-6">
-            
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-indigo-200 hover:shadow-md transition-all">
-                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg"><IconListTodo size={24} /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium mb-0.5">Total</p>
-                  <h3 className="text-2xl font-bold text-slate-800">{kpis.total}</h3>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-emerald-200 hover:shadow-md transition-all">
-                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><IconCheckCircle2 size={24} /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium mb-0.5">Concluídas</p>
-                  <h3 className="text-2xl font-bold text-slate-800">{kpis.concluidas}</h3>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-blue-200 hover:shadow-md transition-all">
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><IconTrendingUp size={24} /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium mb-0.5">Em Execução</p>
-                  <h3 className="text-2xl font-bold text-slate-800">{kpis.emExecucao}</h3>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-amber-200 hover:shadow-md transition-all">
-                <div className="p-3 bg-amber-50 text-amber-600 rounded-lg"><IconClock size={24} /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium mb-0.5">Pendentes</p>
-                  <h3 className="text-2xl font-bold text-slate-800">{kpis.pendentes}</h3>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-rose-200 hover:shadow-md transition-all">
-                <div className="p-3 bg-rose-50 text-rose-600 rounded-lg"><IconAlertTriangle size={24} /></div>
-                <div>
-                  <p className="text-sm text-slate-500 font-medium mb-0.5">Críticas</p>
-                  <h3 className="text-2xl font-bold text-slate-800">{kpis.criticas}</h3>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {[['Total', kpis.total, 'indigo', <IconListTodo size={24} />], ['Concluídas', kpis.concluidas, 'emerald', <IconCheckCircle2 size={24} />], ['Em Execução', kpis.emExecucao, 'blue', <IconTrendingUp size={24} />], ['Pendentes', kpis.pendentes, 'amber', <IconClock size={24} />], ['Críticas', kpis.criticas, 'rose', <IconAlertTriangle size={24} />], ['Atrasadas', kpis.atrasadas, 'red', <IconAlertCircle size={24} />]].map(([label, value, color, icon]) => <div key={label} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-indigo-200 hover:shadow-md transition-all"><div className={`p-3 bg-${color}-50 text-${color}-600 rounded-lg`}>{icon}</div><div><p className="text-sm text-slate-500 font-medium mb-0.5">{label}</p><h3 className="text-2xl font-bold text-slate-800">{value}</h3></div></div>)}
             </div>
 
-            {/* Smart View Builder */}
             <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-white to-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold text-indigo-600 uppercase tracking-[0.2em]">Visões inteligentes</p>
-                  <h2 className="text-lg font-bold text-slate-800 mt-1">Organize, filtre, agrupe e salve seu modo de trabalho</h2>
-                  <p className="text-sm text-slate-500 mt-1">A seleção da visão aplica automaticamente filtros, agrupamento, ordenação e formato Lista/Kanban.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1">
-                    <button onClick={() => setViewMode('lista')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'lista' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Lista</button>
-                    <button onClick={() => setViewMode('kanban')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'kanban' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Kanban</button>
-                  </div>
-                  <select value={selectedViewId} onChange={(e) => handleSelectedViewChange(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 px-3 py-2 outline-none min-w-[220px]">
-                    <option value="">Selecionar visão salva</option>
-                    {savedViews.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}
-                  </select>
-                  <button onClick={saveCurrentView} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all">Salvar visão</button>
-                  {selectedViewId && <button onClick={removeSelectedView} className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-lg text-sm font-semibold transition-all">Excluir</button>}
-                </div>
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-white to-indigo-50/40"><div><div className="flex items-center gap-2 text-indigo-600 mb-1"><IconFilter size={18} /><span className="text-xs font-bold uppercase tracking-wide">Cockpit executivo</span></div><h2 className="text-lg font-bold text-slate-800">Central de Análise e Priorização</h2><p className="text-sm text-slate-500">Filtros executivos, agrupamentos multinível, visões rápidas e score inteligente de prioridade.</p></div><div className="flex flex-wrap gap-2"><button onClick={() => setViewMode('lista')} className={`px-4 py-2 rounded-lg text-sm font-semibold border ${viewMode === 'lista' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Lista</button><button onClick={() => setViewMode('kanban')} className={`px-4 py-2 rounded-lg text-sm font-semibold border ${viewMode === 'kanban' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Kanban</button><button onClick={openSaveModal} className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800">Salvar visão</button></div></div>
+
+              <div className="p-5 grid grid-cols-1 xl:grid-cols-[1.2fr_1.6fr_1fr] gap-5">
+                <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4"><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-bold text-slate-700">Visões rápidas</h3><span className="text-[11px] text-slate-500">pré-configuradas</span></div><div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">{quickViews.map(view => <button key={view.id} onClick={() => applyQuickView(view)} className="text-left bg-white border border-slate-200 rounded-xl px-3 py-3 hover:border-indigo-300 hover:shadow-sm transition-all"><span className="block text-sm font-bold text-slate-800">{view.title}</span><span className="block text-xs text-slate-500 mt-0.5">{view.hint}</span></button>)}</div></div>
+
+                <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4"><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-bold text-slate-700">Filtros avançados</h3>{hasActiveFilters && <button onClick={resetFilters} className="text-xs font-semibold text-indigo-700 hover:text-indigo-900">Limpar tudo</button>}</div><div className="relative mb-3"><IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={filters.searchTerm} onChange={e => updateFilter('searchTerm', e.target.value)} placeholder="Buscar em todos os campos..." className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300" /></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"><SelectField label="Status" value={filters.statusFilter} onChange={v => updateFilter('statusFilter', v)} options={uniqueValues.status} /><SelectField label="Criticidade" value={filters.criticidadeFilter} onChange={v => updateFilter('criticidadeFilter', v)} options={uniqueValues.criticidade} /><SelectField label="Responsável TOTVS" value={filters.responsavelFilter} onChange={v => updateFilter('responsavelFilter', v)} options={uniqueValues.responsaveis} /><SelectField label="Responsável Cliente" value={filters.responsavelClienteFilter} onChange={v => updateFilter('responsavelClienteFilter', v)} options={uniqueValues.responsaveisCliente} /><SelectField label="Área" value={filters.areaFilter} onChange={v => updateFilter('areaFilter', v)} options={uniqueValues.areas} /><SelectField label="Categoria" value={filters.categoriaFilter} onChange={v => updateFilter('categoriaFilter', v)} options={uniqueValues.categorias} /><SelectField label="Etapa do Projeto" value={filters.etapaFilter} onChange={v => updateFilter('etapaFilter', v)} options={uniqueValues.etapas} /><SelectField label="Sprint" value={filters.sprintFilter} onChange={v => updateFilter('sprintFilter', v)} options={uniqueValues.sprints} /><SelectField label="Condição da Pendência" value={filters.condicaoFilter} onChange={v => updateFilter('condicaoFilter', v)} options={uniqueValues.condicoes} /><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Data Planejada de</span><input type="date" value={filters.plannedFrom} onChange={e => updateFilter('plannedFrom', e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none" /></label><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Data Planejada até</span><input type="date" value={filters.plannedTo} onChange={e => updateFilter('plannedTo', e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none" /></label></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3"><ToggleField label="Apenas atrasadas" checked={filters.onlyAtrasadas} onChange={v => updateFilter('onlyAtrasadas', v)} /><ToggleField label="Apenas não concluídas" checked={filters.onlyNaoConcluidas} onChange={v => updateFilter('onlyNaoConcluidas', v)} /><ToggleField label="Apenas sem responsável" checked={filters.onlySemResponsavel} onChange={v => updateFilter('onlySemResponsavel', v)} /><ToggleField label="Apenas vencendo nos próximos 7 dias" checked={filters.onlyVencendo7} onChange={v => updateFilter('onlyVencendo7', v)} /></div></div>
+
+                <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4"><h3 className="text-sm font-bold text-slate-700 mb-3">Agrupamento e ordenação</h3><div className="flex flex-col gap-3"><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Agrupamento principal</span><select value={groupByPrimary} onChange={e => { setGroupByPrimary(e.target.value); setSelectedViewId(''); }} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none">{groupOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Agrupamento secundário</span><select value={groupBySecondary} onChange={e => { setGroupBySecondary(e.target.value); setSelectedViewId(''); }} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none">{groupOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Ordenação executiva</span><select value={sortBy} onChange={e => { setSortBy(e.target.value); setSelectedViewId(''); }} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none">{sortOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label><div className="border-t border-slate-200 pt-3"><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Visões salvas</span><select value={selectedViewId} onChange={e => handleSelectedViewChange(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Selecionar visão...</option>{savedViews.map(view => <option key={view.id} value={view.id}>{view.isDefault ? '★ ' : ''}{view.name}</option>)}</select></label><div className="flex gap-2 mt-2"><button disabled={!selectedViewId} onClick={setDefaultView} className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 disabled:opacity-40">Definir padrão</button><button disabled={!selectedViewId} onClick={removeSelectedView} className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold bg-white border border-rose-200 text-rose-700 disabled:opacity-40">Excluir</button></div></div></div></div>
               </div>
 
-              <div className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(280px,1fr)_auto] gap-5 items-start">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                  <div className="relative md:col-span-2 xl:col-span-2">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><IconSearch size={18} /></div>
-                    <input type="text" placeholder="Buscar por atividade, descrição, responsável, etapa..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setSelectedViewId(''); }} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm" />
-                  </div>
-                  <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todos os Status</option>{uniqueValues.status.map(val => <option key={val} value={val}>{val}</option>)}</select>
-                  <select value={criticidadeFilter} onChange={(e) => { setCriticidadeFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Qualquer Criticidade</option>{uniqueValues.criticidade.map(val => <option key={val} value={val}>{val}</option>)}</select>
-                  <select value={responsavelFilter} onChange={(e) => { setResponsavelFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todos os Responsáveis</option>{uniqueValues.responsaveis.map(val => <option key={val} value={val}>{val}</option>)}</select>
-                  <select value={areaFilter} onChange={(e) => { setAreaFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todas as Áreas</option>{uniqueValues.areas.map(val => <option key={val} value={val}>{val}</option>)}</select>
-                  <select value={etapaFilter} onChange={(e) => { setEtapaFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todas as Etapas</option>{uniqueValues.etapas.map(val => <option key={val} value={val}>{val}</option>)}</select>
-                  <select value={condicaoFilter} onChange={(e) => { setCondicaoFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todas as Condições</option>{uniqueValues.condicoes.map(val => <option key={val} value={val}>{val}</option>)}</select>
-                  <select value={groupBy} onChange={(e) => { setGroupBy(e.target.value); setSelectedViewId(''); }} className="bg-indigo-50 border border-indigo-100 text-indigo-800 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Agrupar: inteligente padrão</option>{groupOptions.filter(opt => opt.value).map(opt => <option key={opt.value} value={opt.value}>Agrupar por {opt.label}</option>)}</select>
-                  <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none">{sortOptions.map(opt => <option key={opt.value} value={opt.value}>Ordenar: {opt.label}</option>)}</select>
-                </div>
-
-                <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 min-w-[280px]">
-                  <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold mb-3"><IconFilter size={16} /> Atalhos inteligentes</div>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => setSmartFilter('criticas')} className="px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100">Críticas</button>
-                    <button onClick={() => setSmartFilter('pendentes')} className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold hover:bg-amber-100">Pendentes</button>
-                    <button onClick={() => setSmartFilter('emExecucao')} className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold hover:bg-blue-100">Em execução</button>
-                    {hasActiveFilters && <button onClick={resetFilters} className="px-3 py-1.5 rounded-full bg-white text-indigo-700 border border-indigo-200 text-xs font-semibold hover:bg-indigo-50">Limpar tudo</button>}
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-white rounded-lg border border-slate-100 p-2"><span className="block text-lg font-bold text-slate-800">{filteredData.length}</span><span className="text-[11px] text-slate-500">itens</span></div>
-                    <div className="bg-white rounded-lg border border-slate-100 p-2"><span className="block text-lg font-bold text-rose-600">{kpis.criticas}</span><span className="text-[11px] text-slate-500">críticas</span></div>
-                    <div className="bg-white rounded-lg border border-slate-100 p-2"><span className="block text-lg font-bold text-indigo-600">{groupedData.length}</span><span className="text-[11px] text-slate-500">grupos</span></div>
-                  </div>
-                </div>
-              </div>
+              {activeChips.length > 0 && <div className="px-5 pb-5 flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Filtros ativos</span>{activeChips.map(chip => <span key={chip.key} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-semibold"><span>{chip.label}: {chip.value}</span><button onClick={chip.onRemove} className="text-indigo-500 hover:text-indigo-900">×</button></span>)}<button onClick={resetFilters} className="text-xs font-bold text-slate-600 hover:text-slate-900 px-2">Limpar tudo</button></div>}
             </section>
 
-            {/* Results */}
             <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
-              <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white">
-                <div>
-                  <h2 className="text-base font-bold text-slate-800">{viewMode === 'kanban' ? 'Quadro Kanban' : 'Lista profissional'}</h2>
-                  <p className="text-sm text-slate-500">Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros{filteredData.length !== dataset.data.length && ` de ${dataset.data.length}`}.</p>
-                </div>
-                <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                  Agrupamento ativo: <strong className="text-slate-700">{groupBy || (viewMode === 'kanban' ? 'Status' : 'Nenhum')}</strong>
-                </div>
-              </div>
-
-              {loading && dataset.data.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3"><div className="animate-spin text-indigo-400"><IconRefreshCw size={32} /></div><p>Processando base de dados...</p></div>
-              ) : filteredData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2"><div className="text-slate-300 mb-2"><IconSearch size={32} /></div><p className="font-medium text-slate-700">Nenhum resultado encontrado.</p><p className="text-sm">Tente ajustar seus filtros de busca ou selecionar outra visão.</p></div>
-              ) : viewMode === 'kanban' ? (
-                <div className="p-5 overflow-x-auto flex-1 bg-slate-50/70">
-                  <div className="flex gap-4 min-w-max pb-2">
-                    {groupedData.map(group => (
-                      <div key={group.key} className="w-[340px] flex-shrink-0">
-                        <div className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur border border-slate-200 rounded-xl px-4 py-3 mb-3 flex items-center justify-between">
-                          <h3 className="font-bold text-slate-800 text-sm truncate">{group.label}</h3>
-                          <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5">{group.rows.length}</span>
-                        </div>
-                        <div className="flex flex-col gap-3">{group.rows.map(renderTaskCard)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : groupBy ? (
-                <div className="divide-y divide-slate-100">
-                  {groupedData.map(group => (
-                    <details key={group.key} open className="group/list">
-                      <summary className="cursor-pointer select-none px-5 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-sm font-bold text-slate-700">
-                        <span>{group.label}</span><span className="text-xs bg-white border border-slate-200 text-slate-500 rounded-full px-2 py-0.5">{group.rows.length} registros</span>
-                      </summary>
-                      {renderListTable(group.rows)}
-                    </details>
-                  ))}
-                </div>
-              ) : renderListTable(filteredData)}
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white"><div><h2 className="text-base font-bold text-slate-800">{viewMode === 'kanban' ? 'Quadro Kanban' : 'Lista profissional completa'}</h2><p className="text-sm text-slate-500">Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros{filteredData.length !== dataset.data.length && ` de ${dataset.data.length}`}.</p></div><div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">Agrupamento ativo: <strong className="text-slate-700">{groupByPrimary || (viewMode === 'kanban' ? 'Status' : 'Nenhum')}</strong>{groupBySecondary && <span> / {groupBySecondary}</span>}</div></div>
+              {loading && dataset.data.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3"><div className="animate-spin text-indigo-400"><IconRefreshCw size={32} /></div><p>Processando base de dados...</p></div> : filteredData.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2"><div className="text-slate-300 mb-2"><IconSearch size={32} /></div><p className="font-medium text-slate-700">Nenhum resultado encontrado.</p><p className="text-sm">Tente ajustar seus filtros de busca ou selecionar outra visão.</p></div> : viewMode === 'kanban' ? <div className="p-5 overflow-x-auto flex-1 bg-slate-50/70"><div className="flex gap-4 min-w-max pb-2">{groupedData.map(group => <div key={group.key} className="w-[360px] flex-shrink-0"><div className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur border border-slate-200 rounded-xl px-4 py-3 mb-3"><div className="flex items-center justify-between gap-2 mb-2"><h3 className="font-bold text-slate-800 text-sm truncate">{group.label}</h3><span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5">{group.stats.total}</span></div>{renderGroupBadges(group.stats)}</div><div className="flex flex-col gap-3">{group.rows.map(renderTaskCard)}</div></div>)}</div></div> : groupByPrimary ? <div className="divide-y divide-slate-100">{groupedData.map(group => <details key={group.key} open className="group/list"><summary className="cursor-pointer select-none px-5 py-3 bg-slate-50 hover:bg-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm font-bold text-slate-700"><span>{group.label}</span>{renderGroupBadges(group.stats)}</summary>{group.children.length ? group.children.map(child => <details key={child.key} open className="border-t border-slate-100"><summary className="cursor-pointer select-none px-8 py-2 bg-white hover:bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm font-semibold text-slate-600"><span>{child.label}</span>{renderGroupBadges(child.stats)}</summary>{renderListTable(child.rows)}</details>) : renderListTable(group.rows)}</details>)}</div> : renderListTable(filteredData)}
             </section>
-
           </main>
+
+          {saveModalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg"><div className="px-5 py-4 border-b border-slate-100"><h3 className="text-lg font-bold text-slate-800">Salvar visão executiva</h3><p className="text-sm text-slate-500">Guarde filtros, agrupamentos, ordenação e modo de visualização.</p></div><div className="p-5 flex flex-col gap-3"><label className="text-sm font-semibold text-slate-600">Nome<input value={saveForm.name} onChange={e => setSaveForm(prev => ({ ...prev, name: e.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="text-sm font-semibold text-slate-600">Descrição opcional<textarea value={saveForm.description} onChange={e => setSaveForm(prev => ({ ...prev, description: e.target.value }))} rows="3" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={saveForm.setAsDefault} onChange={e => setSaveForm(prev => ({ ...prev, setAsDefault: e.target.checked }))} />Definir como visão padrão</label></div><div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2"><button onClick={() => setSaveModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold">Cancelar</button><button onClick={saveCurrentView} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Salvar visão</button></div></div></div>}
+
+          {selectedTask && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"><div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"><div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4"><div><p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">Pendência #{selectedTask['ID']}</p><h3 className="text-lg font-bold text-slate-800">{selectedTask['Atividade'] || 'Atividade sem título'}</h3><div className="flex flex-wrap gap-2 mt-2">{renderStatusBadge(selectedTask['Status'])}{renderCriticidadeBadge(selectedTask['Criticidade'])}{renderScoreBadge(selectedTask)}{renderLateBadge(selectedTask)}</div></div><button onClick={() => setSelectedTask(null)} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">×</button></div><div className="p-5 overflow-y-auto"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{(dataset.headers.length ? dataset.headers : EXPECTED_HEADERS).map(header => <div key={header} className={`rounded-xl border border-slate-200 bg-slate-50 p-3 ${header === 'Descrição' || header === 'Atividade' ? 'md:col-span-2' : ''}`}><span className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">{header}</span><div className="text-sm text-slate-800 whitespace-pre-wrap">{header === 'Status' ? renderStatusBadge(selectedTask[header]) : header === 'Criticidade' ? renderCriticidadeBadge(selectedTask[header]) : header === '% Conclusão' ? renderProgressBar(selectedTask[header]) : (selectedTask[header] || <span className="text-slate-400">-</span>)}</div></div>)}<div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><span className="block text-xs font-bold text-indigo-400 uppercase tracking-wide mb-1">Score de prioridade</span><div>{renderScoreBadge(selectedTask)}</div></div><div className="rounded-xl border border-red-100 bg-red-50 p-3"><span className="block text-xs font-bold text-red-400 uppercase tracking-wide mb-1">Atraso calculado</span><div className="text-sm text-red-700 font-semibold">{selectedTask.isAtrasada ? `${selectedTask.diasAtraso} dia(s)` : 'Sem atraso'}</div></div></div></div></div></div>}
         </div>
       );
     }
