@@ -519,6 +519,13 @@
         }
         .config-source-card:hover { border-color: #cbd5e1; box-shadow: var(--shadow-md); }
         .config-source-card h4 { font-size: 14px; font-weight: 700; color: var(--totvs-brand); text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .sync-status-panel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 4px; }
+        .sync-status-label { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; background: #f8fafc; min-height: 58px; }
+        .sync-status-label strong { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+        .sync-status-label span { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-dark); line-height: 1.35; }
+        .sync-status-label.status-ok span { color: var(--totvs-success); }
+        .sync-status-label.status-error span { color: var(--totvs-danger); }
+        .sync-status-label.status-muted span { color: var(--text-muted); }
         .tap-project-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
         .tap-project-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
@@ -1100,6 +1107,7 @@
         let config = { password: 'admin', interval: 5, activeProjectId: 'default', selectedProjectIds: ['default'], projects: [{ id: 'default', name: 'Projeto Padrão', sources: defaultSources() }], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
         let lastSyncStatus = {};
         let lastFetchErrors = {};
+        let lastFetchMeta = {};
         let cachedTapProjects = [];
 
         let roadmaps = [];
@@ -1713,8 +1721,32 @@
             const rows = Array.from(doc.querySelectorAll("table tr"));
             return rows.map(tr => Array.from(tr.querySelectorAll("th,td")).map(td => (td.textContent || "").trim())).filter(r => r.some(v => v !== ""));
         }
+        function columnLettersToIndex(value = '') {
+            return value.toUpperCase().split('').reduce((total, char) => total * 26 + char.charCodeAt(0) - 64, 0) - 1;
+        }
+        function parseA1Range(range = '') {
+            const match = String(range || '').trim().match(/^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/i);
+            if(!match) return null;
+            const startCol = columnLettersToIndex(match[1]);
+            const startRow = Math.max(parseInt(match[2], 10) - 1, 0);
+            const endCol = match[3] ? columnLettersToIndex(match[3]) : startCol;
+            const endRow = match[4] ? Math.max(parseInt(match[4], 10) - 1, startRow) : startRow;
+            return { startRow, endRow, startCol, endCol };
+        }
+        function applyRangeToRows(rows = [], range = '') {
+            const parsed = parseA1Range(range);
+            if(!parsed) return rows;
+            const { startRow, endRow, startCol, endCol } = parsed;
+            return rows.slice(startRow, endRow + 1)
+                .map(row => row.slice(startCol, endCol + 1))
+                .filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
+        }
         async function fetchSourceRows(key) {
-            const s = getActiveProject().sources[key]; if(!s || !s.url) return [];
+            const s = getActiveProject().sources[key];
+            if(!s || !s.url) {
+                lastFetchMeta[key] = { connected: false, matrixRows: 0, dataRows: 0, hasHeader: !!s?.hasHeader, range: s?.range || '' };
+                return [];
+            }
             const mode = s.sourceType || "csv";
             let url = mode === "csv" ? resolveCsvUrl(s) : (s.url || "").trim();
             try {
@@ -1722,11 +1754,17 @@
                 if(!r.ok) throw new Error(`Fonte retornou HTTP ${r.status}`);
                 const t = await r.text();
                 if(/<html/i.test(t) && /404|File not found|Page not found/i.test(t)) throw new Error('URL inválida (404). Para links /d/e/ use /pub?output=csv');
-                const rows = mode === "web" ? parseHtmlTable(t) : parseCsv(t);
-                const parsedRows = s.hasHeader ? rows.slice(1) : rows;
+                const allRows = mode === "web" ? parseHtmlTable(t) : parseCsv(t);
+                const rangedRows = applyRangeToRows(allRows, s.range);
+                const parsedRows = s.hasHeader ? rangedRows.slice(1) : rangedRows;
+                lastFetchMeta[key] = { connected: true, matrixRows: rangedRows.length, dataRows: parsedRows.length, hasHeader: !!s.hasHeader, range: s.range || '', mode };
                 lastFetchErrors[key] = '';
                 return parsedRows;
-            } catch (e) { lastFetchErrors[key] = String(e.message || e); return []; }
+            } catch (e) {
+                lastFetchErrors[key] = String(e.message || e);
+                lastFetchMeta[key] = { connected: false, matrixRows: 0, dataRows: 0, hasHeader: !!s.hasHeader, range: s.range || '', mode };
+                return [];
+            }
         }
         const normalizeKey = (v='') => v.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
         function tapToEntry(rows, projectId){
@@ -1911,7 +1949,10 @@
         async function syncProjectToSupabase(project, keys, rowsByKey = {}) {
             const runtime = getSupabaseRuntimeConfig();
             if(!runtime.baseUrl || !runtime.credential) {
-                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: 0, error: 'Supabase não configurado: informe URL e ao menos uma chave no Configurador de Banco.' });
+                keys.forEach((k) => {
+                    const readError = lastFetchErrors[k] || '';
+                    lastSyncStatus[k] = { ok: !readError, total: (rowsByKey[k] || []).length, ...(lastFetchMeta[k] || {}), readError, warning: 'Supabase não configurado: os dados foram lidos da origem, mas o backup no banco não foi executado.' };
+                });
                 renderSyncStatus();
                 return;
             }
@@ -1932,17 +1973,20 @@
                     projectId = created[0]?.id;
                 }
             } catch (e) {
-                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: (rowsByKey[k] || []).length, error: String(e.message || e) });
+                const warning = `Backup Supabase/projects não gravado: ${String(e.message || e)}`;
+                keys.forEach((k) => {
+                    const readError = lastFetchErrors[k] || '';
+                    lastSyncStatus[k] = { ok: !readError, total: (rowsByKey[k] || []).length, ...(lastFetchMeta[k] || {}), readError, warning };
+                });
                 renderSyncStatus();
                 return;
             }
             const sourceRows = keys.flatMap(k => (rowsByKey[k] || []).map(row => ({ project_id: projectId, source_type: k, row_data: row })));
+            let sourceRowsWarning = '';
             try {
                 if(sourceRows.length) await supabaseRequest('source_rows', 'POST', sourceRows);
             } catch (e) {
-                keys.forEach((k) => lastSyncStatus[k] = { ok: false, total: (rowsByKey[k] || []).length, error: String(e.message || e) });
-                renderSyncStatus();
-                return;
+                sourceRowsWarning = `Backup Supabase/source_rows não gravado: ${String(e.message || e)}`;
             }
             for(const sourceKey of keys){
                 const total = (rowsByKey[sourceKey] || []).length;
@@ -1952,9 +1996,11 @@
                         await supabaseRequest(`tap_entries?project_id=eq.${projectId}`, 'DELETE');
                         if(total) await supabaseRequest('tap_entries', 'POST', [tapToEntry(rowsByKey.tap || [], projectId)]);
                     }
-                    lastSyncStatus[sourceKey] = { ok: true, total };
+                    lastSyncStatus[sourceKey] = { ok: true, total, ...(lastFetchMeta[sourceKey] || {}), readError: '', warning: sourceRowsWarning };
                 } catch (e) {
-                    lastSyncStatus[sourceKey] = { ok: false, total, error: String(e.message || e) };
+                    const readError = lastFetchErrors[sourceKey] ? String(e.message || e) : '';
+                    const writeWarning = lastFetchErrors[sourceKey] ? sourceRowsWarning : [sourceRowsWarning, `Backup Supabase/tap_entries não gravado: ${String(e.message || e)}`].filter(Boolean).join(' | ');
+                    lastSyncStatus[sourceKey] = { ok: !readError, total, ...(lastFetchMeta[sourceKey] || {}), readError, warning: writeWarning };
                 }
             }
             renderSyncStatus();
@@ -1963,16 +2009,33 @@
             const active = getActiveProject();
             if(!active?.sources) return;
             Object.keys(active.sources).forEach((k) => {
-                const el = document.getElementById(`sync-status-${k}`);
-                if(!el) return;
+                const panel = document.getElementById(`sync-status-${k}`);
+                if(!panel) return;
+                const dataLabel = document.getElementById(`sync-data-${k}`);
+                const connLabel = document.getElementById(`sync-connection-${k}`);
+                const errorLabel = document.getElementById(`sync-error-${k}`);
                 const st = lastSyncStatus[k];
-                if(!st) { el.textContent = 'Aguardando lote de sincronização...'; el.style.color = 'var(--text-muted)'; return; }
-                if(st.ok) { el.innerHTML = `<i data-lucide="check-circle" size="14"></i> Integrado ao Banco de Dados (${st.total} Linhas)`; el.style.color = 'var(--totvs-success)'; }
-                else {
-                    const msg = (st.error || 'Erro Crítico de Leitura').replace(/\s+/g, ' ').slice(0, 180);
-                    el.innerHTML = `<i data-lucide="x-circle" size="14"></i> Falha: ${msg} (${st.total} registros lidos)`;
-                    el.style.color = 'var(--totvs-danger)';
+                const setLabel = (wrapper, target, html, className = 'status-muted') => {
+                    if(!wrapper || !target) return;
+                    wrapper.classList.remove('status-ok', 'status-error', 'status-muted');
+                    wrapper.classList.add(className);
+                    target.innerHTML = html;
+                };
+                if(!st) {
+                    setLabel(dataLabel?.closest('.sync-status-label'), dataLabel, 'Aguardando leitura...', 'status-muted');
+                    setLabel(connLabel?.closest('.sync-status-label'), connLabel, 'Aguardando conexão...', 'status-muted');
+                    setLabel(errorLabel?.closest('.sync-status-label'), errorLabel, 'Sem erros reportados.', 'status-muted');
+                    lucide.createIcons();
+                    return;
                 }
+                const matrixRows = Number.isFinite(st.matrixRows) ? st.matrixRows : st.total;
+                const total = Number.isFinite(st.dataRows) ? st.dataRows : st.total;
+                const headerNote = st.hasHeader ? ` • ${Math.max(matrixRows - total, 0)} cabeçalho` : '';
+                setLabel(dataLabel?.closest('.sync-status-label'), dataLabel, `<i data-lucide="table" size="14"></i> ${matrixRows} linhas no range / ${total} registros de dados${headerNote}`, st.readError ? 'status-error' : 'status-ok');
+                if(st.connected && !st.readError) setLabel(connLabel?.closest('.sync-status-label'), connLabel, `<i data-lucide="check-circle" size="14"></i> Conectado ao CSV`, 'status-ok');
+                else setLabel(connLabel?.closest('.sync-status-label'), connLabel, `<i data-lucide="x-circle" size="14"></i> Falha na leitura`, 'status-error');
+                const msg = (st.readError || st.warning || 'Sem erros de leitura.').replace(/\s+/g, ' ').slice(0, 220);
+                setLabel(errorLabel?.closest('.sync-status-label'), errorLabel, `${st.readError ? '<i data-lucide="alert-circle" size="14"></i>' : '<i data-lucide="info" size="14"></i>'} ${msg}`, st.readError ? 'status-error' : (st.warning ? 'status-muted' : 'status-ok'));
                 lucide.createIcons();
             });
         }
@@ -2559,9 +2622,13 @@ ${hints}`);
                             <input type="checkbox" id="header-${k}" ${it.hasHeader ? 'checked' : ''}>
                             <span>Contém Linha de Cabeçalho</span>
                         </label>
-                        <div class="config-input-group" style="grid-column: span 3;">
+                        <div class="config-input-group" style="grid-column: span 4;">
                             <label>Diagnóstico de Conexão</label>
-                            <div id="sync-status-${k}" style="font-size:12px; font-weight:600; margin-top:4px; display: flex; align-items: center; gap: 6px; color: var(--text-muted);">Aguardando sincronização inicial...</div>
+                            <div id="sync-status-${k}" class="sync-status-panel">
+                                <div class="sync-status-label status-muted"><strong>Dados lidos</strong><span id="sync-data-${k}">Aguardando leitura...</span></div>
+                                <div class="sync-status-label status-muted"><strong>Conexão</strong><span id="sync-connection-${k}">Aguardando conexão...</span></div>
+                                <div class="sync-status-label status-muted"><strong>Mensagem de erro</strong><span id="sync-error-${k}">Sem erros reportados.</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>
