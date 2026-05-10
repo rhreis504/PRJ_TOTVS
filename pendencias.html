@@ -35,6 +35,12 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #94a3b8; 
     }
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -219,6 +225,24 @@
       const [statusFilter, setStatusFilter] = useState('');
       const [criticidadeFilter, setCriticidadeFilter] = useState('');
       const [responsavelFilter, setResponsavelFilter] = useState('');
+      const [areaFilter, setAreaFilter] = useState('');
+      const [etapaFilter, setEtapaFilter] = useState('');
+      const [condicaoFilter, setCondicaoFilter] = useState('');
+      const [viewMode, setViewMode] = useState('lista');
+      const [groupBy, setGroupBy] = useState('');
+      const [sortBy, setSortBy] = useState('criticidade');
+      const [savedViews, setSavedViews] = useState(() => {
+        const storedViews = localStorage.getItem('totvs-pendencias-views');
+        if (!storedViews) return [];
+        try {
+          const parsedViews = JSON.parse(storedViews);
+          return Array.isArray(parsedViews) ? parsedViews : [];
+        } catch (err) {
+          console.warn('Não foi possível carregar visões salvas:', err);
+          return [];
+        }
+      });
+      const [selectedViewId, setSelectedViewId] = useState('');
 
       const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv";
 
@@ -249,48 +273,98 @@
         loadData();
       }, []);
 
+      useEffect(() => {
+        localStorage.setItem('totvs-pendencias-views', JSON.stringify(savedViews));
+      }, [savedViews]);
+
       const uniqueValues = useMemo(() => {
         const data = dataset.data;
+        const sortValues = (values) => [...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
         return {
-          status: [...new Set(data.map(item => item['Status']))].filter(Boolean),
-          criticidade: [...new Set(data.map(item => item['Criticidade']))].filter(Boolean),
-          responsaveis: [...new Set(data.map(item => item['Responsável']))].filter(Boolean),
+          status: sortValues(data.map(item => item['Status'])),
+          criticidade: sortValues(data.map(item => item['Criticidade'])),
+          responsaveis: sortValues(data.map(item => item['Responsável'])),
+          areas: sortValues(data.map(item => item['Área'])),
+          etapas: sortValues(data.map(item => item['Etapa do Projeto'])),
+          condicoes: sortValues(data.map(item => item['Condição Pendência'])),
         };
       }, [dataset]);
 
+      const normalizeText = (value) => (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const normalizeStatus = (status) => normalizeText(status);
+
+      const getProgressNumber = (valueStr) => {
+        const numValue = parseInt((valueStr || '').toString().replace('%', ''));
+        return isNaN(numValue) ? 0 : numValue;
+      };
+
+      const criticidadeWeight = (criticidade) => {
+        const c = normalizeText(criticidade);
+        if (c.includes('critica')) return 4;
+        if (c.includes('alta')) return 3;
+        if (c.includes('media')) return 2;
+        if (c.includes('baixa')) return 1;
+        return 0;
+      };
+
+      const groupOptions = [
+        { value: '', label: 'Sem agrupamento' },
+        { value: 'Status', label: 'Status' },
+        { value: 'Criticidade', label: 'Criticidade' },
+        { value: 'Responsável', label: 'Responsável TOTVS' },
+        { value: 'Área', label: 'Área' },
+        { value: 'Etapa do Projeto', label: 'Etapa do Projeto' },
+        { value: 'Condição Pendência', label: 'Condição da Pendência' },
+      ];
+
+      const sortOptions = [
+        { value: 'criticidade', label: 'Prioridade inteligente' },
+        { value: 'status', label: 'Status' },
+        { value: 'responsavel', label: 'Responsável' },
+        { value: 'progresso', label: '% Conclusão' },
+        { value: 'id', label: 'ID' },
+      ];
+
       const filteredData = useMemo(() => {
-        return dataset.data.filter(row => {
-          const matchesSearch = Object.values(row).some(val => 
-            val.toString().toLowerCase().includes(searchTerm.toLowerCase())
-          );
-          
+        const data = dataset.data.filter(row => {
+          const matchesSearch = Object.values(row).some(val => normalizeText(val).includes(normalizeText(searchTerm)));
           const matchesStatus = statusFilter === '' || row['Status'] === statusFilter;
           const matchesCriticidade = criticidadeFilter === '' || row['Criticidade'] === criticidadeFilter;
           const matchesResponsavel = responsavelFilter === '' || row['Responsável'] === responsavelFilter;
+          const matchesArea = areaFilter === '' || row['Área'] === areaFilter;
+          const matchesEtapa = etapaFilter === '' || row['Etapa do Projeto'] === etapaFilter;
+          const matchesCondicao = condicaoFilter === '' || row['Condição Pendência'] === condicaoFilter;
 
-          return matchesSearch && matchesStatus && matchesCriticidade && matchesResponsavel;
+          return matchesSearch && matchesStatus && matchesCriticidade && matchesResponsavel && matchesArea && matchesEtapa && matchesCondicao;
         });
-      }, [dataset, searchTerm, statusFilter, criticidadeFilter, responsavelFilter]);
 
-      const normalizeStatus = (status) => (status || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        return [...data].sort((a, b) => {
+          if (sortBy === 'criticidade') return criticidadeWeight(b['Criticidade']) - criticidadeWeight(a['Criticidade']) || getProgressNumber(a['% Conclusão']) - getProgressNumber(b['% Conclusão']);
+          if (sortBy === 'status') return (a['Status'] || '').localeCompare(b['Status'] || '', 'pt-BR');
+          if (sortBy === 'responsavel') return (a['Responsável'] || '').localeCompare(b['Responsável'] || '', 'pt-BR');
+          if (sortBy === 'progresso') return getProgressNumber(a['% Conclusão']) - getProgressNumber(b['% Conclusão']);
+          if (sortBy === 'id') return Number(a['ID'] || 0) - Number(b['ID'] || 0);
+          return 0;
+        });
+      }, [dataset, searchTerm, statusFilter, criticidadeFilter, responsavelFilter, areaFilter, etapaFilter, condicaoFilter, sortBy]);
 
       const kpis = useMemo(() => {
         const total = filteredData.length;
         const concluidas = filteredData.filter(d => normalizeStatus(d['Status']).includes('concluida')).length;
         const emExecucao = filteredData.filter(d => normalizeStatus(d['Status']).includes('em execucao')).length;
         const pendentes = filteredData.filter(d => normalizeStatus(d['Status']).includes('pendente')).length;
-        const criticas = filteredData.filter(d => d['Criticidade']?.toLowerCase().includes('crítica')).length;
+        const criticas = filteredData.filter(d => normalizeText(d['Criticidade']).includes('critica')).length;
         
         return { total, concluidas, emExecucao, pendentes, criticas };
       }, [filteredData]);
 
       const renderStatusBadge = (status) => {
         if (!status) return <span className="text-slate-400">-</span>;
-        const s = status.toLowerCase();
-        if (s.includes('concluída')) {
+        const s = normalizeText(status);
+        if (s.includes('concluida')) {
           return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200"><IconCheckCircle2 size={12} /> {status}</span>;
         }
-        if (s.includes('em execução')) {
+        if (s.includes('em execucao')) {
           return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"><IconTrendingUp size={12} /> {status}</span>;
         }
         if (s.includes('pendente')) {
@@ -301,11 +375,11 @@
 
       const renderCriticidadeBadge = (criticidade) => {
         if (!criticidade) return <span className="text-slate-400">-</span>;
-        const c = criticidade.toLowerCase();
+        const c = normalizeText(criticidade);
         if (c.includes('baixa')) return <span className="text-slate-500 font-medium">{criticidade}</span>;
-        if (c.includes('média')) return <span className="text-amber-600 font-medium">{criticidade}</span>;
+        if (c.includes('media')) return <span className="text-amber-600 font-medium">{criticidade}</span>;
         if (c.includes('alta')) return <span className="text-orange-600 font-semibold">{criticidade}</span>;
-        if (c.includes('crítica')) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200"><IconAlertTriangle size={12} /> {criticidade}</span>;
+        if (c.includes('critica')) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200"><IconAlertTriangle size={12} /> {criticidade}</span>;
         return <span>{criticidade}</span>;
       };
 
@@ -330,6 +404,157 @@
           </div>
         );
       };
+
+      const setSmartFilter = (type) => {
+        if (type === 'criticas') {
+          const criticalValue = uniqueValues.criticidade.find(value => normalizeText(value).includes('critica')) || 'Crítica';
+          setCriticidadeFilter(criticalValue);
+          setStatusFilter('');
+        }
+        if (type === 'pendentes') {
+          const pendingValue = uniqueValues.status.find(value => normalizeText(value).includes('pendente')) || 'Pendente';
+          setStatusFilter(pendingValue);
+          setCriticidadeFilter('');
+        }
+        if (type === 'emExecucao') {
+          const executionValue = uniqueValues.status.find(value => normalizeText(value).includes('em execucao')) || 'Em execução';
+          setStatusFilter(executionValue);
+          setCriticidadeFilter('');
+        }
+        setSelectedViewId('');
+      };
+
+      const resetFilters = () => {
+        setSearchTerm('');
+        setStatusFilter('');
+        setCriticidadeFilter('');
+        setResponsavelFilter('');
+        setAreaFilter('');
+        setEtapaFilter('');
+        setCondicaoFilter('');
+        setGroupBy('');
+        setSortBy('criticidade');
+        setSelectedViewId('');
+      };
+
+      const currentViewConfig = () => ({
+        viewMode, searchTerm, statusFilter, criticidadeFilter, responsavelFilter,
+        areaFilter, etapaFilter, condicaoFilter, groupBy, sortBy,
+      });
+
+      const applyViewConfig = (config) => {
+        setViewMode(config.viewMode || 'lista');
+        setSearchTerm(config.searchTerm || '');
+        setStatusFilter(config.statusFilter || '');
+        setCriticidadeFilter(config.criticidadeFilter || '');
+        setResponsavelFilter(config.responsavelFilter || '');
+        setAreaFilter(config.areaFilter || '');
+        setEtapaFilter(config.etapaFilter || '');
+        setCondicaoFilter(config.condicaoFilter || '');
+        setGroupBy(config.groupBy || '');
+        setSortBy(config.sortBy || 'criticidade');
+      };
+
+      const saveCurrentView = () => {
+        const defaultName = `${viewMode === 'kanban' ? 'Kanban' : 'Lista'} - ${groupBy ? `por ${groupBy}` : 'personalizada'}`;
+        const name = window.prompt('Nome da visão:', defaultName);
+        if (!name || !name.trim()) return;
+        const newView = {
+          id: `view-${Date.now()}`,
+          name: name.trim(),
+          createdAt: new Date().toISOString(),
+          config: currentViewConfig(),
+        };
+        setSavedViews(prev => [...prev, newView]);
+        setSelectedViewId(newView.id);
+      };
+
+      const handleSelectedViewChange = (id) => {
+        setSelectedViewId(id);
+        const selected = savedViews.find(view => view.id === id);
+        if (selected) applyViewConfig(selected.config);
+      };
+
+      const removeSelectedView = () => {
+        if (!selectedViewId) return;
+        setSavedViews(prev => prev.filter(view => view.id !== selectedViewId));
+        setSelectedViewId('');
+      };
+
+      const groupedData = useMemo(() => {
+        const activeGroup = groupBy || (viewMode === 'kanban' ? 'Status' : '');
+        if (!activeGroup) return [{ key: 'Todos', label: 'Todos os registros', rows: filteredData }];
+        const groups = filteredData.reduce((acc, row) => {
+          const key = row[activeGroup] || 'Sem preenchimento';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(row);
+          return acc;
+        }, {});
+        return Object.entries(groups).map(([key, rows]) => ({ key, label: key, rows }));
+      }, [filteredData, groupBy, viewMode]);
+
+      const visibleColumns = ['ID', 'Área', 'Etapa do Projeto', 'Atividade', 'Responsável', 'Criticidade', '% Conclusão', 'Status'];
+      const hasActiveFilters = searchTerm || statusFilter || criticidadeFilter || responsavelFilter || areaFilter || etapaFilter || condicaoFilter || groupBy || sortBy !== 'criticidade';
+
+      const renderTaskCard = (row) => (
+        <article key={row['ID'] || row['Atividade']} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">#{row['ID']} · {row['Área'] || 'Sem área'}</p>
+              <h3 className="text-sm font-semibold text-slate-800 leading-snug mt-1">{row['Atividade'] || 'Atividade sem título'}</h3>
+            </div>
+            {renderCriticidadeBadge(row['Criticidade'])}
+          </div>
+          <p className="text-xs text-slate-500 line-clamp-3 mb-4">{row['Descrição'] || 'Sem descrição cadastrada.'}</p>
+          <div className="grid grid-cols-2 gap-3 text-xs mb-4">
+            <div className="bg-slate-50 rounded-lg p-2">
+              <span className="block text-slate-400">Responsável</span>
+              <strong className="text-slate-700">{row['Responsável'] || '-'}</strong>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-2">
+              <span className="block text-slate-400">Etapa</span>
+              <strong className="text-slate-700">{row['Etapa do Projeto'] || '-'}</strong>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            {renderProgressBar(row['% Conclusão'])}
+            {renderStatusBadge(row['Status'])}
+          </div>
+        </article>
+      );
+
+      const renderListTable = (rows) => (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
+            <thead>
+              <tr>
+                {visibleColumns.map((header) => (
+                  <th key={header} className="bg-slate-50 border-b border-slate-200 px-4 py-3 text-xs uppercase tracking-wider font-semibold text-slate-600 sticky top-0 z-10 text-left">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={`${row['ID']}-${rowIndex}`} className="hover:bg-indigo-50/40 transition-colors group">
+                  {visibleColumns.map((header) => {
+                    const cellValue = row[header];
+                    let content = cellValue || <span className="text-slate-400">-</span>;
+                    if (header === 'Status') content = renderStatusBadge(cellValue);
+                    else if (header === 'Criticidade') content = renderCriticidadeBadge(cellValue);
+                    else if (header === '% Conclusão') content = renderProgressBar(cellValue);
+                    let cellClass = "border-b border-slate-100 px-4 py-3 text-sm text-slate-700 max-w-[280px] truncate group-hover:text-slate-900 text-left align-top";
+                    if (header === 'ID') cellClass += " font-semibold text-slate-500";
+                    if (header === 'Atividade') cellClass += " whitespace-normal min-w-[320px] font-medium text-slate-800";
+                    return <td key={header} className={cellClass} title={typeof cellValue === 'string' ? cellValue : ''}>{content}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
 
       return (
         <div className="min-h-screen bg-slate-50/50 flex flex-col">
@@ -409,127 +634,104 @@
               </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col lg:flex-row items-center justify-between gap-4">
-              <div className="relative w-full lg:w-96">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IconSearch size={18} />
+            {/* Smart View Builder */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-white to-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-indigo-600 uppercase tracking-[0.2em]">Visões inteligentes</p>
+                  <h2 className="text-lg font-bold text-slate-800 mt-1">Organize, filtre, agrupe e salve seu modo de trabalho</h2>
+                  <p className="text-sm text-slate-500 mt-1">A seleção da visão aplica automaticamente filtros, agrupamento, ordenação e formato Lista/Kanban.</p>
                 </div>
-                <input 
-                  type="text" 
-                  placeholder="Buscar em qualquer campo..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
-                />
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
-                  <IconFilter size={16} /> Filtros:
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1">
+                    <button onClick={() => setViewMode('lista')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'lista' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Lista</button>
+                    <button onClick={() => setViewMode('kanban')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'kanban' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Kanban</button>
+                  </div>
+                  <select value={selectedViewId} onChange={(e) => handleSelectedViewChange(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 px-3 py-2 outline-none min-w-[220px]">
+                    <option value="">Selecionar visão salva</option>
+                    {savedViews.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}
+                  </select>
+                  <button onClick={saveCurrentView} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all">Salvar visão</button>
+                  {selectedViewId && <button onClick={removeSelectedView} className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-lg text-sm font-semibold transition-all">Excluir</button>}
                 </div>
-                
-                <select 
-                  value={statusFilter} 
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 outline-none"
-                >
-                  <option value="">Todos os Status</option>
-                  {uniqueValues.status.map(val => <option key={val} value={val}>{val}</option>)}
-                </select>
-
-                <select 
-                  value={criticidadeFilter} 
-                  onChange={(e) => setCriticidadeFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 outline-none"
-                >
-                  <option value="">Qualquer Criticidade</option>
-                  {uniqueValues.criticidade.map(val => <option key={val} value={val}>{val}</option>)}
-                </select>
-
-                <select 
-                  value={responsavelFilter} 
-                  onChange={(e) => setResponsavelFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 outline-none max-w-[200px] truncate"
-                >
-                  <option value="">Todos os Responsáveis</option>
-                  {uniqueValues.responsaveis.map(val => <option key={val} value={val}>{val}</option>)}
-                </select>
-                
-                {(searchTerm || statusFilter || criticidadeFilter || responsavelFilter) && (
-                  <button 
-                    onClick={() => { setSearchTerm(''); setStatusFilter(''); setCriticidadeFilter(''); setResponsavelFilter(''); }}
-                    className="text-indigo-600 hover:text-indigo-800 text-sm font-medium px-2 py-1 hover:bg-indigo-50 rounded transition-colors"
-                  >
-                    Limpar
-                  </button>
-                )}
               </div>
-            </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
-              <div className="overflow-x-auto flex-1">
-                {loading && dataset.data.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3">
-                    <div className="animate-spin text-indigo-400"><IconRefreshCw size={32} /></div>
-                    <p>Processando base de dados...</p>
+              <div className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(280px,1fr)_auto] gap-5 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <div className="relative md:col-span-2 xl:col-span-2">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><IconSearch size={18} /></div>
+                    <input type="text" placeholder="Buscar por atividade, descrição, responsável, etapa..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setSelectedViewId(''); }} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm" />
                   </div>
-                ) : filteredData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
-                    <div className="text-slate-300 mb-2"><IconSearch size={32} /></div>
-                    <p className="font-medium text-slate-700">Nenhum resultado encontrado.</p>
-                    <p className="text-sm">Tente ajustar seus filtros de busca.</p>
-                  </div>
-                ) : (
-                  <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
-                    <thead>
-                      <tr>
-                        {dataset.headers.map((header, index) => (
-                          <th 
-                            key={index} 
-                            className="bg-slate-50 border border-slate-300 px-2 py-3 text-xs uppercase tracking-wider font-semibold text-slate-600 sticky top-0 z-10 shadow-sm text-left"
-                          >
-                            {header}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="">
-                      {filteredData.map((row, rowIndex) => (
-                        <tr key={rowIndex} className="hover:bg-indigo-50/30 transition-colors group">
-                          {dataset.headers.map((header, colIndex) => {
-                            const cellValue = row[header];
-                            
-                            let content = cellValue;
-                            if (header === 'Status') content = renderStatusBadge(cellValue);
-                            else if (header === 'Criticidade') content = renderCriticidadeBadge(cellValue);
-                            else if (header === '% Conclusão') content = renderProgressBar(cellValue);
-                            
-                            let cellClass = "border border-slate-200 px-2 py-3 text-sm text-slate-700 max-w-[250px] truncate group-hover:text-slate-900 text-left align-top";
-                            if (header === 'ID') cellClass += " font-semibold text-slate-500";
-                            if (header === 'Atividade' || header === 'Descrição') cellClass += " whitespace-normal min-w-[250px]";
+                  <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todos os Status</option>{uniqueValues.status.map(val => <option key={val} value={val}>{val}</option>)}</select>
+                  <select value={criticidadeFilter} onChange={(e) => { setCriticidadeFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Qualquer Criticidade</option>{uniqueValues.criticidade.map(val => <option key={val} value={val}>{val}</option>)}</select>
+                  <select value={responsavelFilter} onChange={(e) => { setResponsavelFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todos os Responsáveis</option>{uniqueValues.responsaveis.map(val => <option key={val} value={val}>{val}</option>)}</select>
+                  <select value={areaFilter} onChange={(e) => { setAreaFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todas as Áreas</option>{uniqueValues.areas.map(val => <option key={val} value={val}>{val}</option>)}</select>
+                  <select value={etapaFilter} onChange={(e) => { setEtapaFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todas as Etapas</option>{uniqueValues.etapas.map(val => <option key={val} value={val}>{val}</option>)}</select>
+                  <select value={condicaoFilter} onChange={(e) => { setCondicaoFilter(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Todas as Condições</option>{uniqueValues.condicoes.map(val => <option key={val} value={val}>{val}</option>)}</select>
+                  <select value={groupBy} onChange={(e) => { setGroupBy(e.target.value); setSelectedViewId(''); }} className="bg-indigo-50 border border-indigo-100 text-indigo-800 text-sm rounded-lg px-3 py-2.5 outline-none"><option value="">Agrupar: inteligente padrão</option>{groupOptions.filter(opt => opt.value).map(opt => <option key={opt.value} value={opt.value}>Agrupar por {opt.label}</option>)}</select>
+                  <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setSelectedViewId(''); }} className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none">{sortOptions.map(opt => <option key={opt.value} value={opt.value}>Ordenar: {opt.label}</option>)}</select>
+                </div>
 
-                            return (
-                              <td key={colIndex} className={cellClass} title={typeof content === 'string' ? content : ''}>
-                                {content}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 min-w-[280px]">
+                  <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold mb-3"><IconFilter size={16} /> Atalhos inteligentes</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setSmartFilter('criticas')} className="px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100">Críticas</button>
+                    <button onClick={() => setSmartFilter('pendentes')} className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold hover:bg-amber-100">Pendentes</button>
+                    <button onClick={() => setSmartFilter('emExecucao')} className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold hover:bg-blue-100">Em execução</button>
+                    {hasActiveFilters && <button onClick={resetFilters} className="px-3 py-1.5 rounded-full bg-white text-indigo-700 border border-indigo-200 text-xs font-semibold hover:bg-indigo-50">Limpar tudo</button>}
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-white rounded-lg border border-slate-100 p-2"><span className="block text-lg font-bold text-slate-800">{filteredData.length}</span><span className="text-[11px] text-slate-500">itens</span></div>
+                    <div className="bg-white rounded-lg border border-slate-100 p-2"><span className="block text-lg font-bold text-rose-600">{kpis.criticas}</span><span className="text-[11px] text-slate-500">críticas</span></div>
+                    <div className="bg-white rounded-lg border border-slate-100 p-2"><span className="block text-lg font-bold text-indigo-600">{groupedData.length}</span><span className="text-[11px] text-slate-500">grupos</span></div>
+                  </div>
+                </div>
               </div>
-              
-              <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-between text-sm text-slate-500">
-                <p>
-                  Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros 
-                  {filteredData.length !== dataset.data.length && ` (filtrados de ${dataset.data.length} totais)`}
-                </p>
+            </section>
+
+            {/* Results */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white">
+                <div>
+                  <h2 className="text-base font-bold text-slate-800">{viewMode === 'kanban' ? 'Quadro Kanban' : 'Lista profissional'}</h2>
+                  <p className="text-sm text-slate-500">Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros{filteredData.length !== dataset.data.length && ` de ${dataset.data.length}`}.</p>
+                </div>
+                <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  Agrupamento ativo: <strong className="text-slate-700">{groupBy || (viewMode === 'kanban' ? 'Status' : 'Nenhum')}</strong>
+                </div>
               </div>
-            </div>
+
+              {loading && dataset.data.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3"><div className="animate-spin text-indigo-400"><IconRefreshCw size={32} /></div><p>Processando base de dados...</p></div>
+              ) : filteredData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2"><div className="text-slate-300 mb-2"><IconSearch size={32} /></div><p className="font-medium text-slate-700">Nenhum resultado encontrado.</p><p className="text-sm">Tente ajustar seus filtros de busca ou selecionar outra visão.</p></div>
+              ) : viewMode === 'kanban' ? (
+                <div className="p-5 overflow-x-auto flex-1 bg-slate-50/70">
+                  <div className="flex gap-4 min-w-max pb-2">
+                    {groupedData.map(group => (
+                      <div key={group.key} className="w-[340px] flex-shrink-0">
+                        <div className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur border border-slate-200 rounded-xl px-4 py-3 mb-3 flex items-center justify-between">
+                          <h3 className="font-bold text-slate-800 text-sm truncate">{group.label}</h3>
+                          <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5">{group.rows.length}</span>
+                        </div>
+                        <div className="flex flex-col gap-3">{group.rows.map(renderTaskCard)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : groupBy ? (
+                <div className="divide-y divide-slate-100">
+                  {groupedData.map(group => (
+                    <details key={group.key} open className="group/list">
+                      <summary className="cursor-pointer select-none px-5 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-sm font-bold text-slate-700">
+                        <span>{group.label}</span><span className="text-xs bg-white border border-slate-200 text-slate-500 rounded-full px-2 py-0.5">{group.rows.length} registros</span>
+                      </summary>
+                      {renderListTable(group.rows)}
+                    </details>
+                  ))}
+                </div>
+              ) : renderListTable(filteredData)}
+            </section>
 
           </main>
         </div>
