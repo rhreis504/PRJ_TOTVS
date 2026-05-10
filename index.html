@@ -1109,6 +1109,7 @@
         let lastFetchErrors = {};
         let lastFetchMeta = {};
         let cachedTapProjects = [];
+        let syncInProgressPromise = null;
 
         let roadmaps = [];
         let agenda = [];
@@ -1923,7 +1924,22 @@
                 };
             }).filter(issue => Object.values(issue.payload_issue.row || {}).some(value => safeIssueText(value) && safeIssueText(value) !== '-'));
         }
+        function dedupeIssueEntries(issues = []) {
+            const byBusinessKey = new Map();
+            issues.forEach((issue, index) => {
+                const externalId = safeIssueText(issue.external_id);
+                const sourceRowNumber = issue.source_row_number ? `row:${issue.source_row_number}` : '';
+                const key = externalId ? `external:${externalId}` : sourceRowNumber || `idx:${index}`;
+                byBusinessKey.set(key, issue);
+            });
+            return [...byBusinessKey.values()];
+        }
         async function syncAll() {
+            if(syncInProgressPromise) return syncInProgressPromise;
+            syncInProgressPromise = syncAllInternal().finally(() => { syncInProgressPromise = null; });
+            return syncInProgressPromise;
+        }
+        async function syncAllInternal() {
             const selectedProjects = getSelectedProjects();
             if(!selectedProjects.length) return;
             const allKeys = new Set();
@@ -2139,9 +2155,17 @@
                 renderSyncStatus();
                 return;
             }
-            const sourceRows = keys.flatMap(k => (rowsByKey[k] || []).map(row => ({ project_id: projectId, source_type: k, row_data: row })));
+            const encodeSupabaseFilterValue = (value = '') => encodeURIComponent(`${value || ''}`);
+            const sourceRows = keys.flatMap(k => (rowsByKey[k] || []).map((row, index) => ({
+                project_id: projectId,
+                source_type: k,
+                source_row_number: lastFetchMeta[k]?.sourceRowNumbers?.[index] || null,
+                row_hash: issueRowHash(row),
+                row_data: row
+            })));
             let sourceRowsWarning = '';
             try {
+                await Promise.all(keys.map(k => supabaseRequest(`source_rows?project_id=eq.${encodeSupabaseFilterValue(projectId)}&source_type=eq.${encodeSupabaseFilterValue(k)}`, 'DELETE')));
                 if(sourceRows.length) await supabaseRequest('source_rows', 'POST', sourceRows);
             } catch (e) {
                 sourceRowsWarning = `Backup Supabase/source_rows não gravado: ${String(e.message || e)}`;
@@ -2155,9 +2179,9 @@
                         continue;
                     }
                     if(sourceKey === 'pendencias'){
-                        const issuesPayload = rowsToIssueEntries(rowsByKey.pendencias || [], project, projectId);
-                        await supabaseRequest(`issues?project_id=eq.${projectId}`, 'DELETE');
-                        if(issuesPayload.length) await supabaseRequest('issues', 'POST', issuesPayload);
+                        const issuesPayload = dedupeIssueEntries(rowsToIssueEntries(rowsByKey.pendencias || [], project, projectId));
+                        await supabaseRequest(`issues?project_id=eq.${encodeSupabaseFilterValue(projectId)}`, 'DELETE');
+                        if(issuesPayload.length) await supabaseRequest('issues?on_conflict=project_id,external_id', 'POST', issuesPayload);
                     }
                     lastSyncStatus[sourceKey] = { ok: true, total, ...(lastFetchMeta[sourceKey] || {}), readError: '', warning: sourceRowsWarning };
                 } catch (e) {
