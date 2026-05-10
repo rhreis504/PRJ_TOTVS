@@ -1683,8 +1683,13 @@
             generateConfigRows();
             showToast('Projeto cadastrado e ativado.');
         }
-        function parseCsv(text){
+        function parseCsv(text, options = {}){
+            const { preserveEmptyRows = false } = options;
             const rows=[]; let row=[]; let cur=''; let q=false;
+            const pushRow = () => {
+                const hasContent = row.some(v=>v!=='');
+                if(preserveEmptyRows || hasContent) rows.push(row);
+            };
             for(let i=0;i<text.length;i++){
                 const c=text[i], n=text[i+1];
                 if(c==='"'){ if(q && n==='"'){ cur+='"'; i++; } else q=!q; }
@@ -1692,11 +1697,12 @@
                 else if((c==='\n' || c==='\r') && !q){
                     if(c==='\r' && n==='\n') i++;
                     row.push(cur.trim());
-                    if(row.some(v=>v!=='')) rows.push(row);
+                    pushRow();
                     row=[]; cur='';
                 } else cur+=c;
             }
-            row.push(cur.trim()); if(row.some(v=>v!=='')) rows.push(row);
+            row.push(cur.trim());
+            if(row.length > 1 || row[0] !== '' || preserveEmptyRows) pushRow();
             return rows;
         }
         function resolveCsvUrl(source){
@@ -1738,8 +1744,7 @@
             if(!parsed) return rows;
             const { startRow, endRow, startCol, endCol } = parsed;
             return rows.slice(startRow, endRow + 1)
-                .map(row => row.slice(startCol, endCol + 1))
-                .filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
+                .map(row => row.slice(startCol, endCol + 1));
         }
         async function fetchSourceRows(key) {
             const s = getActiveProject().sources[key];
@@ -1754,12 +1759,13 @@
                 if(!r.ok) throw new Error(`Fonte retornou HTTP ${r.status}`);
                 const t = await r.text();
                 if(/<html/i.test(t) && /404|File not found|Page not found/i.test(t)) throw new Error('URL inválida (404). Para links /d/e/ use /pub?output=csv');
-                const allRows = mode === "web" ? parseHtmlTable(t) : parseCsv(t);
+                const allRows = mode === "web" ? parseHtmlTable(t) : parseCsv(t, { preserveEmptyRows: true });
                 const rangedRows = applyRangeToRows(allRows, s.range);
                 const parsedRows = s.hasHeader ? rangedRows.slice(1) : rangedRows;
-                lastFetchMeta[key] = { connected: true, matrixRows: rangedRows.length, dataRows: parsedRows.length, hasHeader: !!s.hasHeader, range: s.range || '', mode };
+                const dataRows = parsedRows.filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
+                lastFetchMeta[key] = { connected: true, matrixRows: rangedRows.length, dataRows: dataRows.length, hasHeader: !!s.hasHeader, range: s.range || '', mode };
                 lastFetchErrors[key] = '';
-                return parsedRows;
+                return dataRows;
             } catch (e) {
                 lastFetchErrors[key] = String(e.message || e);
                 lastFetchMeta[key] = { connected: false, matrixRows: 0, dataRows: 0, hasHeader: !!s.hasHeader, range: s.range || '', mode };
