@@ -88,6 +88,12 @@
     const IconChevronDown = ({ size = 24, className = "" }) => (
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m6 9 6 6 6-6"/></svg>
     );
+    const IconPencil = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+    );
+    const IconTrash = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+    );
 
     // ==========================================
     // FUNÇÕES UTILITÁRIAS
@@ -242,7 +248,8 @@
       const [activeQuickViewId, setActiveQuickViewId] = useState('all');
       const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
       const [saveModalOpen, setSaveModalOpen] = useState(false);
-      const [saveForm, setSaveForm] = useState({ name: '', description: '', setAsDefault: false });
+      const emptySaveForm = { name: '', description: '', setAsDefault: false, editingViewId: '', replaceConfig: false };
+      const [saveForm, setSaveForm] = useState(emptySaveForm);
       const [selectedTask, setSelectedTask] = useState(null);
       const [savedViews, setSavedViews] = useState(() => {
         const storedViews = localStorage.getItem('totvs-pendencias-views');
@@ -490,22 +497,46 @@
       const resetFilters = () => { setFilters(defaultFilters); setGroupByPrimary(''); setGroupBySecondary(''); setSortBy('priority'); setSelectedViewId(''); setActiveQuickViewId('all'); };
       const currentViewConfig = () => ({ viewMode, filters, groupByPrimary, groupBySecondary, sortBy });
       const openSaveModal = () => {
-        setSaveForm({ name: `${viewMode === 'kanban' ? 'Kanban' : 'Lista'} executivo${groupByPrimary ? ` por ${groupByPrimary}` : ''}`, description: '', setAsDefault: false });
+        setSaveForm({ ...emptySaveForm, name: `${viewMode === 'kanban' ? 'Kanban' : 'Lista'} executivo${groupByPrimary ? ` por ${groupByPrimary}` : ''}` });
         setSaveModalOpen(true);
       };
+      const openEditViewModal = (viewId) => {
+        const view = savedViews.find(item => item.id === viewId);
+        if (!view) return;
+        setSaveForm({ name: view.name, description: view.description || '', setAsDefault: Boolean(view.isDefault), editingViewId: view.id, replaceConfig: false });
+        setSaveModalOpen(true);
+      };
+      const closeSaveModal = () => { setSaveModalOpen(false); setSaveForm(emptySaveForm); };
       const saveCurrentView = () => {
         const viewName = saveForm.name.trim();
         if (!viewName) return;
-        const newView = { id: `view-${Date.now()}`, name: viewName, description: saveForm.description.trim(), createdAt: new Date().toISOString(), isDefault: saveForm.setAsDefault, config: currentViewConfig() };
-        setSavedViews(prev => [...prev.map(v => saveForm.setAsDefault ? { ...v, isDefault: false } : v), newView]);
-        setSelectedViewId(newView.id);
-        setActiveQuickViewId('saved-' + newView.id);
-        setSaveForm({ name: '', description: '', setAsDefault: false });
-        setSaveModalOpen(false);
+        if (saveForm.editingViewId) {
+          setSavedViews(prev => prev.map(view => view.id === saveForm.editingViewId ? {
+            ...view,
+            name: viewName,
+            description: saveForm.description.trim(),
+            isDefault: saveForm.setAsDefault,
+            updatedAt: new Date().toISOString(),
+            config: saveForm.replaceConfig ? currentViewConfig() : view.config,
+          } : (saveForm.setAsDefault ? { ...view, isDefault: false } : view)));
+          setSelectedViewId(saveForm.editingViewId);
+          setActiveQuickViewId('saved-' + saveForm.editingViewId);
+        } else {
+          const newView = { id: `view-${Date.now()}`, name: viewName, description: saveForm.description.trim(), createdAt: new Date().toISOString(), isDefault: saveForm.setAsDefault, config: currentViewConfig() };
+          setSavedViews(prev => [...prev.map(v => saveForm.setAsDefault ? { ...v, isDefault: false } : v), newView]);
+          setSelectedViewId(newView.id);
+          setActiveQuickViewId('saved-' + newView.id);
+        }
+        closeSaveModal();
       };
       const handleSelectedViewChange = (id) => { setSelectedViewId(id); setActiveQuickViewId(id ? 'saved-' + id : 'custom'); const selected = savedViews.find(view => view.id === id); if (selected) applyViewConfig(selected.config); };
-      const removeSelectedView = () => { if (!selectedViewId) return; setSavedViews(prev => prev.filter(view => view.id !== selectedViewId)); setSelectedViewId(''); setActiveQuickViewId('custom'); };
-      const setDefaultView = () => { if (!selectedViewId) return; setSavedViews(prev => prev.map(view => ({ ...view, isDefault: view.id === selectedViewId }))); };
+      const deleteSavedView = (viewId) => {
+        const view = savedViews.find(item => item.id === viewId);
+        if (!view || !window.confirm(`Excluir a visão "${view.name}"? Essa ação não poderá ser desfeita.`)) return;
+        setSavedViews(prev => prev.filter(item => item.id !== viewId));
+        if (selectedViewId === viewId) setSelectedViewId('');
+        if (activeQuickViewId === 'saved-' + viewId) setActiveQuickViewId('custom');
+      };
       const matchesFilterSet = (row, filterSet = defaultFilters) => {
         const plannedFromDate = parseDate(filterSet.plannedFrom);
         const plannedToDate = parseDate(filterSet.plannedTo);
@@ -653,9 +684,19 @@
                   {savedViewItems.length > 0 && <div className="mt-3 pt-3 border-t border-slate-100"><p className="px-2 mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Visões salvas</p>{savedViewItems.map(view => {
                     const isActive = activeQuickViewId === view.id;
                     const colors = accentClasses.violet;
-                    return <button key={view.id} onClick={() => handleSelectedViewChange(view.savedId)} className={`w-full text-left rounded-xl px-3 py-3 mb-2 transition-all border ${isActive ? colors.active : `bg-white border-transparent ${colors.idle}`}`}>
-                      <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3 min-w-0"><span className={`h-8 w-8 rounded-lg flex items-center justify-center ${isActive ? colors.iconActive : colors.iconIdle}`}>{quickViewIcon(view.icon, { size: 16 })}</span><span className="min-w-0"><span className="block text-sm font-bold truncate">{view.title}</span><span className="block text-xs text-slate-500 truncate mt-0.5">{view.hint}</span></span></span><span className={`shrink-0 text-xs font-bold rounded-full px-2.5 py-1 ${isActive ? colors.countActive : colors.countIdle}`}>{getViewCount(view.config)}</span></div>
-                    </button>;
+                    return <div key={view.id} className={`w-full rounded-xl px-3 py-3 mb-2 transition-all border ${isActive ? colors.active : `bg-white border-transparent ${colors.idle}`}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <button onClick={() => handleSelectedViewChange(view.savedId)} className="flex items-center gap-3 min-w-0 flex-1 text-left" title={`Aplicar visão ${view.title}`}>
+                          <span className={`h-8 w-8 rounded-lg flex items-center justify-center ${isActive ? colors.iconActive : colors.iconIdle}`}>{quickViewIcon(view.icon, { size: 16 })}</span>
+                          <span className="min-w-0"><span className="block text-sm font-bold truncate">{view.title}</span><span className="block text-xs text-slate-500 truncate mt-0.5">{view.hint}</span></span>
+                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`text-xs font-bold rounded-full px-2.5 py-1 ${isActive ? colors.countActive : colors.countIdle}`}>{getViewCount(view.config)}</span>
+                          <button onClick={(event) => { event.stopPropagation(); openEditViewModal(view.savedId); }} className="h-8 w-8 rounded-lg border border-violet-100 bg-white/80 text-violet-600 hover:bg-violet-50 flex items-center justify-center" title={`Editar visão ${view.title}`} aria-label={`Editar visão ${view.title}`}><IconPencil size={14} /></button>
+                          <button onClick={(event) => { event.stopPropagation(); deleteSavedView(view.savedId); }} className="h-8 w-8 rounded-lg border border-rose-100 bg-white/80 text-rose-600 hover:bg-rose-50 flex items-center justify-center" title={`Excluir visão ${view.title}`} aria-label={`Excluir visão ${view.title}`}><IconTrash size={14} /></button>
+                        </div>
+                      </div>
+                    </div>;
                   })}</div>}
 
                   <button onClick={() => { setAdvancedFiltersOpen(true); setSaveForm(prev => ({ ...prev, name: prev.name || `${viewMode === 'kanban' ? 'Kanban' : 'Lista'} personalizada` })); }} className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-3 py-3 text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"><IconPlus size={16} /> Salvar nova visão</button>
@@ -696,7 +737,7 @@
             </div>
           </main>
 
-          {saveModalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg"><div className="px-5 py-4 border-b border-slate-100"><h3 className="text-lg font-bold text-slate-800">Salvar visão executiva</h3><p className="text-sm text-slate-500">Guarde filtros, agrupamentos, ordenação e modo de visualização.</p></div><div className="p-5 flex flex-col gap-3"><label className="text-sm font-semibold text-slate-600">Nome<input value={saveForm.name} onChange={e => setSaveForm(prev => ({ ...prev, name: e.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="text-sm font-semibold text-slate-600">Descrição opcional<textarea value={saveForm.description} onChange={e => setSaveForm(prev => ({ ...prev, description: e.target.value }))} rows="3" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={saveForm.setAsDefault} onChange={e => setSaveForm(prev => ({ ...prev, setAsDefault: e.target.checked }))} />Definir como visão padrão</label></div><div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2"><button onClick={() => setSaveModalOpen(false)} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold">Cancelar</button><button onClick={saveCurrentView} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">Salvar visão</button></div></div></div>}
+          {saveModalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg"><div className="px-5 py-4 border-b border-slate-100"><h3 className="text-lg font-bold text-slate-800">{saveForm.editingViewId ? 'Editar visão executiva' : 'Salvar visão executiva'}</h3><p className="text-sm text-slate-500">{saveForm.editingViewId ? 'Atualize nome, descrição, padrão ou substitua os filtros salvos pela configuração atual.' : 'Guarde filtros, agrupamentos, ordenação e modo de visualização.'}</p></div><div className="p-5 flex flex-col gap-3"><label className="text-sm font-semibold text-slate-600">Nome<input value={saveForm.name} onChange={e => setSaveForm(prev => ({ ...prev, name: e.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="text-sm font-semibold text-slate-600">Descrição opcional<textarea value={saveForm.description} onChange={e => setSaveForm(prev => ({ ...prev, description: e.target.value }))} rows="3" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={saveForm.setAsDefault} onChange={e => setSaveForm(prev => ({ ...prev, setAsDefault: e.target.checked }))} />Definir como visão padrão</label>{saveForm.editingViewId && <label className="flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-slate-700"><input type="checkbox" checked={saveForm.replaceConfig} onChange={e => setSaveForm(prev => ({ ...prev, replaceConfig: e.target.checked }))} className="mt-1" /><span><strong>Substituir filtros desta visão</strong><span className="block text-xs text-slate-500">Salva a busca, filtros, agrupamentos, ordenação e modo atualmente em tela.</span></span></label>}</div><div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2"><button onClick={closeSaveModal} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold">Cancelar</button><button onClick={saveCurrentView} disabled={!saveForm.name.trim()} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed">{saveForm.editingViewId ? 'Salvar alterações' : 'Salvar visão'}</button></div></div></div>}
 
           {selectedTask && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"><div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"><div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4"><div><p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">Pendência #{selectedTask['ID']}</p><h3 className="text-lg font-bold text-slate-800">{selectedTask['Atividade'] || 'Atividade sem título'}</h3><div className="flex flex-wrap gap-2 mt-2">{renderStatusBadge(selectedTask['Status'])}{renderCriticidadeBadge(selectedTask['Criticidade'])}{renderScoreBadge(selectedTask)}{renderLateBadge(selectedTask)}</div></div><button onClick={() => setSelectedTask(null)} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">×</button></div><div className="p-5 overflow-y-auto"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{(dataset.headers.length ? dataset.headers : EXPECTED_HEADERS).map(header => <div key={header} className={`rounded-xl border border-slate-200 bg-slate-50 p-3 ${header === 'Descrição' || header === 'Atividade' ? 'md:col-span-2' : ''}`}><span className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">{header}</span><div className="text-sm text-slate-800 whitespace-pre-wrap">{header === 'Status' ? renderStatusBadge(selectedTask[header]) : header === 'Criticidade' ? renderCriticidadeBadge(selectedTask[header]) : header === '% Conclusão' ? renderProgressBar(selectedTask[header]) : (selectedTask[header] || <span className="text-slate-400">-</span>)}</div></div>)}<div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><span className="block text-xs font-bold text-indigo-400 uppercase tracking-wide mb-1">Score de prioridade</span><div>{renderScoreBadge(selectedTask)}</div></div><div className="rounded-xl border border-red-100 bg-red-50 p-3"><span className="block text-xs font-bold text-red-400 uppercase tracking-wide mb-1">Atraso calculado</span><div className="text-sm text-red-700 font-semibold">{selectedTask.isAtrasada ? `${selectedTask.diasAtraso} dia(s)` : 'Sem atraso'}</div></div></div></div></div></div>}
         </div>
