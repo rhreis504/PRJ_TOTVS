@@ -37,12 +37,29 @@
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
 
+        .app-popup-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 1rem; }
+        .app-popup-overlay.show { display: flex; }
+        .app-popup-card { width: min(440px, 100%); background: #fff; border-radius: 1rem; box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28); border: 1px solid #e2e8f0; overflow: hidden; }
+        .app-popup-body { padding: 1.5rem; display: flex; gap: 1rem; align-items: flex-start; }
+        .app-popup-icon { width: 42px; height: 42px; border-radius: 14px; background: #fee2e2; color: #dc2626; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .app-popup-title { margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a; }
+        .app-popup-message { margin: .5rem 0 0; color: #475569; font-size: .875rem; line-height: 1.5; }
+        .app-popup-footer { padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; }
         /* Animação suave de entrada */
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="text-gray-800">
+    <div id="app-popup" class="app-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="app-popup-title">
+        <div class="app-popup-card">
+            <div class="app-popup-body">
+                <span class="app-popup-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <div><h2 id="app-popup-title" class="app-popup-title">Mensagem</h2><p id="app-popup-message" class="app-popup-message"></p></div>
+            </div>
+            <div class="app-popup-footer"><button id="app-popup-ok" type="button" class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">OK</button></div>
+        </div>
+    </div>
 
     <!-- Conteúdo Principal do Report -->
     <main class="w-full max-w-screen-2xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
@@ -802,6 +819,19 @@
             data.alerts = alerts;
         }
 
+        function showAppPopup(title, message) {
+            const overlay = document.getElementById('app-popup');
+            const titleEl = document.getElementById('app-popup-title');
+            const messageEl = document.getElementById('app-popup-message');
+            const okBtn = document.getElementById('app-popup-ok');
+            if (!overlay || !okBtn) return;
+            titleEl.textContent = title || 'Mensagem';
+            messageEl.textContent = message || '';
+            okBtn.onclick = () => { overlay.classList.remove('show'); okBtn.onclick = null; };
+            overlay.classList.add('show');
+            setTimeout(() => okBtn.focus(), 50);
+        }
+
         async function reloadFromConfiguredSources() {
             const btn = document.getElementById(UPDATE_BUTTON_ID);
             try {
@@ -814,7 +844,7 @@
                 applyStatusInput(geral); applyTap(tap); data.projectInfo.phase = currentJourneyPhase();
                 applyIssues(pend); applyRisks(risks); applyGaps(gaps); applyDecisions(); applyStakeholders(stakeholders); applyTrainings(trainings); applyActivities(acts);
                 deriveAnalytics(); rerender();
-            } catch (e) { alert('Erro ao atualizar dados: ' + e.message); console.error(e); }
+            } catch (e) { showAppPopup('Erro ao atualizar dados', e.message || String(e)); console.error(e); }
             finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down mr-2"></i> Sincronizar Dados'; } }
         }
         function clearContainers() { ['alerts-container','main-cards-container','health-bars-container','evolution-bars-container','triple-constraint-container','act-past','act-present','act-future','table-issues','table-risks','table-gaps','table-decisions','timeline-container','golive-criteria','train-list','stakeholder-list','integration-list'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; }); }

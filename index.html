@@ -566,6 +566,16 @@
             z-index: 2000; font-weight: 600; box-shadow: var(--shadow-lg);
         }
         .toast.show { transform: translateY(0); opacity: 1; }
+        .app-popup-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); z-index: 2600; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .app-popup-overlay.show { display: flex; }
+        .app-popup-card { width: min(460px, 100%); background: white; border-radius: 18px; box-shadow: 0 28px 70px rgba(2, 25, 59, 0.35); border: 1px solid var(--border-color); overflow: hidden; }
+        .app-popup-header { padding: 24px 28px 14px; display: flex; gap: 14px; align-items: flex-start; }
+        .app-popup-icon { width: 42px; height: 42px; border-radius: 14px; background: rgba(0, 161, 228, 0.12); color: var(--totvs-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .app-popup-title { margin: 0; color: var(--totvs-brand); font-size: 18px; font-weight: 800; }
+        .app-popup-message { margin: 8px 0 0; color: var(--text-muted); font-size: 14px; line-height: 1.55; }
+        .app-popup-input { margin-top: 16px; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 14px; outline: none; font-size: 14px; background: var(--input-bg); color: var(--text-main); }
+        .app-popup-input:focus { border-color: var(--totvs-primary); background: white; box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.12); }
+        .app-popup-footer { padding: 18px 28px 24px; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-top: 1px solid var(--border-color); }
 
         /* Responsive Basic */
         @media (max-width: 1024px) {
@@ -1071,6 +1081,23 @@
     <!-- TOAST ALERT -->
     <div id="toast" class="toast"><i data-lucide="check-circle" size="20"></i> <span id="toast-msg">Operação realizada com sucesso!</span></div>
 
+    <div id="app-popup" class="app-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="app-popup-title">
+        <div class="app-popup-card">
+            <div class="app-popup-header">
+                <span class="app-popup-icon"><i data-lucide="message-square-warning" size="22"></i></span>
+                <div style="flex:1; min-width:0;">
+                    <h3 id="app-popup-title" class="app-popup-title">Mensagem</h3>
+                    <p id="app-popup-message" class="app-popup-message"></p>
+                    <input id="app-popup-input" class="app-popup-input" style="display:none;" />
+                </div>
+            </div>
+            <div class="app-popup-footer">
+                <button id="app-popup-cancel" type="button" class="btn-secondary">Cancelar</button>
+                <button id="app-popup-ok" type="button" class="btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ========== SCRIPTS MANTIDOS INTEGRALMENTE ========== -->
     <script>
         // --- CONFIG & STATE ---
@@ -1093,6 +1120,38 @@
         const LEGACY_SUPABASE_PROJECT_REFS = ['xkhgjfjjpkhrbkjltcgp'];
         function isLegacySupabaseProjectRef(value = '') {
             return LEGACY_SUPABASE_PROJECT_REFS.includes((value || '').trim().toLowerCase());
+        }
+        function showAppPopup({ title = 'Mensagem', message = '', input = false, inputType = 'text', inputValue = '', confirmLabel = 'OK', cancelLabel = 'Cancelar', showCancel = false } = {}) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('app-popup');
+                const titleEl = document.getElementById('app-popup-title');
+                const messageEl = document.getElementById('app-popup-message');
+                const inputEl = document.getElementById('app-popup-input');
+                const okBtn = document.getElementById('app-popup-ok');
+                const cancelBtn = document.getElementById('app-popup-cancel');
+                if(!overlay || !okBtn || !cancelBtn) { resolve(null); return; }
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                okBtn.textContent = confirmLabel;
+                cancelBtn.textContent = cancelLabel;
+                cancelBtn.style.display = showCancel ? 'inline-flex' : 'none';
+                inputEl.style.display = input ? 'block' : 'none';
+                inputEl.type = inputType;
+                inputEl.value = inputValue;
+                const cleanup = (value) => {
+                    overlay.classList.remove('show');
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    inputEl.onkeydown = null;
+                    resolve(value);
+                };
+                okBtn.onclick = () => cleanup(input ? inputEl.value : true);
+                cancelBtn.onclick = () => cleanup(null);
+                inputEl.onkeydown = (event) => { if(event.key === 'Enter') okBtn.click(); if(event.key === 'Escape') cancelBtn.click(); };
+                overlay.classList.add('show');
+                lucide.createIcons();
+                setTimeout(() => (input ? inputEl : okBtn).focus(), 50);
+            });
         }
         const defaultSources = () => ({
             pendencias: { label: 'Pendências', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
@@ -2284,8 +2343,8 @@
             if(normalizedRef) return `https://${normalizedRef}.supabase.co`;
             return '';
         }
-        function openDbConfiguratorPrompt() {
-            const pass = prompt('Informe a senha do Configurador de Banco:');
+        async function openDbConfiguratorPrompt() {
+            const pass = await showAppPopup({ title: 'Configurador de Banco', message: 'Informe a senha do Configurador de Banco:', input: true, inputType: 'password', confirmLabel: 'Acessar', showCancel: true });
             if(pass !== 'Config@Master') { showToast('Acesso negado ao Configurador de Banco.'); return; }
             const modal = document.getElementById('db-config-modal');
             document.getElementById('dbconf-supabase-url').value = config.supabase?.url || '';
@@ -2715,7 +2774,7 @@ ${hints}`);
                 await navigator.clipboard.writeText(projectId);
                 showToast('project_id copiado para a área de transferência.');
             } catch (_e) {
-                window.prompt('Copie o project_id:', projectId);
+                await showAppPopup({ title: 'Copiar project_id', message: 'Não foi possível copiar automaticamente. Copie o project_id abaixo:', input: true, inputValue: projectId, confirmLabel: 'Fechar' });
             }
         }
         async function loadTapProjectSelectorOptions() {
