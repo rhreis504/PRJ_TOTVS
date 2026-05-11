@@ -252,6 +252,7 @@
       const [saveForm, setSaveForm] = useState(emptySaveForm);
       const [selectedTask, setSelectedTask] = useState(null);
       const [popup, setPopup] = useState(null);
+      const [collapsedGroups, setCollapsedGroups] = useState({});
       const [savedViews, setSavedViews] = useState(() => {
         const storedViews = localStorage.getItem('totvs-pendencias-views');
         if (!storedViews) return [];
@@ -657,6 +658,44 @@
       };
       const renderLateBadge = (row) => row.isAtrasada ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200"><IconAlertTriangle size={11} /> {row.diasAtraso}d atraso</span> : null;
       const renderScoreBadge = (row) => <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">Score {row.priorityScore}</span>;
+      const getGroupCollapseKey = (...parts) => parts.map(part => String(part || 'sem-chave')).join('::');
+      const isGroupCollapsed = (...parts) => Boolean(collapsedGroups[getGroupCollapseKey(...parts)]);
+      const toggleGroupCollapse = (...parts) => {
+        const key = getGroupCollapseKey(...parts);
+        setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+      };
+      const GroupToggleButton = ({ collapsed, onClick }) => (
+        <button
+          type="button"
+          onClick={onClick}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-black text-indigo-700 shadow-sm transition-colors hover:bg-indigo-50"
+        >
+          <IconChevronDown size={14} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          {collapsed ? 'Expandir agrupador' : 'Recolher agrupador'}
+        </button>
+      );
+      const GroupHeader = ({ label, stats, collapsed, onToggle, level = 'primary' }) => {
+        const stylesByLevel = {
+          kanban: { wrapper: { backgroundColor: '#e0e7ff', borderColor: '#6366f1' }, eyebrow: 'Agrupador', title: 'text-indigo-950', eyebrowClass: 'text-indigo-700' },
+          primary: { wrapper: { backgroundColor: '#e0e7ff', borderColor: '#4f46e5' }, eyebrow: 'Agrupador principal', title: 'text-indigo-950', eyebrowClass: 'text-indigo-700' },
+          secondary: { wrapper: { backgroundColor: '#dbeafe', borderColor: '#0ea5e9' }, eyebrow: 'Agrupador secundário', title: 'text-sky-950', eyebrowClass: 'text-sky-700' },
+        };
+        const config = stylesByLevel[level] || stylesByLevel.primary;
+        return (
+          <div className="border-l-8 px-4 py-3 shadow-sm" style={config.wrapper}>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <div className="min-w-0">
+                  <p className={`mb-1 text-[10px] font-black uppercase tracking-[0.2em] ${config.eyebrowClass}`}>{config.eyebrow}</p>
+                  <h3 className={`truncate text-sm font-black ${config.title}`}>{label}</h3>
+                </div>
+                <GroupToggleButton collapsed={collapsed} onClick={onToggle} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">{renderGroupBadges(stats)}</div>
+            </div>
+          </div>
+        );
+      };
       const renderGroupBadges = (stats) => <div className="flex flex-wrap gap-1.5"><span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[11px] font-semibold">{stats.total} registros</span><span className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-100 text-rose-700 text-[11px] font-semibold">{stats.criticas} críticas</span><span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-100 text-red-700 text-[11px] font-semibold">{stats.atrasadas} atrasadas</span><span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-semibold">{stats.pendentes} pendentes</span><span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-semibold">{stats.avgProgress}% médio</span></div>;
 
       const renderTaskCard = (row) => (
@@ -775,7 +814,16 @@
 
             <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
               <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white"><div><h2 className="text-base font-bold text-slate-800">{viewMode === 'kanban' ? 'Quadro Kanban' : 'Lista profissional completa'}</h2><p className="text-sm text-slate-500">Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros{filteredData.length !== dataset.data.length && ` de ${dataset.data.length}`}.</p></div><div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">Agrupamento ativo: <strong className="text-slate-700">{groupByPrimary || (viewMode === 'kanban' ? 'Status' : 'Nenhum')}</strong>{groupBySecondary && <span> / {groupBySecondary}</span>}</div></div>
-              {loading && dataset.data.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3"><div className="animate-spin text-indigo-400"><IconRefreshCw size={32} /></div><p>Processando base de dados...</p></div> : filteredData.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2"><div className="text-slate-300 mb-2"><IconSearch size={32} /></div><p className="font-medium text-slate-700">Nenhum resultado encontrado.</p><p className="text-sm">Tente ajustar seus filtros de busca ou selecionar outra visão.</p></div> : viewMode === 'kanban' ? <div className="p-5 overflow-x-auto flex-1 bg-slate-50/70"><div className="flex gap-4 min-w-max pb-2">{groupedData.map(group => <div key={group.key} className="w-[360px] flex-shrink-0"><div className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur border border-slate-200 rounded-xl px-4 py-3 mb-3"><div className="flex items-center justify-between gap-2 mb-2"><h3 className="font-bold text-slate-800 text-sm truncate">{group.label}</h3><span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5">{group.stats.total}</span></div>{renderGroupBadges(group.stats)}</div><div className="flex flex-col gap-3">{group.rows.map(renderTaskCard)}</div></div>)}</div></div> : groupByPrimary ? <div className="divide-y divide-slate-100">{groupedData.map(group => <details key={group.key} open className="group/list"><summary className="cursor-pointer select-none px-5 py-3 bg-slate-50 hover:bg-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm font-bold text-slate-700"><span>{group.label}</span>{renderGroupBadges(group.stats)}</summary>{group.children.length ? group.children.map(child => <details key={child.key} open className="border-t border-slate-100"><summary className="cursor-pointer select-none px-8 py-2 bg-white hover:bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm font-semibold text-slate-600"><span>{child.label}</span>{renderGroupBadges(child.stats)}</summary>{renderListTable(child.rows)}</details>) : renderListTable(group.rows)}</details>)}</div> : renderListTable(filteredData)}
+              {loading && dataset.data.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3"><div className="animate-spin text-indigo-400"><IconRefreshCw size={32} /></div><p>Processando base de dados...</p></div> : filteredData.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2"><div className="text-slate-300 mb-2"><IconSearch size={32} /></div><p className="font-medium text-slate-700">Nenhum resultado encontrado.</p><p className="text-sm">Tente ajustar seus filtros de busca ou selecionar outra visão.</p></div> : viewMode === 'kanban' ? <div className="p-5 overflow-x-auto flex-1 bg-slate-50/70"><div className="flex gap-4 min-w-max pb-2">{groupedData.map(group => {
+                const collapsed = isGroupCollapsed('kanban', group.key);
+                return <div key={group.key} className="w-[360px] flex-shrink-0"><div className="sticky top-0 z-10 mb-3 rounded-xl overflow-hidden"><GroupHeader label={group.label} stats={group.stats} collapsed={collapsed} onToggle={() => toggleGroupCollapse('kanban', group.key)} level="kanban" /></div>{!collapsed && <div className="flex flex-col gap-3">{group.rows.map(renderTaskCard)}</div>}</div>;
+              })}</div></div> : groupByPrimary ? <div className="divide-y divide-indigo-100">{groupedData.map(group => {
+                const collapsed = isGroupCollapsed('lista', group.key);
+                return <section key={group.key} className="bg-white"><GroupHeader label={group.label} stats={group.stats} collapsed={collapsed} onToggle={() => toggleGroupCollapse('lista', group.key)} level="primary" />{!collapsed && (group.children.length ? group.children.map(child => {
+                  const childCollapsed = isGroupCollapsed('lista', group.key, child.key);
+                  return <section key={child.key} className="border-t border-indigo-100"><GroupHeader label={child.label} stats={child.stats} collapsed={childCollapsed} onToggle={() => toggleGroupCollapse('lista', group.key, child.key)} level="secondary" />{!childCollapsed && renderListTable(child.rows)}</section>;
+                }) : renderListTable(group.rows))}</section>;
+              })}</div> : renderListTable(filteredData)}
             </section>
               </div>
             </div>
