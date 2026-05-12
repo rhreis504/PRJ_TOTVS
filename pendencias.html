@@ -118,15 +118,43 @@
       condicaoPendencia: { label: 'Condição Pendência', field: 'Condição Pendência', items: ['Dentro do Prazo', 'Vencendo em 7 dias', 'Atrasada', 'Dependência Cliente', 'Dependência TOTVS', 'Dependência Terceiros', 'Bloqueada', 'Replanejada', 'Aguardando Decisão', 'Aguardando Evidência', 'Risco para Go-live'] },
     });
     const LIST_FIELD_TO_KEY = Object.freeze(Object.fromEntries(Object.entries(DEFAULT_GENERAL_LISTS).map(([key, list]) => [list.field, key])));
+    const COLOR_APPLY_TARGET = 'pendencias';
+    const normalizeGeneralListItemKey = (value = '') => `${value || ''}`.trim().toLowerCase();
+    const normalizeHexColor = (value = '') => {
+      const raw = `${value || ''}`.trim().replace(/^#/, '');
+      if (/^[0-9a-fA-F]{3}$/.test(raw)) return `#${raw.split('').map(char => char + char).join('')}`.toUpperCase();
+      if (/^[0-9a-fA-F]{6}$/.test(raw)) return `#${raw}`.toUpperCase();
+      return '';
+    };
+    const normalizeApplyTargets = (targets) => Array.isArray(targets) ? targets : [COLOR_APPLY_TARGET];
     const normalizeGeneralLists = (existing = {}) => Object.entries(DEFAULT_GENERAL_LISTS).reduce((acc, [key, defaults]) => {
       const persisted = existing && typeof existing === 'object' ? (existing[key] || {}) : {};
       const items = [...(Array.isArray(persisted.items) ? persisted.items : []), ...defaults.items]
         .map(item => `${item || ''}`.trim())
         .filter(Boolean)
         .filter((item, index, arr) => arr.findIndex(other => other.toLowerCase() === item.toLowerCase()) === index);
-      acc[key] = { ...defaults, ...persisted, items };
+      const legacyColors = persisted.colors && typeof persisted.colors === 'object' ? persisted.colors : {};
+      const persistedSettings = persisted.itemSettings && typeof persisted.itemSettings === 'object' ? persisted.itemSettings : {};
+      const itemSettings = {};
+      items.forEach(item => {
+        const itemKey = normalizeGeneralListItemKey(item);
+        const existingSetting = persistedSettings[itemKey] || persistedSettings[item] || {};
+        itemSettings[itemKey] = {
+          color: normalizeHexColor(existingSetting.color || legacyColors[item] || legacyColors[itemKey] || ''),
+          appliesTo: normalizeApplyTargets(existingSetting.appliesTo),
+        };
+      });
+      acc[key] = { ...defaults, ...persisted, items, itemSettings };
       return acc;
     }, {});
+    const getReadableTextColor = (hex = '#FFFFFF') => {
+      const clean = normalizeHexColor(hex).replace('#', '');
+      if (!clean) return '#0F172A';
+      const r = parseInt(clean.slice(0, 2), 16);
+      const g = parseInt(clean.slice(2, 4), 16);
+      const b = parseInt(clean.slice(4, 6), 16);
+      return ((r * 299 + g * 587 + b * 114) / 1000) >= 145 ? '#0F172A' : '#FFFFFF';
+    };
 
     // ==========================================
     // COMPONENTE PRINCIPAL
@@ -874,18 +902,36 @@
       }, [filters]);
       const hasActiveFilters = activeChips.length > 0 || groupByPrimary || groupBySecondary || sortBy !== 'priority';
 
+      const getConfiguredItemStyle = (field, value) => {
+        const key = LIST_FIELD_TO_KEY[field];
+        if (!key || !value) return null;
+        const itemKey = normalizeGeneralListItemKey(value);
+        const setting = generalLists?.[key]?.itemSettings?.[itemKey];
+        const color = normalizeHexColor(setting?.color || '');
+        if (!color || !normalizeApplyTargets(setting?.appliesTo).includes(COLOR_APPLY_TARGET)) return null;
+        return { backgroundColor: color, borderColor: color, color: getReadableTextColor(color) };
+      };
+      const renderConfiguredBadge = (field, value, fallbackClass = 'bg-slate-100 text-slate-800 border-slate-200', icon = null) => {
+        if (!value) return <span className="text-slate-400">-</span>;
+        const style = getConfiguredItemStyle(field, value);
+        return <span style={style || undefined} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${style ? '' : fallbackClass}`}>{icon}{value}</span>;
+      };
+
       const renderStatusBadge = (status) => {
         if (!status) return <span className="text-slate-400">-</span>;
+        const configuredStyle = getConfiguredItemStyle('Status', status);
         const s = normalizeText(status);
-        if (s.includes('concluida')) return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200"><IconCheckCircle2 size={12} /> {status}</span>;
-        if (s.includes('em execucao')) return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"><IconTrendingUp size={12} /> {status}</span>;
-        if (s.includes('pendente')) return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"><IconClock size={12} /> {status}</span>;
-        return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{status}</span>;
+        if (s.includes('concluida')) return <span style={configuredStyle || undefined} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${configuredStyle ? '' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}`}><IconCheckCircle2 size={12} /> {status}</span>;
+        if (s.includes('em execucao')) return <span style={configuredStyle || undefined} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${configuredStyle ? '' : 'bg-blue-100 text-blue-800 border-blue-200'}`}><IconTrendingUp size={12} /> {status}</span>;
+        if (s.includes('pendente')) return <span style={configuredStyle || undefined} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${configuredStyle ? '' : 'bg-amber-100 text-amber-800 border-amber-200'}`}><IconClock size={12} /> {status}</span>;
+        return renderConfiguredBadge('Status', status);
       };
       const renderCriticidadeBadge = (criticidade) => {
         if (!criticidade) return <span className="text-slate-400">-</span>;
+        const configuredStyle = getConfiguredItemStyle('Criticidade', criticidade);
         const c = normalizeText(criticidade);
-        if (c.includes('critica')) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200"><IconAlertTriangle size={12} /> {criticidade}</span>;
+        if (c.includes('critica')) return <span style={configuredStyle || undefined} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${configuredStyle ? '' : 'bg-red-100 text-red-700 border-red-200'}`}><IconAlertTriangle size={12} /> {criticidade}</span>;
+        if (configuredStyle) return renderConfiguredBadge('Criticidade', criticidade);
         if (c.includes('alta')) return <span className="text-orange-600 font-semibold">{criticidade}</span>;
         if (c.includes('media')) return <span className="text-amber-600 font-medium">{criticidade}</span>;
         if (c.includes('baixa')) return <span className="text-slate-500 font-medium">{criticidade}</span>;
@@ -954,7 +1000,7 @@
 
       const renderListTable = (rows) => {
         const listColumns = [...(dataset.headers.length ? dataset.headers : EXPECTED_HEADERS), 'Score Prioridade', 'Indicador de atraso'];
-        return <div className="overflow-x-auto"><table className="w-full text-left min-w-[1900px]"><thead className="bg-slate-50 border-b border-slate-200"><tr>{listColumns.map(header => <th key={header} className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{header}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row['ID']}-${rowIndex}`} onClick={() => openTaskModal(row)} className="hover:bg-indigo-50/40 transition-colors group cursor-pointer" title="Clique para abrir os detalhes da pendência">{listColumns.map((header) => { let content = row[header] || <span className="text-slate-400">-</span>; if (header === 'Status') content = renderStatusBadge(row[header]); else if (header === 'Criticidade') content = renderCriticidadeBadge(row[header]); else if (header === '% Conclusão') content = renderProgressBar(row[header]); else if (header === 'Score Prioridade') content = renderScoreBadge(row); else if (header === 'Indicador de atraso') content = renderLateBadge(row) || <span className="text-slate-400">Sem atraso</span>; let cellClass = "border-b border-slate-100 px-4 py-3 text-sm text-slate-700 max-w-[320px] truncate group-hover:text-slate-900 text-left align-top"; if (header === 'Descrição' || header === 'Atividade') cellClass += " whitespace-normal min-w-[320px]"; if (header === 'ID') cellClass += " font-semibold text-slate-500"; return <td key={header} className={cellClass} title={typeof row[header] === 'string' ? row[header] : ''}>{content}</td>; })}</tr>)}</tbody></table></div>;
+        return <div className="overflow-x-auto"><table className="w-full text-left min-w-[1900px]"><thead className="bg-slate-50 border-b border-slate-200"><tr>{listColumns.map(header => <th key={header} className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{header}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row['ID']}-${rowIndex}`} onClick={() => openTaskModal(row)} className="hover:bg-indigo-50/40 transition-colors group cursor-pointer" title="Clique para abrir os detalhes da pendência">{listColumns.map((header) => { let content = row[header] || <span className="text-slate-400">-</span>; if (header === 'Status') content = renderStatusBadge(row[header]); else if (header === 'Criticidade') content = renderCriticidadeBadge(row[header]); else if (LIST_FIELD_TO_KEY[header]) content = renderConfiguredBadge(header, row[header]); else if (header === '% Conclusão') content = renderProgressBar(row[header]); else if (header === 'Score Prioridade') content = renderScoreBadge(row); else if (header === 'Indicador de atraso') content = renderLateBadge(row) || <span className="text-slate-400">Sem atraso</span>; let cellClass = "border-b border-slate-100 px-4 py-3 text-sm text-slate-700 max-w-[320px] truncate group-hover:text-slate-900 text-left align-top"; if (header === 'Descrição' || header === 'Atividade') cellClass += " whitespace-normal min-w-[320px]"; if (header === 'ID') cellClass += " font-semibold text-slate-500"; return <td key={header} className={cellClass} title={typeof row[header] === 'string' ? row[header] : ''}>{content}</td>; })}</tr>)}</tbody></table></div>;
       };
 
       const SelectField = ({ label, value, onChange, options }) => <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>{label}</span><select value={value} onChange={e => onChange(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"><option value="">Todos</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></label>;

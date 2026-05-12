@@ -619,10 +619,26 @@
         }
         .general-list-items { display:flex; flex-direction:column; gap: 8px; }
         .general-list-item { display:flex; align-items:center; gap: 8px; background:#fff; border:1px solid var(--border-color); border-radius: 10px; padding: 8px; }
+        .general-list-color-dot { width: 14px; height: 14px; border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.16); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.65); flex-shrink: 0; }
         .general-list-item input { flex:1; min-width:0; border:none; outline:none; color: var(--text-main); font-size: 13px; background: transparent; font-weight: 600; cursor: default; }
         .general-list-action { border:none; background: transparent; color: var(--text-muted); cursor:pointer; padding: 4px; border-radius: 6px; display:inline-flex; }
         .general-list-action:hover { background: rgba(0, 161, 228, 0.1); color: var(--totvs-primary); }
+        .general-list-action.color.active { color: var(--totvs-brand); background: rgba(0, 161, 228, 0.08); }
         .general-list-action.danger:hover { background: var(--totvs-danger-light); color: var(--totvs-danger); }
+        .general-list-bulk-actions { display:flex; gap: 8px; margin: -4px 0 12px; }
+        .general-list-bulk-actions button { width:100%; justify-content:center; padding: 8px 10px; font-size: 12px; }
+        .color-config-grid { display:grid; grid-template-columns: minmax(220px, 1fr) 170px; gap: 18px; align-items:start; }
+        .color-spectrum-field { width:100%; height:170px; border:1px solid var(--border-color); border-radius:12px; cursor:pointer; background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); }
+        .color-modal-preview { width:100%; height:108px; border-radius:14px; border:1px solid var(--border-color); box-shadow: var(--shadow-sm); }
+        .color-modal-form { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:12px; }
+        .color-modal-form label, .color-hex-row label, .color-apply-targets label { display:flex; flex-direction:column; gap:6px; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+        .color-modal-form input, .color-hex-row input { width:100%; padding:9px 10px; border:1px solid var(--border-color); border-radius:10px; outline:none; font-size:13px; background:#fff; color:var(--text-main); }
+        .color-hex-row { margin-top:10px; }
+        .color-apply-targets { margin-top:14px; padding:12px; border:1px solid var(--border-color); border-radius:12px; background:#f8fafc; }
+        .color-apply-targets-title { font-size:12px; font-weight:800; color:var(--text-main); margin-bottom:10px; }
+        .color-apply-targets-options { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:8px; }
+        .color-apply-targets-options label { flex-direction:row; align-items:center; text-transform:none; letter-spacing:0; color:var(--text-main); font-size:12px; cursor:pointer; }
+        .color-apply-targets-options input { accent-color: var(--totvs-primary); }
         .general-add-row { display:flex; gap: 8px; margin-bottom: 12px; }
         .general-add-row input { flex:1; min-width:0; padding: 9px 10px; border:1px solid var(--border-color); border-radius: var(--radius-md); background:#fff; outline:none; font-size: 13px; }
         .general-add-row input:focus { border-color: var(--totvs-primary); box-shadow: 0 0 0 3px rgba(0,161,228,0.1); }
@@ -1194,6 +1210,43 @@
         </div>
     </div>
 
+    <div id="color-config-modal" class="app-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="color-config-title">
+        <div class="app-popup-card" style="width:min(640px, 100%);">
+            <div class="app-popup-header">
+                <span class="app-popup-icon"><i data-lucide="palette" size="22"></i></span>
+                <div style="flex:1; min-width:0;">
+                    <h3 id="color-config-title" class="app-popup-title">Alterar cor</h3>
+                    <p id="color-config-message" class="app-popup-message">Selecione uma cor RGB, cole um HEX e defina onde aplicar.</p>
+                    <div class="color-config-grid" style="margin-top:18px;">
+                        <div>
+                            <input id="color-config-native" type="color" class="color-spectrum-field" value="#009FE3" aria-label="Paleta RGB">
+                            <div class="color-modal-form">
+                                <label>Vermelho<input id="color-config-red" type="number" min="0" max="255" value="0"></label>
+                                <label>Verde<input id="color-config-green" type="number" min="0" max="255" value="159"></label>
+                                <label>Azul<input id="color-config-blue" type="number" min="0" max="255" value="227"></label>
+                            </div>
+                            <div class="color-hex-row">
+                                <label>Hex<input id="color-config-hex" type="text" value="#009FE3" placeholder="#009FE3" maxlength="7"></label>
+                            </div>
+                        </div>
+                        <div>
+                            <div id="color-config-preview" class="color-modal-preview"></div>
+                            <div class="color-apply-targets">
+                                <div class="color-apply-targets-title">Aplicar em:</div>
+                                <div id="color-apply-targets-options" class="color-apply-targets-options"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="app-popup-footer">
+                <button id="color-config-cancel" type="button" class="btn-secondary">Cancelar</button>
+                <button id="color-config-clear" type="button" class="btn-ghost">Limpar cor</button>
+                <button id="color-config-save" type="button" class="btn-primary">Salvar cor</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ========== SCRIPTS MANTIDOS INTEGRALMENTE ========== -->
     <script>
         // --- CONFIG & STATE ---
@@ -1260,6 +1313,37 @@
         });
         const LEGACY_SUPABASE_PROJECT_REFS = ['xkhgjfjjpkhrbkjltcgp'];
 
+        const GENERAL_COLOR_APPLY_TARGETS = Object.freeze([
+            { id: 'pendencias', label: 'Pendências' },
+            { id: 'riscos', label: 'Riscos' },
+            { id: 'gaps', label: 'GAPs' }
+        ]);
+        const GENERAL_AUTO_COLOR_PALETTE = Object.freeze(['#2563EB', '#16A34A', '#F97316', '#DC2626', '#7C3AED', '#0891B2', '#DB2777', '#65A30D', '#D97706', '#475569', '#0F766E', '#4F46E5']);
+        let activeColorConfig = null;
+
+        function normalizeGeneralListItemKey(value = '') {
+            return `${value || ''}`.trim().toLowerCase();
+        }
+        function normalizeHexColor(value = '') {
+            const raw = `${value || ''}`.trim().replace(/^#/, '');
+            if(/^[0-9a-fA-F]{3}$/.test(raw)) return `#${raw.split('').map(char => char + char).join('')}`.toUpperCase();
+            if(/^[0-9a-fA-F]{6}$/.test(raw)) return `#${raw}`.toUpperCase();
+            return '';
+        }
+        function getReadableTextColor(hex = '#FFFFFF') {
+            const clean = normalizeHexColor(hex).replace('#', '');
+            if(!clean) return '#0F172A';
+            const r = parseInt(clean.slice(0, 2), 16);
+            const g = parseInt(clean.slice(2, 4), 16);
+            const b = parseInt(clean.slice(4, 6), 16);
+            return ((r * 299 + g * 587 + b * 114) / 1000) >= 145 ? '#0F172A' : '#FFFFFF';
+        }
+        function normalizeApplyTargets(targets) {
+            const allowed = new Set(GENERAL_COLOR_APPLY_TARGETS.map(target => target.id));
+            const values = Array.isArray(targets) ? targets : ['pendencias'];
+            const normalized = values.filter(target => allowed.has(target));
+            return normalized.length ? normalized : ['pendencias'];
+        }
         function normalizeGeneralLists(existing = {}) {
             const normalized = {};
             Object.entries(DEFAULT_GENERAL_LISTS).forEach(([key, defaults]) => {
@@ -1268,7 +1352,19 @@
                     .map(item => `${item || ''}`.trim())
                     .filter(Boolean)
                     .filter((item, index, arr) => arr.findIndex(other => other.toLowerCase() === item.toLowerCase()) === index);
-                normalized[key] = { ...defaults, ...persisted, items: mergedItems };
+                const legacyColors = persisted.colors && typeof persisted.colors === 'object' ? persisted.colors : {};
+                const persistedSettings = persisted.itemSettings && typeof persisted.itemSettings === 'object' ? persisted.itemSettings : {};
+                const itemSettings = {};
+                mergedItems.forEach(item => {
+                    const itemKey = normalizeGeneralListItemKey(item);
+                    const existingSetting = persistedSettings[itemKey] || persistedSettings[item] || {};
+                    const color = normalizeHexColor(existingSetting.color || legacyColors[item] || legacyColors[itemKey] || '');
+                    itemSettings[itemKey] = {
+                        color,
+                        appliesTo: normalizeApplyTargets(existingSetting.appliesTo)
+                    };
+                });
+                normalized[key] = { ...defaults, ...persisted, items: mergedItems, itemSettings };
             });
             return normalized;
         }
@@ -2981,6 +3077,132 @@ ${hints}`);
             const count = Array.isArray(items) ? items.length : 0;
             return `${count} ${count === 1 ? 'ITEM' : 'ITENS'}`;
         }
+        function getGeneralListItemConfig(list, item) {
+            const itemKey = normalizeGeneralListItemKey(item);
+            const setting = list?.itemSettings?.[itemKey] || {};
+            return { color: normalizeHexColor(setting.color || ''), appliesTo: normalizeApplyTargets(setting.appliesTo) };
+        }
+        function setGeneralListItemConfig(list, item, nextConfig = {}) {
+            if(!list.itemSettings || typeof list.itemSettings !== 'object') list.itemSettings = {};
+            const itemKey = normalizeGeneralListItemKey(item);
+            const current = getGeneralListItemConfig(list, item);
+            list.itemSettings[itemKey] = {
+                ...current,
+                ...nextConfig,
+                color: normalizeHexColor(nextConfig.color ?? current.color),
+                appliesTo: normalizeApplyTargets(nextConfig.appliesTo ?? current.appliesTo)
+            };
+        }
+        function hexToRgb(hex = '#000000') {
+            const clean = normalizeHexColor(hex).replace('#', '') || '000000';
+            return { r: parseInt(clean.slice(0, 2), 16), g: parseInt(clean.slice(2, 4), 16), b: parseInt(clean.slice(4, 6), 16) };
+        }
+        function rgbToHex(r, g, b) {
+            const clamp = value => Math.max(0, Math.min(255, Number(value) || 0));
+            return `#${[clamp(r), clamp(g), clamp(b)].map(value => value.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+        }
+        function updateColorModalFields(hex, source = '') {
+            const validHex = normalizeHexColor(hex) || '#009FE3';
+            const rgb = hexToRgb(validHex);
+            const nativeInput = document.getElementById('color-config-native');
+            const hexInput = document.getElementById('color-config-hex');
+            const redInput = document.getElementById('color-config-red');
+            const greenInput = document.getElementById('color-config-green');
+            const blueInput = document.getElementById('color-config-blue');
+            const preview = document.getElementById('color-config-preview');
+            if(nativeInput && source !== 'native') nativeInput.value = validHex;
+            if(hexInput && source !== 'hex') hexInput.value = validHex;
+            if(redInput && source !== 'rgb') redInput.value = rgb.r;
+            if(greenInput && source !== 'rgb') greenInput.value = rgb.g;
+            if(blueInput && source !== 'rgb') blueInput.value = rgb.b;
+            if(preview) {
+                preview.style.background = validHex;
+                preview.style.color = getReadableTextColor(validHex);
+                preview.style.display = 'flex';
+                preview.style.alignItems = 'center';
+                preview.style.justifyContent = 'center';
+                preview.style.fontWeight = '800';
+                preview.textContent = validHex;
+            }
+        }
+        function bindColorModalEvents() {
+            if(window.__totvsColorModalBound) return;
+            window.__totvsColorModalBound = true;
+            const nativeInput = document.getElementById('color-config-native');
+            const hexInput = document.getElementById('color-config-hex');
+            const rgbInputs = ['color-config-red', 'color-config-green', 'color-config-blue'].map(id => document.getElementById(id));
+            nativeInput?.addEventListener('input', () => updateColorModalFields(nativeInput.value, 'native'));
+            hexInput?.addEventListener('input', () => { const hex = normalizeHexColor(hexInput.value); if(hex) updateColorModalFields(hex, 'hex'); });
+            rgbInputs.forEach(input => input?.addEventListener('input', () => updateColorModalFields(rgbToHex(rgbInputs[0]?.value, rgbInputs[1]?.value, rgbInputs[2]?.value), 'rgb')));
+            document.getElementById('color-config-cancel')?.addEventListener('click', closeGeneralListColorModal);
+            document.getElementById('color-config-save')?.addEventListener('click', saveGeneralListColorModal);
+            document.getElementById('color-config-clear')?.addEventListener('click', clearGeneralListColorModal);
+        }
+        function openGeneralListColorModal(key, index) {
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const list = config.generalLists[key];
+            const item = list?.items?.[index];
+            if(!list || !item) return;
+            activeColorConfig = { key, index };
+            const itemConfig = getGeneralListItemConfig(list, item);
+            document.getElementById('color-config-title').textContent = `Alterar cor: ${item}`;
+            document.getElementById('color-config-message').textContent = `Configure a cor RGB/HEX e selecione onde o item "${item}" será aplicado.`;
+            const targetsContainer = document.getElementById('color-apply-targets-options');
+            if(targetsContainer) {
+                const selectedTargets = new Set(itemConfig.appliesTo);
+                targetsContainer.innerHTML = GENERAL_COLOR_APPLY_TARGETS.map(target => `
+                    <label><input type="checkbox" value="${escapeHtml(target.id)}" ${selectedTargets.has(target.id) ? 'checked' : ''}> ${escapeHtml(target.label)}</label>
+                `).join('');
+            }
+            updateColorModalFields(itemConfig.color || GENERAL_AUTO_COLOR_PALETTE[index % GENERAL_AUTO_COLOR_PALETTE.length]);
+            document.getElementById('color-config-modal')?.classList.add('show');
+            lucide.createIcons();
+        }
+        function closeGeneralListColorModal() {
+            activeColorConfig = null;
+            document.getElementById('color-config-modal')?.classList.remove('show');
+        }
+        function readColorModalTargets() {
+            return Array.from(document.querySelectorAll('#color-apply-targets-options input[type="checkbox"]:checked')).map(input => input.value);
+        }
+        function saveGeneralListColorModal() {
+            if(!activeColorConfig) return;
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const { key, index } = activeColorConfig;
+            const list = config.generalLists[key];
+            const item = list?.items?.[index];
+            const hex = normalizeHexColor(document.getElementById('color-config-hex')?.value || document.getElementById('color-config-native')?.value || '');
+            if(!list || !item || !hex) { showToast('Informe uma cor HEX válida.'); return; }
+            setGeneralListItemConfig(list, item, { color: hex, appliesTo: readColorModalTargets() });
+            persistGeneralLists();
+            renderGeneralSettingsBoard();
+            closeGeneralListColorModal();
+            showToast('Cor aplicada ao item e sincronizada com as tags.');
+        }
+        function clearGeneralListColorModal() {
+            if(!activeColorConfig) return;
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const { key, index } = activeColorConfig;
+            const list = config.generalLists[key];
+            const item = list?.items?.[index];
+            if(list && item) setGeneralListItemConfig(list, item, { color: '', appliesTo: readColorModalTargets() });
+            persistGeneralLists();
+            renderGeneralSettingsBoard();
+            closeGeneralListColorModal();
+            showToast('Cor removida do item.');
+        }
+        function autoApplyGeneralListColors(key) {
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const list = config.generalLists[key];
+            if(!list) return;
+            (list.items || []).forEach((item, index) => setGeneralListItemConfig(list, item, {
+                color: GENERAL_AUTO_COLOR_PALETTE[index % GENERAL_AUTO_COLOR_PALETTE.length],
+                appliesTo: ['pendencias', 'riscos', 'gaps']
+            }));
+            persistGeneralLists();
+            renderGeneralSettingsBoard();
+            showToast(`Cores automáticas aplicadas em ${list.label}.`);
+        }
 
         function renderGeneralSettingsBoard() {
             const board = document.getElementById('general-settings-board');
@@ -2999,14 +3221,22 @@ ${hints}`);
                         <input id="general-add-${escapeHtml(key)}" placeholder="Novo item em ${escapeHtml(list.label)}" onkeydown="if(event.key==='Enter') addGeneralListItem('${escapeHtml(key)}')">
                         <button class="btn-primary" type="button" onclick="addGeneralListItem('${escapeHtml(key)}')" title="Adicionar item"><i data-lucide="plus" size="16"></i></button>
                     </div>
+                    <div class="general-list-bulk-actions">
+                        <button class="btn-ghost" type="button" onclick="autoApplyGeneralListColors('${escapeHtml(key)}')" title="Aplicar cores automaticamente em todos os itens desta lista"><i data-lucide="wand-sparkles" size="15"></i> Aplicar cores automaticamente</button>
+                    </div>
                     <div class="general-list-items">
-                        ${(list.items || []).map((item, index) => `
+                        ${(list.items || []).map((item, index) => {
+                            const itemConfig = getGeneralListItemConfig(list, item);
+                            const color = itemConfig.color || '#E2E8F0';
+                            return `
                             <div class="general-list-item">
+                                <span class="general-list-color-dot" style="background:${escapeHtml(color)}" title="Cor configurada: ${escapeHtml(itemConfig.color || 'sem cor')}"></span>
                                 <input value="${escapeHtml(item)}" aria-label="${escapeHtml(list.label)} item ${index + 1}" readonly>
+                                <button class="general-list-action color ${itemConfig.color ? 'active' : ''}" type="button" title="Alterar cor e locais de aplicação" onclick="openGeneralListColorModal('${escapeHtml(key)}', ${index})"><i data-lucide="palette" size="15"></i></button>
                                 <button class="general-list-action" type="button" title="Editar item" onclick="requestRenameGeneralListItem('${escapeHtml(key)}', ${index})"><i data-lucide="pencil" size="15"></i></button>
                                 <button class="general-list-action danger" type="button" title="Excluir item" onclick="requestDeleteGeneralListItem('${escapeHtml(key)}', ${index})"><i data-lucide="trash-2" size="15"></i></button>
                             </div>
-                        `).join('')}
+                        `; }).join('')}
                     </div>
                 </section>
             `).join('');
@@ -3023,6 +3253,7 @@ ${hints}`);
                 return;
             }
             list.items.push(value);
+            setGeneralListItemConfig(list, value, { color: '', appliesTo: ['pendencias'] });
             if(input) input.value = '';
             persistGeneralLists();
             renderGeneralSettingsBoard();
@@ -3053,7 +3284,11 @@ ${hints}`);
             if(!nextValue) { renderGeneralSettingsBoard(); return; }
             const duplicated = list.items.some((item, itemIndex) => itemIndex !== index && item.toLowerCase() === nextValue.toLowerCase());
             if(duplicated) { showToast('Já existe um item com este nome.'); renderGeneralSettingsBoard(); return; }
+            const previousConfig = getGeneralListItemConfig(list, list.items[index]);
+            const previousKey = normalizeGeneralListItemKey(list.items[index]);
             list.items[index] = nextValue;
+            if(list.itemSettings) delete list.itemSettings[previousKey];
+            setGeneralListItemConfig(list, nextValue, previousConfig);
             persistGeneralLists();
             renderGeneralSettingsBoard();
             showToast('Item atualizado nas Configurações Gerais.');
@@ -3082,7 +3317,9 @@ ${hints}`);
                 showCancel: true
             });
             if(!confirmed) return;
+            const deletedKey = normalizeGeneralListItemKey(item);
             list.items.splice(index, 1);
+            if(list.itemSettings) delete list.itemSettings[deletedKey];
             persistGeneralLists();
             renderGeneralSettingsBoard();
             showToast('Item excluído das Configurações Gerais.');
@@ -3330,6 +3567,7 @@ ${hints}`);
         }
 
         function initApp() {
+            bindColorModalEvents();
             lucide.createIcons();
             const dateEl = document.getElementById('current-date');
             if(dateEl) dateEl.innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
