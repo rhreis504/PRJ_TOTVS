@@ -558,7 +558,6 @@
 
 
         .general-settings-card { margin-top: 20px; }
-        .general-settings-intro { color: var(--text-muted); font-size: 14px; margin: -6px 0 18px; max-width: 980px; }
         .general-settings-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
         .general-list-column { background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 14px; min-height: 260px; box-shadow: var(--shadow-sm); }
         .general-list-header { display:flex; justify-content:space-between; gap: 10px; align-items:flex-start; margin-bottom: 12px; }
@@ -567,11 +566,11 @@
         .general-list-title span { color: var(--text-muted); font-size: 11px; line-height: 1.35; }
         .general-list-items { display:flex; flex-direction:column; gap: 8px; }
         .general-list-item { display:flex; align-items:center; gap: 8px; background:#fff; border:1px solid var(--border-color); border-radius: 10px; padding: 8px; }
-        .general-list-item input { flex:1; min-width:0; border:none; outline:none; color: var(--text-main); font-size: 13px; background: transparent; font-weight: 600; }
+        .general-list-item input { flex:1; min-width:0; border:none; outline:none; color: var(--text-main); font-size: 13px; background: transparent; font-weight: 600; cursor: default; }
         .general-list-action { border:none; background: transparent; color: var(--text-muted); cursor:pointer; padding: 4px; border-radius: 6px; display:inline-flex; }
         .general-list-action:hover { background: rgba(0, 161, 228, 0.1); color: var(--totvs-primary); }
         .general-list-action.danger:hover { background: var(--totvs-danger-light); color: var(--totvs-danger); }
-        .general-add-row { display:flex; gap: 8px; margin-top: 12px; }
+        .general-add-row { display:flex; gap: 8px; margin-bottom: 12px; }
         .general-add-row input { flex:1; min-width:0; padding: 9px 10px; border:1px solid var(--border-color); border-radius: var(--radius-md); background:#fff; outline:none; font-size: 13px; }
         .general-add-row input:focus { border-color: var(--totvs-primary); box-shadow: 0 0 0 3px rgba(0,161,228,0.1); }
         .general-add-row button { padding: 9px 10px; }
@@ -900,7 +899,6 @@
 
                 <div class="card general-settings-card">
                     <h3 class="section-title"><i data-lucide="kanban" size="20"></i> Configurações Gerais</h3>
-                    <p class="general-settings-intro">Configure as listas globais usadas em todos os projetos. Os campos de pendências passam a consumir estes valores como listas padronizadas, alinhadas a boas práticas ágeis e PMBOK.</p>
                     <div id="general-settings-board" class="general-settings-board" aria-live="polite"></div>
                 </div>
             </div>
@@ -2920,17 +2918,18 @@ ${hints}`);
                         </div>
                         <span class="badge">${(list.items || []).length} itens</span>
                     </div>
+                    <div class="general-add-row">
+                        <input id="general-add-${escapeHtml(key)}" placeholder="Novo item em ${escapeHtml(list.label)}" onkeydown="if(event.key==='Enter') addGeneralListItem('${escapeHtml(key)}')">
+                        <button class="btn-primary" type="button" onclick="addGeneralListItem('${escapeHtml(key)}')" title="Adicionar item"><i data-lucide="plus" size="16"></i></button>
+                    </div>
                     <div class="general-list-items">
                         ${(list.items || []).map((item, index) => `
                             <div class="general-list-item">
-                                <input value="${escapeHtml(item)}" aria-label="${escapeHtml(list.label)} item ${index + 1}" onchange="renameGeneralListItem('${escapeHtml(key)}', ${index}, this.value)">
+                                <input value="${escapeHtml(item)}" aria-label="${escapeHtml(list.label)} item ${index + 1}" readonly>
+                                <button class="general-list-action" type="button" title="Editar item" onclick="requestRenameGeneralListItem('${escapeHtml(key)}', ${index})"><i data-lucide="pencil" size="15"></i></button>
                                 <button class="general-list-action danger" type="button" title="Excluir item" onclick="requestDeleteGeneralListItem('${escapeHtml(key)}', ${index})"><i data-lucide="trash-2" size="15"></i></button>
                             </div>
                         `).join('')}
-                    </div>
-                    <div class="general-add-row">
-                        <input id="general-add-${escapeHtml(key)}" placeholder="Novo item em ${escapeHtml(list.label)}" onkeydown="if(event.key==='Enter') addGeneralListItem('${escapeHtml(key)}')">
-                        <button class="btn-primary" type="button" onclick="addGeneralListItem('${escapeHtml(key)}')"><i data-lucide="plus" size="16"></i></button>
                     </div>
                 </section>
             `).join('');
@@ -2952,6 +2951,23 @@ ${hints}`);
             renderGeneralSettingsBoard();
             showToast('Item incluído nas Configurações Gerais.');
         }
+        async function requestRenameGeneralListItem(key, index) {
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const list = config.generalLists[key];
+            const currentValue = list?.items?.[index];
+            if(!list || !currentValue) return;
+            const nextValue = await showAppPopup({
+                title: `Editar item de ${list.label}`,
+                message: 'Informe o novo nome do item desta lista.',
+                input: true,
+                inputValue: currentValue,
+                confirmLabel: 'Salvar',
+                cancelLabel: 'Cancelar',
+                showCancel: true
+            });
+            if(nextValue === null) return;
+            renameGeneralListItem(key, index, nextValue);
+        }
         function renameGeneralListItem(key, index, value) {
             config.generalLists = normalizeGeneralLists(config.generalLists);
             const list = config.generalLists[key];
@@ -2962,6 +2978,7 @@ ${hints}`);
             if(duplicated) { showToast('Já existe um item com este nome.'); renderGeneralSettingsBoard(); return; }
             list.items[index] = nextValue;
             persistGeneralLists();
+            renderGeneralSettingsBoard();
             showToast('Item atualizado nas Configurações Gerais.');
         }
         async function requestDeleteGeneralListItem(key, index) {
