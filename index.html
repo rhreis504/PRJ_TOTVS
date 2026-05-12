@@ -556,6 +556,26 @@
         .config-checkbox input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--totvs-primary); }
         .config-checkbox span { font-size: 13px; font-weight: 600; color: var(--text-main); }
 
+
+        .general-settings-card { margin-top: 20px; }
+        .general-settings-intro { color: var(--text-muted); font-size: 14px; margin: -6px 0 18px; max-width: 980px; }
+        .general-settings-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
+        .general-list-column { background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 14px; min-height: 260px; box-shadow: var(--shadow-sm); }
+        .general-list-header { display:flex; justify-content:space-between; gap: 10px; align-items:flex-start; margin-bottom: 12px; }
+        .general-list-title { display:flex; flex-direction:column; gap: 3px; min-width:0; }
+        .general-list-title strong { color: var(--totvs-brand); font-size: 14px; text-transform: uppercase; letter-spacing: .04em; }
+        .general-list-title span { color: var(--text-muted); font-size: 11px; line-height: 1.35; }
+        .general-list-items { display:flex; flex-direction:column; gap: 8px; }
+        .general-list-item { display:flex; align-items:center; gap: 8px; background:#fff; border:1px solid var(--border-color); border-radius: 10px; padding: 8px; }
+        .general-list-item input { flex:1; min-width:0; border:none; outline:none; color: var(--text-main); font-size: 13px; background: transparent; font-weight: 600; }
+        .general-list-action { border:none; background: transparent; color: var(--text-muted); cursor:pointer; padding: 4px; border-radius: 6px; display:inline-flex; }
+        .general-list-action:hover { background: rgba(0, 161, 228, 0.1); color: var(--totvs-primary); }
+        .general-list-action.danger:hover { background: var(--totvs-danger-light); color: var(--totvs-danger); }
+        .general-add-row { display:flex; gap: 8px; margin-top: 12px; }
+        .general-add-row input { flex:1; min-width:0; padding: 9px 10px; border:1px solid var(--border-color); border-radius: var(--radius-md); background:#fff; outline:none; font-size: 13px; }
+        .general-add-row input:focus { border-color: var(--totvs-primary); box-shadow: 0 0 0 3px rgba(0,161,228,0.1); }
+        .general-add-row button { padding: 9px 10px; }
+
         /* --- TOAST --- */
         .toast { 
             position: fixed; bottom: 30px; right: 30px; 
@@ -572,7 +592,7 @@
         .app-popup-header { padding: 24px 28px 14px; display: flex; gap: 14px; align-items: flex-start; }
         .app-popup-icon { width: 42px; height: 42px; border-radius: 14px; background: rgba(0, 161, 228, 0.12); color: var(--totvs-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .app-popup-title { margin: 0; color: var(--totvs-brand); font-size: 18px; font-weight: 800; }
-        .app-popup-message { margin: 8px 0 0; color: var(--text-muted); font-size: 14px; line-height: 1.55; }
+        .app-popup-message { margin: 8px 0 0; color: var(--text-muted); font-size: 14px; line-height: 1.55; white-space: pre-line; }
         .app-popup-input { margin-top: 16px; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 14px; outline: none; font-size: 14px; background: var(--input-bg); color: var(--text-main); }
         .app-popup-input:focus { border-color: var(--totvs-primary); background: white; box-shadow: 0 0 0 3px rgba(0, 161, 228, 0.12); }
         .app-popup-footer { padding: 18px 28px 24px; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-top: 1px solid var(--border-color); }
@@ -877,6 +897,12 @@
                         <div class="config-input-group"><label>Chave Service Role (Secret)</label><input type="password" id="supabase-secret" placeholder="sb_secret_..."></div>
                     </div>
                 </div>
+
+                <div class="card general-settings-card">
+                    <h3 class="section-title"><i data-lucide="kanban" size="20"></i> Configurações Gerais</h3>
+                    <p class="general-settings-intro">Configure as listas globais usadas em todos os projetos. Os campos de pendências passam a consumir estes valores como listas padronizadas, alinhadas a boas práticas ágeis e PMBOK.</p>
+                    <div id="general-settings-board" class="general-settings-board" aria-live="polite"></div>
+                </div>
             </div>
         </main>
     </div>
@@ -1117,7 +1143,65 @@
             previousKey: '',
             configVersion: 'dbconf-2026-05-05-v6'
         });
+
+        const DEFAULT_GENERAL_LISTS = Object.freeze({
+            status: {
+                label: 'Status',
+                description: 'Fluxo de trabalho das pendências e cards Kanban.',
+                field: 'Status',
+                column: 'status',
+                items: ['Backlog', 'Pendente', 'Priorizado', 'Em Execução', 'Em Validação', 'Aguardando Cliente', 'Impedido', 'Concluído', 'Cancelado']
+            },
+            area: {
+                label: 'Área',
+                description: 'Setor responsável/demandante; prioriza RH, Gestão de Pessoas e DP no piloto.',
+                field: 'Área',
+                column: 'area',
+                items: ['RH', 'Gestão de Pessoas', 'Departamento Pessoal (DP)', 'Recrutamento e Seleção', 'Treinamento e Desenvolvimento', 'Cargos e Salários', 'Benefícios', 'Saúde e Segurança do Trabalho', 'Comunicação Interna', 'Jurídico Trabalhista', 'PMO / Escritório de Projetos', 'Governança', 'Planejamento', 'Estruturação', 'Financeiro', 'Controladoria', 'Contabilidade', 'Fiscal / Tributário', 'Compras / Suprimentos', 'Comercial / Vendas', 'Marketing', 'Operações', 'Logística', 'TI / Sistemas', 'Segurança da Informação', 'Atendimento ao Cliente', 'Qualidade', 'Auditoria', 'Diretoria / Comitê Executivo']
+            },
+            categoria: {
+                label: 'Categoria',
+                description: 'Classificação ágil/PMBOK para triagem e governança.',
+                field: 'Categoria',
+                column: 'category',
+                items: ['Planejamento', 'Governança', 'Escopo', 'Cronograma', 'Custo', 'Qualidade', 'Recursos', 'Comunicação', 'Riscos', 'Aquisições', 'Stakeholders', 'Integração', 'Processos', 'Dados / Migração', 'Integrações', 'Parametrização', 'Treinamento', 'Gestão da Mudança', 'Operação Assistida', 'Go-live']
+            },
+            etapaProjeto: {
+                label: 'Etapa do Projeto',
+                description: 'Fases híbridas para projetos ágeis e preditivos.',
+                field: 'Etapa do Projeto',
+                column: 'project_stage',
+                items: ['Iniciação', 'Discovery', 'Planejamento', 'Desenho da Solução', 'Construção / Configuração', 'Sprint / Iteração', 'Testes Integrados', 'UAT / Homologação', 'Treinamento', 'Preparação Go-live', 'Go-live', 'Operação Assistida', 'Encerramento']
+            },
+            criticidade: {
+                label: 'Criticidade',
+                description: 'Prioridade de impacto para gestão visual e tomada de decisão.',
+                field: 'Criticidade',
+                column: 'criticality',
+                items: ['Baixa', 'Média', 'Alta', 'Crítica', 'Bloqueadora']
+            },
+            condicaoPendencia: {
+                label: 'Condição Pendência',
+                description: 'Situação de prazo, dependência ou impedimento.',
+                field: 'Condição Pendência',
+                column: 'issue_condition',
+                items: ['Dentro do Prazo', 'Vencendo em 7 dias', 'Atrasada', 'Dependência Cliente', 'Dependência TOTVS', 'Dependência Terceiros', 'Bloqueada', 'Replanejada', 'Aguardando Decisão', 'Aguardando Evidência', 'Risco para Go-live']
+            }
+        });
         const LEGACY_SUPABASE_PROJECT_REFS = ['xkhgjfjjpkhrbkjltcgp'];
+
+        function normalizeGeneralLists(existing = {}) {
+            const normalized = {};
+            Object.entries(DEFAULT_GENERAL_LISTS).forEach(([key, defaults]) => {
+                const persisted = existing && typeof existing === 'object' ? (existing[key] || {}) : {};
+                const mergedItems = [...(Array.isArray(persisted.items) ? persisted.items : []), ...defaults.items]
+                    .map(item => `${item || ''}`.trim())
+                    .filter(Boolean)
+                    .filter((item, index, arr) => arr.findIndex(other => other.toLowerCase() === item.toLowerCase()) === index);
+                normalized[key] = { ...defaults, ...persisted, items: mergedItems };
+            });
+            return normalized;
+        }
         function isLegacySupabaseProjectRef(value = '') {
             return LEGACY_SUPABASE_PROJECT_REFS.includes((value || '').trim().toLowerCase());
         }
@@ -1225,6 +1309,7 @@
             config.supabase.projectsTable = config.supabase.projectsTable || SUPABASE_DEFAULT_CONFIG.projectsTable;
             config.supabase.tapTable = config.supabase.tapTable || SUPABASE_DEFAULT_CONFIG.tapTable;
             config.supabase.configVersion = DB_CONFIGURATOR_BUILD_VERSION;
+            config.generalLists = normalizeGeneralLists(config.generalLists);
         }
         loadSavedData();
         normalizePersistedConfig();
@@ -2813,6 +2898,135 @@ ${hints}`);
                 });
         }
 
+
+        function persistGeneralLists() {
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+            try { window.dispatchEvent(new StorageEvent('storage', { key: 'totvs_cockpit_config', newValue: JSON.stringify(config) })); } catch (_e) {}
+            document.querySelectorAll('iframe').forEach(frame => {
+                try { frame.contentWindow?.postMessage({ type: 'totvs-general-lists-updated' }, window.location.origin); } catch (_e) {}
+            });
+        }
+        function renderGeneralSettingsBoard() {
+            const board = document.getElementById('general-settings-board');
+            if(!board) return;
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            board.innerHTML = Object.entries(config.generalLists).map(([key, list]) => `
+                <section class="general-list-column" data-list-key="${escapeHtml(key)}">
+                    <div class="general-list-header">
+                        <div class="general-list-title">
+                            <strong>${escapeHtml(list.label)}</strong>
+                            <span>${escapeHtml(list.description || '')}</span>
+                        </div>
+                        <span class="badge">${(list.items || []).length} itens</span>
+                    </div>
+                    <div class="general-list-items">
+                        ${(list.items || []).map((item, index) => `
+                            <div class="general-list-item">
+                                <input value="${escapeHtml(item)}" aria-label="${escapeHtml(list.label)} item ${index + 1}" onchange="renameGeneralListItem('${escapeHtml(key)}', ${index}, this.value)">
+                                <button class="general-list-action danger" type="button" title="Excluir item" onclick="requestDeleteGeneralListItem('${escapeHtml(key)}', ${index})"><i data-lucide="trash-2" size="15"></i></button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="general-add-row">
+                        <input id="general-add-${escapeHtml(key)}" placeholder="Novo item em ${escapeHtml(list.label)}" onkeydown="if(event.key==='Enter') addGeneralListItem('${escapeHtml(key)}')">
+                        <button class="btn-primary" type="button" onclick="addGeneralListItem('${escapeHtml(key)}')"><i data-lucide="plus" size="16"></i></button>
+                    </div>
+                </section>
+            `).join('');
+            lucide.createIcons();
+        }
+        function addGeneralListItem(key) {
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const input = document.getElementById(`general-add-${key}`);
+            const value = `${input?.value || ''}`.trim();
+            if(!value) return;
+            const list = config.generalLists[key];
+            if((list.items || []).some(item => item.toLowerCase() === value.toLowerCase())) {
+                showToast('Este item já existe na lista.');
+                return;
+            }
+            list.items.push(value);
+            if(input) input.value = '';
+            persistGeneralLists();
+            renderGeneralSettingsBoard();
+            showToast('Item incluído nas Configurações Gerais.');
+        }
+        function renameGeneralListItem(key, index, value) {
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const list = config.generalLists[key];
+            if(!list || !list.items[index]) return;
+            const nextValue = `${value || ''}`.trim();
+            if(!nextValue) { renderGeneralSettingsBoard(); return; }
+            const duplicated = list.items.some((item, itemIndex) => itemIndex !== index && item.toLowerCase() === nextValue.toLowerCase());
+            if(duplicated) { showToast('Já existe um item com este nome.'); renderGeneralSettingsBoard(); return; }
+            list.items[index] = nextValue;
+            persistGeneralLists();
+            showToast('Item atualizado nas Configurações Gerais.');
+        }
+        async function requestDeleteGeneralListItem(key, index) {
+            config.generalLists = normalizeGeneralLists(config.generalLists);
+            const list = config.generalLists[key];
+            const item = list?.items?.[index];
+            if(!list || !item) return;
+            const usages = await findGeneralListItemUsages(list, item);
+            if(usages.length) {
+                const projectNames = usages.map(usage => `• ${usage.projectName} (${usage.count} vínculo${usage.count > 1 ? 's' : ''})`).join('\n');
+                await showAppPopup({
+                    title: `Não é possível excluir "${item}"`,
+                    message: `Existem projetos usando este valor em ${list.label}. Remova ou altere a informação nos projetos antes de excluir.\n\nProjetos vinculados:\n${projectNames}`,
+                    confirmLabel: 'Entendi',
+                    showCancel: false
+                });
+                return;
+            }
+            const confirmed = await showAppPopup({
+                title: `Excluir item de ${list.label}`,
+                message: `Confirma a exclusão de "${item}"? A validação não encontrou projetos usando esta informação.`,
+                confirmLabel: 'Excluir',
+                cancelLabel: 'Cancelar',
+                showCancel: true
+            });
+            if(!confirmed) return;
+            list.items.splice(index, 1);
+            persistGeneralLists();
+            renderGeneralSettingsBoard();
+            showToast('Item excluído das Configurações Gerais.');
+        }
+        async function findGeneralListItemUsages(list, item) {
+            const usageMap = new Map();
+            const addUsage = (projectId, projectName) => {
+                const key = projectId || projectName || 'Projeto não identificado';
+                const current = usageMap.get(key) || { projectId: key, projectName: projectName || key, count: 0 };
+                current.count += 1;
+                usageMap.set(key, current);
+            };
+            const normalize = value => `${value || ''}`.trim().toLowerCase();
+            const scanRows = (rows = []) => rows.forEach(row => {
+                const headers = ['ID','Área','Categoria','Etapa do Projeto','Sprint','Atividade','Descrição','Responsável','Criticidade','Responsável Cliente','Data Identificação','Data Planejada','Dias para Concluir','Condição Pendência','Data Conclusão','% Conclusão','Status'];
+                const rowObject = Array.isArray(row) ? headers.reduce((acc, header, i) => ({ ...acc, [header]: row[i] }), {}) : row;
+                if(normalize(rowObject?.[list.field]) === normalize(item)) addUsage(rowObject._projectId || rowObject.project_id || config.activeProjectId, getActiveProject()?.name || config.activeProjectId);
+            });
+            if(list.field === 'Status') scanRows(dataStore.pendencias || []);
+            else scanRows(dataStore.pendencias || []);
+            try {
+                const dbColumn = list.column || '';
+                if(dbColumn) {
+                    const rows = await supabaseRequest(`issues?select=project_id&${encodeURIComponent(dbColumn)}=eq.${encodeURIComponent(item)}&limit=1000`);
+                    const projectIds = [...new Set((rows || []).map(row => row.project_id).filter(Boolean))];
+                    let projectNamesById = {};
+                    if(projectIds.length) {
+                        const projectRows = await supabaseRequest(`projects?select=id,name&id=in.(${projectIds.map(encodeURIComponent).join(',')})`);
+                        projectNamesById = Object.fromEntries((projectRows || []).map(project => [project.id, project.name || project.id]));
+                    }
+                    (rows || []).forEach(row => addUsage(row.project_id, projectNamesById[row.project_id] || row.project_id));
+                }
+            } catch (error) {
+                console.warn('Validação Supabase de lista geral não concluída:', error);
+            }
+            return Array.from(usageMap.values()).sort((a, b) => a.projectName.localeCompare(b.projectName, 'pt-BR'));
+        }
+
         function generateConfigRows(options = {}) {
             const container = document.getElementById('config-rows-container');
             const intervalInput = document.getElementById('update-interval');
@@ -2840,6 +3054,7 @@ ${hints}`);
 
             const supaUrl = document.getElementById('supabase-url'); if(supaUrl) supaUrl.value = config.supabase?.url || '';
             const supaSecret = document.getElementById('supabase-secret'); if(supaSecret) supaSecret.value = config.supabase?.secret || '';
+            renderGeneralSettingsBoard();
             container.innerHTML = Object.entries(active.sources).map(([k, it]) => `
                 <div class="config-source-card">
                     <h4><i data-lucide="${it.icon || 'link-2'}" size="18"></i> ORIGEM DE DADOS: ${it.label}</h4>
