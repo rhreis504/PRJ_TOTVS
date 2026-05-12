@@ -564,6 +564,44 @@
         .general-list-title { display:flex; flex-direction:column; gap: 3px; min-width:0; }
         .general-list-title strong { color: var(--totvs-brand); font-size: 14px; text-transform: uppercase; letter-spacing: .04em; }
         .general-list-title span { color: var(--text-muted); font-size: 11px; line-height: 1.35; }
+        .general-list-count-label {
+            position: relative;
+            isolation: isolate;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            min-width: 66px;
+            border: 1px solid rgba(0, 161, 228, 0.32);
+            border-radius: 14px;
+            background: linear-gradient(135deg, #ffffff 0%, #eef9ff 46%, #dcf4ff 100%);
+            color: var(--totvs-brand);
+            box-shadow: 0 8px 18px rgba(0, 161, 228, 0.16), inset 0 1px 0 rgba(255,255,255,0.95);
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .general-list-count-label::before {
+            content: '';
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 4px;
+            background: linear-gradient(180deg, var(--totvs-primary), var(--totvs-brand));
+            z-index: -1;
+        }
+        .general-list-count-label .count-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 9px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--totvs-primary);
+            color: #fff;
+            box-shadow: 0 5px 12px rgba(0, 161, 228, 0.28);
+        }
+        .general-list-count-label .count-text { display:flex; flex-direction:column; align-items:flex-start; line-height:1; }
+        .general-list-count-label strong { color: var(--totvs-brand); font-size: 15px; font-weight: 800; letter-spacing: 0; }
+        .general-list-count-label small { color: #4f6f8f; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
         .general-list-items { display:flex; flex-direction:column; gap: 8px; }
         .general-list-item { display:flex; align-items:center; gap: 8px; background:#fff; border:1px solid var(--border-color); border-radius: 10px; padding: 8px; }
         .general-list-item input { flex:1; min-width:0; border:none; outline:none; color: var(--text-main); font-size: 13px; background: transparent; font-weight: 600; cursor: default; }
@@ -2916,7 +2954,10 @@ ${hints}`);
                             <strong>${escapeHtml(list.label)}</strong>
                             <span>${escapeHtml(list.description || '')}</span>
                         </div>
-                        <span class="badge">${(list.items || []).length} itens</span>
+                        <span class="general-list-count-label" aria-label="${(list.items || []).length} itens em ${escapeHtml(list.label)}">
+                            <span class="count-icon"><i data-lucide="tags" size="14"></i></span>
+                            <span class="count-text"><strong>${(list.items || []).length}</strong><small>itens</small></span>
+                        </span>
                     </div>
                     <div class="general-add-row">
                         <input id="general-add-${escapeHtml(key)}" placeholder="Novo item em ${escapeHtml(list.label)}" onkeydown="if(event.key==='Enter') addGeneralListItem('${escapeHtml(key)}')">
