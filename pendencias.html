@@ -382,11 +382,22 @@
         const dd = String(date.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
       };
-      const formatPercentFromSupabase = (value) => {
-        if (value === null || value === undefined || value === '') return '';
-        const number = Number(value);
-        return Number.isFinite(number) ? `${Math.round(number)}%` : String(value);
+      const parseProgressPercent = (value) => {
+        if (value === '' || value === null || value === undefined) return null;
+        if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+        const rawValue = String(value).trim();
+        if (!rawValue) return null;
+        const normalizedValue = rawValue.replace(/%/g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+        if (!normalizedValue || normalizedValue === '-' || normalizedValue === '.') return null;
+        const numericValue = Number(normalizedValue);
+        return Number.isFinite(numericValue) ? numericValue : null;
       };
+      const clampProgressPercent = (value) => Math.min(100, Math.max(0, Math.round(value)));
+      const formatProgressPercent = (value) => {
+        const numericValue = parseProgressPercent(value);
+        return numericValue === null ? '' : `${clampProgressPercent(numericValue)}%`;
+      };
+      const formatPercentFromSupabase = (value) => formatProgressPercent(value);
       const issueRowToTask = (row = {}) => ({
         __db_id: row.id || '',
         'ID': row.external_id || '',
@@ -408,7 +419,7 @@
         'Status': row.status || '',
       });
       const taskToIssuePayload = (task, projectId) => {
-        const completion = Number(String(task['% Conclusão'] || '').replace('%', '').replace(',', '.').trim());
+        const completion = parseProgressPercent(task['% Conclusão']);
         const projectCode = getPrimaryProjectCode();
         const project = getProjectConfigByCode(projectCode);
         const row = headersInUse().reduce((acc, header) => ({ ...acc, [header]: task[header] || '' }), {});
@@ -431,7 +442,7 @@
           condition: task['Condição Pendência'] || null,
           issue_condition: task['Condição Pendência'] || null,
           completed_at: parseDateForSupabase(task['Data Conclusão']),
-          completion_pct: Number.isFinite(completion) ? completion : 0,
+          completion_pct: completion === null ? 0 : clampProgressPercent(completion),
           status: task['Status'] || 'Pendente',
           tap_entries_project_id: projectCode,
           project_linked_name: project?.name || projectCode,
@@ -457,10 +468,11 @@
       };
 
       const normalizeProgress = (value) => {
-        if (value === '' || value === null || value === undefined) return '';
-        const numericValue = Number(String(value).replace('%', '').replace(',', '.').trim());
-        const validOption = PROGRESS_OPTIONS.find(option => Number(option.value.replace('%', '')) === numericValue);
-        return validOption ? validOption.value : '0%';
+        const formattedValue = formatProgressPercent(value);
+        if (!formattedValue) return '';
+        const numericValue = parseProgressPercent(formattedValue);
+        const validOption = PROGRESS_OPTIONS.find(option => parseProgressPercent(option.value) === numericValue);
+        return validOption ? validOption.value : formattedValue;
       };
 
       const hasCompletionDate = (task = {}) => Boolean(parseDate(task['Data Conclusão']));
@@ -643,8 +655,8 @@
       const normalizeText = (value) => (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
       const updateFilter = (key, value) => { setFilters(prev => ({ ...prev, [key]: value })); setSelectedViewId(''); setActiveQuickViewId('custom'); };
       const getProgressNumber = (valueStr) => {
-        const numValue = parseInt((valueStr || '').toString().replace('%', '').replace(',', '.'));
-        return isNaN(numValue) ? 0 : numValue;
+        const numericValue = parseProgressPercent(valueStr);
+        return numericValue === null ? 0 : clampProgressPercent(numericValue);
       };
       const getCriticidadeWeight = (criticidade) => {
         const c = normalizeText(criticidade);
@@ -1018,7 +1030,7 @@
       const renderProgressBar = (valueStr) => {
         const numValue = getProgressNumber(valueStr);
         let colorClass = numValue === 100 ? 'bg-emerald-500' : numValue === 0 ? 'bg-slate-300' : numValue < 50 ? 'bg-amber-500' : 'bg-blue-500';
-        return <div className="w-full min-w-[110px]"><div className="flex justify-between items-center mb-1 text-xs"><span className="font-medium text-slate-700">{valueStr || '0%'}</span></div><div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`${colorClass} h-1.5 rounded-full`} style={{ width: `${Math.min(100, Math.max(0, numValue))}%` }}></div></div></div>;
+        return <div className="w-full min-w-[110px]"><div className="flex justify-between items-center mb-1 text-xs"><span className="font-medium text-slate-700">{formatProgressPercent(valueStr) || '0%'}</span></div><div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`${colorClass} h-1.5 rounded-full`} style={{ width: `${Math.min(100, Math.max(0, numValue))}%` }}></div></div></div>;
       };
       const renderLateBadge = (row) => row.isAtrasada ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200"><IconAlertTriangle size={11} /> {row.diasAtraso}d atraso</span> : null;
       const renderDaysToComplete = (row) => {
