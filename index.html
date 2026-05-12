@@ -1154,7 +1154,7 @@
             });
         }
         const defaultSources = () => ({
-            pendencias: { label: 'Pendências', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
+            pendencias: { label: 'Pendências', sourceType: 'csv', url: '', writeUrl: '', spreadsheetId: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
             stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
             riscos: { label: 'Riscos', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
             gaps: { label: 'GAPs e Mudanças', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
@@ -2298,6 +2298,7 @@
                 active.sources[k].sourceType = document.getElementById(`sourceType-${k}`)?.value || 'csv';
                 active.sources[k].url = document.getElementById(`url-${k}`).value;
                 active.sources[k].writeUrl = document.getElementById(`writeUrl-${k}`)?.value || '';
+                active.sources[k].spreadsheetId = document.getElementById(`spreadsheetId-${k}`)?.value || '';
                 active.sources[k].range = document.getElementById(`range-${k}`).value;
                 active.sources[k].sheet = document.getElementById(`sheet-${k}`).value;
                 active.sources[k].hasHeader = document.getElementById(`header-${k}`).checked;
@@ -2876,8 +2877,12 @@ ${hints}`);
                             <input type="text" id="writeUrl-${k}" value="${escapeHtml(it.writeUrl || '')}" placeholder="https://script.google.com/macros/s/.../exec">
                         </div>
                         <div class="config-input-group">
+                            <label>ID da Planilha (Opcional)</label>
+                            <input type="text" id="spreadsheetId-${k}" value="${escapeHtml(it.spreadsheetId || '')}" placeholder="Opcional se a URL acima for /spreadsheets/d/ID/edit">
+                        </div>
+                        <div class="config-input-group">
                             <label>Nome da Aba (Opcional)</label>
-                            <input type="text" id="sheet-${k}" value="${escapeHtml(it.sheet || '')}" placeholder="Ex: Aba1">
+                            <input type="text" id="sheet-${k}" value="${escapeHtml(it.sheet || '')}" placeholder="Ex: Pendências">
                         </div>
                         <div class="config-input-group">
                             <label>Limites de Matriz (Opcional)</label>

@@ -100,6 +100,16 @@
     // ==========================================
     const EXPECTED_HEADERS = ['ID','Área','Categoria','Etapa do Projeto','Sprint','Atividade','Descrição','Responsável','Criticidade','Responsável Cliente','Data Identificação','Data Planejada','Dias para Concluir','Condição Pendência','Data Conclusão','% Conclusão','Status'];
     const WRITE_URL_STORAGE_KEY = 'totvs-pendencias-write-url';
+    const SHEET_NAME_STORAGE_KEY = 'totvs-pendencias-sheet-name';
+    const SPREADSHEET_ID_STORAGE_KEY = 'totvs-pendencias-spreadsheet-id';
+
+    const extractSpreadsheetIdFromUrl = (url = '') => {
+      const cleanUrl = String(url || '').trim();
+      const match = cleanUrl.match(/\/spreadsheets\/d\/([^/?#]+)/);
+      if (!match) return '';
+      const candidate = decodeURIComponent(match[1]);
+      return candidate && candidate !== 'e' ? candidate : '';
+    };
 
     function parseCSVToObjects(text) {
       const rows = [];
@@ -308,6 +318,12 @@
         const source = getActivePendenciasSource();
         return source.writeUrl || source.webAppUrl || source.appsScriptUrl || source.scriptUrl || localStorage.getItem(WRITE_URL_STORAGE_KEY) || '';
       };
+      const getSheetWriteTarget = () => {
+        const source = getActivePendenciasSource();
+        const spreadsheetId = source.spreadsheetId || source.sheetId || extractSpreadsheetIdFromUrl(source.url) || localStorage.getItem(SPREADSHEET_ID_STORAGE_KEY) || '';
+        const sheetName = source.sheet || source.sheetName || localStorage.getItem(SHEET_NAME_STORAGE_KEY) || 'Pendências';
+        return { spreadsheetId: spreadsheetId.trim(), sheetName: sheetName.trim() };
+      };
       const isSheetWriteConfigured = () => Boolean(getSheetWriteUrl().trim());
       const openWriteUrlConfig = () => {
         setWriteUrlDraft(getSheetWriteUrl());
@@ -385,10 +401,22 @@
           throw new Error(`Configure a URL de escrita do Google Apps Script na fonte Pendências ou em localStorage: ${WRITE_URL_STORAGE_KEY}.`);
         }
 
+        const target = getSheetWriteTarget();
+        if (!target.spreadsheetId) {
+          throw new Error('Informe o ID da planilha ou uma URL de leitura Google Sheets /d/{ID}/ na configuração da fonte Pendências.');
+        }
+
         const response = await fetch(writeUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ sheet: 'pendencias', action, id: row?.ID || row?.['ID'], row }),
+          body: JSON.stringify({
+            sheet: 'pendencias',
+            action,
+            id: row?.ID || row?.['ID'],
+            row,
+            spreadsheetId: target.spreadsheetId,
+            sheetName: target.sheetName,
+          }),
         });
 
         const text = await response.text();
@@ -899,12 +927,12 @@
         <div className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
             <div className="p-6 border-b border-slate-100">
-              <div className="flex items-start gap-3"><span className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0"><IconRefreshCw size={20} /></span><div><h2 className="text-lg font-bold text-slate-900">Configurar escrita no Google Sheets</h2><p className="mt-2 text-sm leading-6 text-slate-600">Cole a URL publicada do Web App do Google Apps Script. Ela será salva na fonte Pendências do projeto ativo e também em localStorage como <strong>{WRITE_URL_STORAGE_KEY}</strong>.</p></div></div>
+              <div className="flex items-start gap-3"><span className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0"><IconRefreshCw size={20} /></span><div><h2 className="text-lg font-bold text-slate-900">Configurar escrita no Google Sheets</h2><p className="mt-2 text-sm leading-6 text-slate-600">Cole a URL publicada do Web App do Google Apps Script. A planilha e a aba são lidas automaticamente da configuração da fonte Pendências do projeto ativo.</p></div></div>
             </div>
             <div className="p-6 space-y-3">
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide">URL de escrita do Apps Script</label>
               <input type="url" value={writeUrlDraft} onChange={e => setWriteUrlDraft(e.target.value)} placeholder="https://script.google.com/macros/s/.../exec" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300" autoFocus />
-              <p className="text-xs text-slate-500">Dica: no Apps Script, publique como implantação Web App e use a URL terminada em <strong>/exec</strong>.</p>
+              <p className="text-xs text-slate-500">Dica: no Apps Script, publique como implantação Web App e use a URL terminada em <strong>/exec</strong>. O payload de salvamento envia <strong>spreadsheetId</strong> e <strong>sheetName</strong> do projeto ativo.</p>
             </div>
             <div className="px-6 py-4 bg-slate-50 flex flex-col-reverse sm:flex-row justify-end gap-3">
               <button type="button" onClick={() => setWriteUrlConfigOpen(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-100">Cancelar</button>
