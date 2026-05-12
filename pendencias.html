@@ -118,6 +118,8 @@
       condicaoPendencia: { label: 'Condição Pendência', field: 'Condição Pendência', items: ['Dentro do Prazo', 'Vencendo em 7 dias', 'Atrasada', 'Dependência Cliente', 'Dependência TOTVS', 'Dependência Terceiros', 'Bloqueada', 'Replanejada', 'Aguardando Decisão', 'Aguardando Evidência', 'Risco para Go-live'] },
     });
     const LIST_FIELD_TO_KEY = Object.freeze(Object.fromEntries(Object.entries(DEFAULT_GENERAL_LISTS).map(([key, list]) => [list.field, key])));
+    const DAYS_TO_COMPLETE_HEADER = 'Dias para Concluir';
+    const DAYS_TO_COMPLETE_TOOLTIP = 'Cálculo: Data Planejada - Data Atual (em dias corridos). Padrão PMBOK/controle de cronograma: valor positivo indica dias restantes, zero vence hoje e valor negativo indica prazo ultrapassado/variação desfavorável.';
     const COLOR_APPLY_TARGET = 'pendencias';
     const normalizeGeneralListItemKey = (value = '') => `${value || ''}`.trim().toLowerCase();
     const normalizeHexColor = (value = '') => {
@@ -416,7 +418,7 @@
           criticality: task['Criticidade'] || null,
           identified_at: parseDateForSupabase(task['Data Identificação']),
           planned_at: parseDateForSupabase(task['Data Planejada']),
-          days_to_complete: task['Dias para Concluir'] || null,
+          days_to_complete: calculateDaysToComplete(task).value ?? null,
           condition: task['Condição Pendência'] || null,
           issue_condition: task['Condição Pendência'] || null,
           completed_at: parseDateForSupabase(task['Data Conclusão']),
@@ -460,7 +462,7 @@
         }), {});
       };
 
-      const editableHeaders = () => headersInUse();
+      const editableHeaders = () => headersInUse().filter(header => header !== DAYS_TO_COMPLETE_HEADER);
 
       const saveIssueMutation = async (task) => {
         const projectId = await resolveIssueProjectId({ createIfMissing: true });
@@ -612,7 +614,33 @@
         const date = new Date(clean);
         return isNaN(date.getTime()) ? null : date;
       };
-      const daysBetween = (from, to) => Math.ceil((to.setHours(0,0,0,0) - from.setHours(0,0,0,0)) / 86400000);
+      const toStartOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const daysBetween = (from, to) => Math.ceil((toStartOfDay(to).getTime() - toStartOfDay(from).getTime()) / 86400000);
+      const calculateDaysToComplete = (row, referenceDate = new Date()) => {
+        const plannedDate = parseDate(row?.['Data Planejada']);
+        if (!plannedDate) {
+          return {
+            value: null,
+            label: '',
+            tooltip: 'Dias para Concluir: cálculo indisponível porque a Data Planejada não foi informada ou não é válida.',
+          };
+        }
+        const currentDate = toStartOfDay(referenceDate);
+        const normalizedPlannedDate = toStartOfDay(plannedDate);
+        const value = daysBetween(currentDate, normalizedPlannedDate);
+        const label = `${value} ${Math.abs(value) === 1 ? 'dia' : 'dias'}`;
+        const statusLabel = value > 0 ? 'dentro do prazo' : value === 0 ? 'vence hoje' : 'prazo ultrapassado';
+        return {
+          value,
+          label,
+          tooltip: [
+            DAYS_TO_COMPLETE_TOOLTIP,
+            `Data Planejada: ${formatDateForDisplay(normalizedPlannedDate)}`,
+            `Data Atual: ${formatDateForDisplay(currentDate)}`,
+            `Resultado: ${formatDateForDisplay(normalizedPlannedDate)} - ${formatDateForDisplay(currentDate)} = ${label} (${statusLabel}).`,
+          ].join('\n'),
+        };
+      };
 
       const enrichedData = useMemo(() => {
         const today = new Date();
@@ -621,8 +649,8 @@
           const criticidadeWeight = getCriticidadeWeight(item['Criticidade']);
           const status = normalizeText(item['Status']);
           const condicao = normalizeText(item['Condição Pendência']);
-          const plannedDate = parseDate(item['Data Planejada']);
-          const venceEmDias = plannedDate ? daysBetween(new Date(today), new Date(plannedDate)) : null;
+          const daysToComplete = calculateDaysToComplete(item, today);
+          const venceEmDias = daysToComplete.value;
           const isConcluida = status.includes('concluida') || progressNumber >= 100;
           const isPendente = status.includes('pendente');
           const isEmExecucao = status.includes('em execucao');
@@ -642,7 +670,7 @@
           if (semResponsavelCliente) priorityScore += 10;
           if (condicaoCritica) priorityScore += 20;
           if (isConcluida) priorityScore = Math.max(0, priorityScore - 80);
-          return { ...item, progressNumber, criticidadeWeight, isConcluida, isPendente, isEmExecucao, isAtrasada, diasAtraso, venceEmDias, isVencendoNosProximos7Dias, semResponsavelTotvs, semResponsavelCliente, priorityScore: Math.max(0, Math.min(199, Math.round(priorityScore))) };
+          return { ...item, [DAYS_TO_COMPLETE_HEADER]: daysToComplete.label, diasParaConcluirValor: daysToComplete.value, diasParaConcluirTooltip: daysToComplete.tooltip, progressNumber, criticidadeWeight, isConcluida, isPendente, isEmExecucao, isAtrasada, diasAtraso, venceEmDias, isVencendoNosProximos7Dias, semResponsavelTotvs, semResponsavelCliente, priorityScore: Math.max(0, Math.min(199, Math.round(priorityScore))) };
         });
       }, [dataset.data]);
 
@@ -943,6 +971,15 @@
         return <div className="w-full min-w-[110px]"><div className="flex justify-between items-center mb-1 text-xs"><span className="font-medium text-slate-700">{valueStr || '0%'}</span></div><div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div className={`${colorClass} h-1.5 rounded-full`} style={{ width: `${Math.min(100, Math.max(0, numValue))}%` }}></div></div></div>;
       };
       const renderLateBadge = (row) => row.isAtrasada ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200"><IconAlertTriangle size={11} /> {row.diasAtraso}d atraso</span> : null;
+      const renderDaysToComplete = (row) => {
+        if (row.diasParaConcluirValor === null || row.diasParaConcluirValor === undefined) return <span className="text-slate-400">-</span>;
+        const className = row.isAtrasada
+          ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200'
+          : row.diasParaConcluirValor === 0
+            ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200'
+            : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+        return <span className={className}>{row.isAtrasada && <IconAlertTriangle size={12} />} {row[DAYS_TO_COMPLETE_HEADER]}</span>;
+      };
       const renderScoreBadge = (row) => <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">Score {row.priorityScore}</span>;
       const getGroupCollapseKey = (...parts) => parts.map(part => String(part || 'sem-chave')).join('::');
       const isGroupCollapsed = (...parts) => Boolean(collapsedGroups[getGroupCollapseKey(...parts)]);
@@ -992,7 +1029,7 @@
             <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Resp. TOTVS</span><strong className="text-slate-700">{row['Responsável'] || '-'}</strong></div>
             <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Resp. Cliente</span><strong className="text-slate-700">{row['Responsável Cliente'] || '-'}</strong></div>
             <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Data Planejada</span><strong className="text-slate-700">{row['Data Planejada'] || '-'}</strong></div>
-            <div className="bg-slate-50 rounded-lg p-2"><span className="block text-slate-400">Dias p/ concluir</span><strong className="text-slate-700">{row['Dias para Concluir'] || '-'}</strong></div>
+            <div className="bg-slate-50 rounded-lg p-2" title={row.diasParaConcluirTooltip || DAYS_TO_COMPLETE_TOOLTIP}><span className="block text-slate-400">Dias p/ concluir</span><strong className={row.isAtrasada ? 'text-red-700' : 'text-slate-700'}>{row[DAYS_TO_COMPLETE_HEADER] || '-'}</strong></div>
           </div>
           <div className="flex items-center justify-between gap-3">{renderProgressBar(row['% Conclusão'])}<div className="flex flex-col items-end gap-1">{renderStatusBadge(row['Status'])}{renderLateBadge(row)}</div></div>
         </article>
@@ -1000,7 +1037,7 @@
 
       const renderListTable = (rows) => {
         const listColumns = [...(dataset.headers.length ? dataset.headers : EXPECTED_HEADERS), 'Score Prioridade', 'Indicador de atraso'];
-        return <div className="overflow-x-auto"><table className="w-full text-left min-w-[1900px]"><thead className="bg-slate-50 border-b border-slate-200"><tr>{listColumns.map(header => <th key={header} className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{header}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row['ID']}-${rowIndex}`} onClick={() => openTaskModal(row)} className="hover:bg-indigo-50/40 transition-colors group cursor-pointer" title="Clique para abrir os detalhes da pendência">{listColumns.map((header) => { let content = row[header] || <span className="text-slate-400">-</span>; if (header === 'Status') content = renderStatusBadge(row[header]); else if (header === 'Criticidade') content = renderCriticidadeBadge(row[header]); else if (LIST_FIELD_TO_KEY[header]) content = renderConfiguredBadge(header, row[header]); else if (header === '% Conclusão') content = renderProgressBar(row[header]); else if (header === 'Score Prioridade') content = renderScoreBadge(row); else if (header === 'Indicador de atraso') content = renderLateBadge(row) || <span className="text-slate-400">Sem atraso</span>; let cellClass = "border-b border-slate-100 px-4 py-3 text-sm text-slate-700 max-w-[320px] truncate group-hover:text-slate-900 text-left align-top"; if (header === 'Descrição' || header === 'Atividade') cellClass += " whitespace-normal min-w-[320px]"; if (header === 'ID') cellClass += " font-semibold text-slate-500"; return <td key={header} className={cellClass} title={typeof row[header] === 'string' ? row[header] : ''}>{content}</td>; })}</tr>)}</tbody></table></div>;
+        return <div className="overflow-x-auto"><table className="w-full text-left min-w-[1900px]"><thead className="bg-slate-50 border-b border-slate-200"><tr>{listColumns.map(header => <th key={header} className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap" title={header === DAYS_TO_COMPLETE_HEADER ? DAYS_TO_COMPLETE_TOOLTIP : ''}>{header}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row['ID']}-${rowIndex}`} onClick={() => openTaskModal(row)} className="hover:bg-indigo-50/40 transition-colors group cursor-pointer" title="Clique para abrir os detalhes da pendência">{listColumns.map((header) => { let content = row[header] || <span className="text-slate-400">-</span>; if (header === 'Status') content = renderStatusBadge(row[header]); else if (header === 'Criticidade') content = renderCriticidadeBadge(row[header]); else if (header === DAYS_TO_COMPLETE_HEADER) content = renderDaysToComplete(row); else if (LIST_FIELD_TO_KEY[header]) content = renderConfiguredBadge(header, row[header]); else if (header === '% Conclusão') content = renderProgressBar(row[header]); else if (header === 'Score Prioridade') content = renderScoreBadge(row); else if (header === 'Indicador de atraso') content = renderLateBadge(row) || <span className="text-slate-400">Sem atraso</span>; let cellClass = "border-b border-slate-100 px-4 py-3 text-sm text-slate-700 max-w-[320px] truncate group-hover:text-slate-900 text-left align-top"; if (header === 'Descrição' || header === 'Atividade') cellClass += " whitespace-normal min-w-[320px]"; if (header === 'ID') cellClass += " font-semibold text-slate-500"; if (header === DAYS_TO_COMPLETE_HEADER && row.isAtrasada) cellClass += " bg-red-50/70 text-red-700 font-bold"; const title = header === DAYS_TO_COMPLETE_HEADER ? row.diasParaConcluirTooltip : (typeof row[header] === 'string' ? row[header] : ''); return <td key={header} className={cellClass} title={title || ''}>{content}</td>; })}</tr>)}</tbody></table></div>;
       };
 
       const SelectField = ({ label, value, onChange, options }) => <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>{label}</span><select value={value} onChange={e => onChange(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"><option value="">Todos</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></label>;
