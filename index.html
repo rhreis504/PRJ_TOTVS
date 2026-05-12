@@ -560,48 +560,24 @@
         .general-settings-card { margin-top: 20px; }
         .general-settings-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
         .general-list-column { background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 14px; min-height: 260px; box-shadow: var(--shadow-sm); }
-        .general-list-header { display:flex; justify-content:space-between; gap: 10px; align-items:flex-start; margin-bottom: 12px; }
-        .general-list-title { display:flex; flex-direction:column; gap: 3px; min-width:0; }
-        .general-list-title strong { color: var(--totvs-brand); font-size: 14px; text-transform: uppercase; letter-spacing: .04em; }
-        .general-list-title span { color: var(--text-muted); font-size: 11px; line-height: 1.35; }
+        .general-list-header { display:flex; justify-content:space-between; gap: 10px; align-items:center; margin-bottom: 6px; }
+        .general-list-title { display:flex; min-width:0; }
+        .general-list-title strong { color: #1e293b; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; font-weight: 800; }
+        .general-list-description { color: var(--text-muted); font-size: 11px; line-height: 1.35; margin: 0 0 12px; }
         .general-list-count-label {
-            position: relative;
-            isolation: isolate;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
-            min-width: 66px;
-            border: 1px solid rgba(0, 161, 228, 0.32);
-            border-radius: 14px;
-            background: linear-gradient(135deg, #ffffff 0%, #eef9ff 46%, #dcf4ff 100%);
-            color: var(--totvs-brand);
-            box-shadow: 0 8px 18px rgba(0, 161, 228, 0.16), inset 0 1px 0 rgba(255,255,255,0.95);
-            white-space: nowrap;
-            overflow: hidden;
-        }
-        .general-list-count-label::before {
-            content: '';
-            position: absolute;
-            inset: 0 auto 0 0;
-            width: 4px;
-            background: linear-gradient(180deg, var(--totvs-primary), var(--totvs-brand));
-            z-index: -1;
-        }
-        .general-list-count-label .count-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 9px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: var(--totvs-primary);
-            color: #fff;
-            box-shadow: 0 5px 12px rgba(0, 161, 228, 0.28);
+            padding: 4px 12px;
+            border-radius: 9999px;
+            background: #e0e7ff;
+            color: #4338ca;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.2;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
-        .general-list-count-label .count-text { display:flex; flex-direction:column; align-items:flex-start; line-height:1; }
-        .general-list-count-label strong { color: var(--totvs-brand); font-size: 15px; font-weight: 800; letter-spacing: 0; }
-        .general-list-count-label small { color: #4f6f8f; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
         .general-list-items { display:flex; flex-direction:column; gap: 8px; }
         .general-list-item { display:flex; align-items:center; gap: 8px; background:#fff; border:1px solid var(--border-color); border-radius: 10px; padding: 8px; }
         .general-list-item input { flex:1; min-width:0; border:none; outline:none; color: var(--text-main); font-size: 13px; background: transparent; font-weight: 600; cursor: default; }
@@ -2943,6 +2919,11 @@ ${hints}`);
                 try { frame.contentWindow?.postMessage({ type: 'totvs-general-lists-updated' }, window.location.origin); } catch (_e) {}
             });
         }
+        function formatGeneralListCount(items = []) {
+            const count = Array.isArray(items) ? items.length : 0;
+            return `${count} ${count === 1 ? 'ITEM' : 'ITENS'}`;
+        }
+
         function renderGeneralSettingsBoard() {
             const board = document.getElementById('general-settings-board');
             if(!board) return;
@@ -2952,13 +2933,10 @@ ${hints}`);
                     <div class="general-list-header">
                         <div class="general-list-title">
                             <strong>${escapeHtml(list.label)}</strong>
-                            <span>${escapeHtml(list.description || '')}</span>
                         </div>
-                        <span class="general-list-count-label" aria-label="${(list.items || []).length} itens em ${escapeHtml(list.label)}">
-                            <span class="count-icon"><i data-lucide="tags" size="14"></i></span>
-                            <span class="count-text"><strong>${(list.items || []).length}</strong><small>itens</small></span>
-                        </span>
+                        <span class="general-list-count-label" aria-label="${formatGeneralListCount(list.items || [])} em ${escapeHtml(list.label)}">${formatGeneralListCount(list.items || [])}</span>
                     </div>
+                    <p class="general-list-description">${escapeHtml(list.description || '')}</p>
                     <div class="general-add-row">
                         <input id="general-add-${escapeHtml(key)}" placeholder="Novo item em ${escapeHtml(list.label)}" onkeydown="if(event.key==='Enter') addGeneralListItem('${escapeHtml(key)}')">
                         <button class="btn-primary" type="button" onclick="addGeneralListItem('${escapeHtml(key)}')" title="Adicionar item"><i data-lucide="plus" size="16"></i></button>
