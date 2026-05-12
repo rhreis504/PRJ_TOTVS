@@ -737,6 +737,7 @@
                 <div class="nav-item" onclick="openStaticPage('pendencias', 'pendencias.html', this)"><i data-lucide="list-todo"></i> Gestão de Pendências</div>
                 <div class="nav-item" onclick="openStaticPage('riscos', 'riscos.html', this)"><i data-lucide="alert-triangle"></i> Matriz de Riscos</div>
                 <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-merge"></i> Gaps e Mudanças</div>
+                <div class="nav-item" id="nav-cronograma" onclick="openStaticPage('cronograma', 'cronograma.html', this)"><i data-lucide="calendar-days"></i> Cronograma do Projeto</div>
                 <div class="nav-item" id="nav-stakeholders" onclick="showPage('stakeholders', this)"><i data-lucide="users"></i> Stakeholders</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Roteiros de Treino</div>
@@ -910,6 +911,11 @@
             <!-- PENDÊNCIAS -->
             <div id="page-pendencias" class="hidden">
                 <iframe class="embedded-page-frame" src="pendencias.html" title="Pendências" loading="lazy"></iframe>
+            </div>
+
+            <!-- CRONOGRAMA DO PROJETO -->
+            <div id="page-cronograma" class="hidden">
+                <iframe class="embedded-page-frame" src="cronograma.html" title="Cronograma do Projeto" loading="lazy"></iframe>
             </div>
 
             <!-- RISCOS -->
@@ -1549,7 +1555,7 @@
 
         // --- NAVIGATION ---
         function showPage(id, el) {
-            ['cockpit', 'status', 'tap', 'pendencias', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'reunioes', 'config'].forEach(p => {
+            ['cockpit', 'status', 'tap', 'pendencias', 'cronograma', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'reunioes', 'config'].forEach(p => {
                 const element = document.getElementById('page-' + p);
                 if(element) element.classList.add('hidden');
             });
