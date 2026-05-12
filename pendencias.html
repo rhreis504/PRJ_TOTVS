@@ -95,146 +95,20 @@
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
     );
 
+    const IconDownload = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+    );
+    const IconMaximize2 = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/></svg>
+    );
+    const IconMinimize2 = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" x2="21" y1="10" y2="3"/><line x1="3" x2="10" y1="21" y2="14"/></svg>
+    );
+
     // ==========================================
     // FUNÇÕES UTILITÁRIAS
     // ==========================================
     const EXPECTED_HEADERS = ['ID','Área','Categoria','Etapa do Projeto','Sprint','Atividade','Descrição','Responsável','Criticidade','Responsável Cliente','Data Identificação','Data Planejada','Dias para Concluir','Condição Pendência','Data Conclusão','% Conclusão','Status'];
-    const WRITE_URL_STORAGE_KEY = 'totvs-pendencias-write-url';
-    const SHEET_NAME_STORAGE_KEY = 'totvs-pendencias-sheet-name';
-    const SPREADSHEET_ID_STORAGE_KEY = 'totvs-pendencias-spreadsheet-id';
-
-    const extractSpreadsheetIdFromUrl = (url = '') => {
-      const cleanUrl = String(url || '').trim();
-      const match = cleanUrl.match(/\/spreadsheets\/d\/([^/?#]+)/);
-      if (!match) return '';
-      const candidate = decodeURIComponent(match[1]);
-      return candidate && candidate !== 'e' ? candidate : '';
-    };
-
-    function parseCSVToObjects(text) {
-      const rows = [];
-      let currentRow = [];
-      let currentCell = '';
-      let insideQuotes = false;
-
-      for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        if (char === '"' && text[i + 1] === '"') {
-          currentCell += '"';
-          i++;
-        } else if (char === '"') {
-          insideQuotes = !insideQuotes;
-        } else if (char === ',' && !insideQuotes) {
-          currentRow.push(currentCell.trim());
-          currentCell = '';
-        } else if ((char === '\n' || char === '\r') && !insideQuotes) {
-          if (char === '\r' && text[i + 1] === '\n') i++;
-          currentRow.push(currentCell.trim());
-          rows.push(currentRow);
-          currentRow = [];
-          currentCell = '';
-        } else {
-          currentCell += char;
-        }
-      }
-      if (currentCell || text[text.length - 1] === ',') {
-        currentRow.push(currentCell.trim());
-      }
-      if (currentRow.length > 0) {
-        rows.push(currentRow);
-      }
-
-      const cleanedRows = rows.filter(row => row.some(cell => cell !== ''));
-      if (cleanedRows.length === 0) return [];
-
-      const stripLeadingEmptyColumn = (inputRows = []) => {
-        if (inputRows.length === 0) return inputRows;
-
-        const hasLeadingEmptyColumn = inputRows.every((row) => {
-          if (!row || row.length === 0) return true;
-          return (row[0] || '').trim() === '';
-        });
-
-        if (!hasLeadingEmptyColumn) return inputRows;
-        return inputRows.map((row) => row.slice(1));
-      };
-
-      const normalizedRows = stripLeadingEmptyColumn(cleanedRows);
-
-      const headers = EXPECTED_HEADERS;
-      const normalize = (value = '') => value
-        .toString()
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .toLowerCase()
-        .trim();
-
-      const headerMatches = (row = []) => {
-        const normalizedExpected = headers.map(normalize);
-        const normalizedRow = row.map(normalize);
-        const matches = normalizedExpected.reduce((count, header, index) => {
-          return count + (normalizedRow[index] === header ? 1 : 0);
-        }, 0);
-        return matches;
-      };
-
-      const sourceHeaderIndex = headerMatches(normalizedRows[1]) > headerMatches(normalizedRows[0]) ? 1 : 0;
-      const sourceHeaders = normalizedRows[sourceHeaderIndex] || [];
-      const sourceIndexByHeader = new Map(sourceHeaders.map((header, index) => [header, index]));
-      const sprintIndex = headers.indexOf('Sprint');
-      const hasSprintHeader = sourceIndexByHeader.has('Sprint');
-      const data = [];
-
-      const normalizedHeaders = headers.map(normalize);
-
-      const isHeaderLikeRow = (cells) => {
-        const normalizedCells = cells.map(normalize);
-
-        const matchesAtOffset = (offset) => normalizedHeaders.every((header, index) => {
-          const value = normalizedCells[index + offset] || '';
-          return value === '' || value === header;
-        });
-
-        return matchesAtOffset(0) || matchesAtOffset(1) || matchesAtOffset(-1);
-      };
-
-      for (let i = sourceHeaderIndex + 1; i < normalizedRows.length; i++) {
-        const row = normalizedRows[i];
-
-        let alignedRow = row;
-
-        if (!hasSprintHeader && row.length === headers.length - 1) {
-          // Fonte sem coluna Sprint: insere célula vazia para manter o restante alinhado.
-          alignedRow = [...row.slice(0, sprintIndex), '', ...row.slice(sprintIndex)];
-        }
-
-        if (isHeaderLikeRow(alignedRow)) continue;
-
-        const rowValues = headers.map((header, index) => {
-          const sourceIndex = sourceIndexByHeader.has(header) ? sourceIndexByHeader.get(header) : index;
-          return (alignedRow[sourceIndex] || '').trim();
-        });
-
-        const hasRealContent = rowValues.some(cell => cell && cell !== '-');
-        if (!hasRealContent || isHeaderLikeRow(rowValues)) continue;
-
-        const obj = {};
-        headers.forEach((header, index) => {
-          obj[header] = rowValues[index] || '';
-        });
-        data.push(obj);
-      }
-
-      return { headers, data };
-    }
-
-    const FALLBACK_CSV = `ID,Área,Categoria,Etapa do Projeto,Sprint,Atividade,Descrição,Responsável,Criticidade,Responsável Cliente,Data Identificação,Data Planejada,Dias para Concluir,Condição Pendência,Data Conclusão,% Conclusão,Status
-1,Governança,Planejamento,Iniciação,,Recebimento de documentos TOTVS,Receber materiais iniciais do projeto enviados pela TOTVS,Fabio Daumichen,Baixa,,28/04/2026,28/04/2026,,Dentro do Prazo,,100%,Concluída
-2,Governança,Planejamento,Iniciação,,Consolidação de informações do projeto,Levantamento de escopo soluções contatos e propostas,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
-3,Governança,Planejamento,Iniciação,,Mapeamento de stakeholders,Identificação de contatos TOTVS e Rossi,Regis Reis,Baixa,,28/04/2026,29/04/2026,,Dentro do Prazo,,100%,Concluída
-4,Técnico,Planejamento,Iniciação,,Identificação de dependências,Levantamento de dependências entre soluções,Regis Reis,Crítica,,28/04/2026,30/04/2026,,Dentro do Prazo,,50%,Em execução
-5,Governança,Planejamento,Iniciação,,Definição da estratégia de comunicação,Criação da abordagem para alinhamento,Regis Reis,Média,,28/04/2026,08/05/2026,,Dentro do Prazo,,0%,Pendente`;
-
     // ==========================================
     // COMPONENTE PRINCIPAL
     // ==========================================
@@ -265,8 +139,7 @@
       const [taskDraft, setTaskDraft] = useState(null);
       const [savingTask, setSavingTask] = useState(false);
       const [syncMessage, setSyncMessage] = useState('');
-      const [writeUrlConfigOpen, setWriteUrlConfigOpen] = useState(false);
-      const [writeUrlDraft, setWriteUrlDraft] = useState('');
+      const [contentMaximized, setContentMaximized] = useState(false);
       const [popup, setPopup] = useState(null);
       const [collapsedGroups, setCollapsedGroups] = useState({});
       const [savedViews, setSavedViews] = useState(() => {
@@ -303,66 +176,186 @@
         }
       });
 
-      const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtv0fQo2zhQbwtFFvJRkG-aK8EjzorUup951_Pt6x0UAbRwT3DpK7WxrsYGtkLIA/pub?gid=1917773469&single=true&output=csv";
       const getCockpitConfig = () => {
         try { return JSON.parse(localStorage.getItem('totvs_cockpit_config') || '{}'); } catch (err) { return {}; }
       };
-      const getActivePendenciasSource = () => {
-        const cockpitConfig = getCockpitConfig();
-        const projects = Array.isArray(cockpitConfig.projects) ? cockpitConfig.projects : [];
-        const activeProject = projects.find(project => project.id === cockpitConfig.activeProjectId) || projects[0] || {};
-        return activeProject.sources?.pendencias || {};
-      };
-      const getSheetReadUrl = () => getActivePendenciasSource().url || CSV_URL;
-      const getSheetWriteUrl = () => {
-        const source = getActivePendenciasSource();
-        return source.writeUrl || source.webAppUrl || source.appsScriptUrl || source.scriptUrl || localStorage.getItem(WRITE_URL_STORAGE_KEY) || '';
-      };
-      const getSheetWriteTarget = () => {
-        const source = getActivePendenciasSource();
-        const spreadsheetId = source.spreadsheetId || source.sheetId || extractSpreadsheetIdFromUrl(source.url) || localStorage.getItem(SPREADSHEET_ID_STORAGE_KEY) || '';
-        const sheetName = source.sheet || source.sheetName || localStorage.getItem(SHEET_NAME_STORAGE_KEY) || 'Pendências';
-        return { spreadsheetId: spreadsheetId.trim(), sheetName: sheetName.trim() };
-      };
-      const isSheetWriteConfigured = () => Boolean(getSheetWriteUrl().trim());
-      const openWriteUrlConfig = () => {
-        setWriteUrlDraft(getSheetWriteUrl());
-        setWriteUrlConfigOpen(true);
-      };
-      const saveSheetWriteUrl = () => {
-        const cleanUrl = writeUrlDraft.trim();
-        if (!cleanUrl) {
-          setSyncMessage('Informe a URL do Web App do Google Apps Script para salvar na planilha.');
-          return;
-        }
 
-        localStorage.setItem(WRITE_URL_STORAGE_KEY, cleanUrl);
-        try {
-          const cockpitConfig = getCockpitConfig();
-          const projects = Array.isArray(cockpitConfig.projects) ? cockpitConfig.projects : [];
-          if (projects.length) {
-            const activeIndex = Math.max(projects.findIndex(project => project.id === cockpitConfig.activeProjectId), 0);
-            const updatedProjects = projects.map((project, index) => index === activeIndex ? {
-              ...project,
-              sources: {
-                ...(project.sources || {}),
-                pendencias: {
-                  ...(project.sources?.pendencias || {}),
-                  writeUrl: cleanUrl,
-                },
-              },
-            } : project);
-            localStorage.setItem('totvs_cockpit_config', JSON.stringify({ ...cockpitConfig, projects: updatedProjects }));
-          }
-        } catch (err) {
-          console.warn('Não foi possível persistir a URL na fonte Pendências:', err);
+      const normalizeSupabaseBaseUrl = (rawUrl = '') => {
+        if (window.parent && window.parent !== window && typeof window.parent.normalizeSupabaseBaseUrl === 'function') {
+          try { return window.parent.normalizeSupabaseBaseUrl(rawUrl); } catch (_) {}
         }
-        setWriteUrlConfigOpen(false);
-        setSyncMessage('URL de escrita configurada. Clique em Salvar na planilha novamente.');
+        const input = (rawUrl || '').trim();
+        if (!input) return '';
+        const candidate = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+        const parsed = new URL(candidate);
+        const host = (parsed.hostname || '').toLowerCase();
+        if (host === 'app.supabase.com' || host.endsWith('.app.supabase.com')) {
+          const projectRef = (parsed.pathname.match(/\/project\/([a-z0-9-]+)/i)?.[1] || parsed.searchParams.get('project') || '').trim();
+          if (projectRef) return `https://${projectRef}.supabase.co`;
+          throw new Error('URL do dashboard detectada. Informe a URL do projeto Supabase.');
+        }
+        if (host.includes('supabase') || parsed.pathname.includes('/rest/v1')) return `${parsed.protocol}//${parsed.hostname}`;
+        throw new Error(`Domínio do Supabase inválido: ${parsed.hostname}`);
+      };
+
+      const resolveSupabaseBaseUrl = (cfg = getCockpitConfig()) => {
+        const supabase = cfg?.supabase || {};
+        for (const candidate of [supabase.url, supabase.apiUrl].map(v => (v || '').trim()).filter(Boolean)) {
+          try {
+            const baseUrl = normalizeSupabaseBaseUrl(candidate);
+            if (baseUrl) return baseUrl.replace(/\/$/, '');
+          } catch (_) {}
+        }
+        const projectRef = (supabase.projectRef || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*/, '');
+        return projectRef ? `https://${projectRef}.supabase.co` : '';
+      };
+
+      const getSupabaseCredentials = (cfg = getCockpitConfig()) => {
+        const supabase = cfg?.supabase || {};
+        const seen = new Set();
+        return [
+          { label: 'service_role', value: supabase.secret || supabase.serviceRole || '' },
+          { label: 'publishable', value: supabase.publishableKey || '' },
+          { label: 'anon', value: supabase.anonKey || '' },
+        ].map(item => ({ label: item.label, value: (item.value || '').trim() }))
+          .filter(item => item.value && !seen.has(item.value) && seen.add(item.value));
+      };
+
+      const supabaseRequest = async (path, method = 'GET', body) => {
+        const cfg = getCockpitConfig();
+        const baseUrl = resolveSupabaseBaseUrl(cfg);
+        const credentials = getSupabaseCredentials(cfg);
+        if (!baseUrl || !credentials.length) throw new Error('Supabase não configurado no Cockpit. Configure URL e chave antes de editar pendências.');
+        const schema = (cfg?.supabase?.schema || 'public').trim();
+        const endpoint = `${baseUrl}/rest/v1/${path}`;
+        const attempts = [];
+        for (const cred of credentials) {
+          const res = await fetch(endpoint, {
+            method,
+            headers: {
+              apikey: cred.value,
+              Authorization: `Bearer ${cred.value}`,
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              'Accept-Profile': schema,
+              'Content-Profile': schema,
+              Prefer: 'return=representation,resolution=merge-duplicates',
+            },
+            body: body ? JSON.stringify(body) : undefined,
+          });
+          const text = await res.text();
+          if (res.ok) {
+            if (res.status === 204 || !text) return [];
+            return JSON.parse(text);
+          }
+          attempts.push(`${cred.label}: ${res.status} ${res.statusText} | ${text || 'sem detalhes'}`);
+          if (![401, 403].includes(res.status)) break;
+        }
+        throw new Error(`Supabase recusou a operação: ${attempts.join(' / ')}`);
+      };
+
+      const isUuid = (value = '') => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value));
+      const getPrimaryProjectCode = () => {
+        const cfg = getCockpitConfig();
+        return cfg.activeProjectId || (Array.isArray(cfg.projects) && cfg.projects[0]?.id) || 'default';
+      };
+      const getProjectConfigByCode = (projectCode) => {
+        const cfg = getCockpitConfig();
+        const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
+        return projects.find(project => project.id === projectCode) || { id: projectCode, name: projectCode };
+      };
+      const ensureIssueProject = async (projectCode, projectsTable) => {
+        const project = getProjectConfigByCode(projectCode);
+        const rows = await supabaseRequest(`${projectsTable}?on_conflict=code`, 'POST', [{ code: projectCode, name: (project?.name || projectCode).trim() || projectCode }]);
+        if (!rows?.[0]?.id) throw new Error(`Projeto '${projectCode}' não existe e não foi possível criá-lo no Supabase.`);
+        return rows[0].id;
+      };
+      const resolveIssueProjectId = async ({ createIfMissing = true } = {}) => {
+        const projectCode = getPrimaryProjectCode();
+        const projectsTable = getCockpitConfig()?.supabase?.projectsTable || 'projects';
+        if (isUuid(projectCode)) {
+          const byId = await supabaseRequest(`${projectsTable}?id=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`);
+          if (byId[0]?.id) return byId[0].id;
+          if (!createIfMissing) return null;
+        }
+        const byCode = await supabaseRequest(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`);
+        if (byCode[0]?.id) return byCode[0].id;
+        if (!createIfMissing) return null;
+        return ensureIssueProject(projectCode, projectsTable);
+      };
+
+      const parseSupabaseDate = (value) => {
+        if (!value) return '';
+        const [yyyy, mm, dd] = String(value).slice(0, 10).split('-');
+        return yyyy && mm && dd ? `${dd}/${mm}/${yyyy}` : String(value);
+      };
+      const parseDateForSupabase = (value) => {
+        const date = parseDate(value);
+        if (!date) return null;
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      };
+      const formatPercentFromSupabase = (value) => {
+        if (value === null || value === undefined || value === '') return '';
+        const number = Number(value);
+        return Number.isFinite(number) ? `${Math.round(number)}%` : String(value);
+      };
+      const issueRowToTask = (row = {}) => ({
+        __db_id: row.id || '',
+        'ID': row.external_id || '',
+        'Área': row.area || '',
+        'Categoria': row.category || '',
+        'Etapa do Projeto': row.project_stage || row.stage || '',
+        'Sprint': row.sprint || '',
+        'Atividade': row.activity || '',
+        'Descrição': row.description || '',
+        'Responsável': row.owner || '',
+        'Criticidade': row.criticality || '',
+        'Responsável Cliente': row.client_owner || '',
+        'Data Identificação': parseSupabaseDate(row.identified_at),
+        'Data Planejada': parseSupabaseDate(row.planned_at),
+        'Dias para Concluir': row.days_to_complete || '',
+        'Condição Pendência': row.issue_condition || row.condition || '',
+        'Data Conclusão': parseSupabaseDate(row.completed_at),
+        '% Conclusão': formatPercentFromSupabase(row.completion_pct),
+        'Status': row.status || '',
+      });
+      const taskToIssuePayload = (task, projectId) => {
+        const completion = Number(String(task['% Conclusão'] || '').replace('%', '').replace(',', '.').trim());
+        const projectCode = getPrimaryProjectCode();
+        const project = getProjectConfigByCode(projectCode);
+        const row = headersInUse().reduce((acc, header) => ({ ...acc, [header]: task[header] || '' }), {});
+        return {
+          project_id: projectId,
+          external_id: String(task['ID'] || '').trim(),
+          area: task['Área'] || null,
+          category: task['Categoria'] || null,
+          stage: task['Etapa do Projeto'] || null,
+          project_stage: task['Etapa do Projeto'] || null,
+          sprint: task['Sprint'] || null,
+          activity: task['Atividade'] || null,
+          description: task['Descrição'] || task['Atividade'] || 'Pendência sem descrição',
+          owner: task['Responsável'] || null,
+          client_owner: task['Responsável Cliente'] || null,
+          criticality: task['Criticidade'] || null,
+          identified_at: parseDateForSupabase(task['Data Identificação']),
+          planned_at: parseDateForSupabase(task['Data Planejada']),
+          days_to_complete: task['Dias para Concluir'] || null,
+          condition: task['Condição Pendência'] || null,
+          issue_condition: task['Condição Pendência'] || null,
+          completed_at: parseDateForSupabase(task['Data Conclusão']),
+          completion_pct: Number.isFinite(completion) ? completion : 0,
+          status: task['Status'] || 'Pendente',
+          tap_entries_project_id: projectCode,
+          project_linked_name: project?.name || projectCode,
+          payload_issue: { source_type: 'pendencias', source_label: 'Pendências', project_id: projectId, project_linked_name: project?.name || projectCode, tap_entries_project_id: projectCode, row },
+        };
       };
       const headersInUse = () => dataset.headers.length ? dataset.headers : EXPECTED_HEADERS;
 
-      const formatDateForSheet = (value) => {
+      const formatDateForDisplay = (value) => {
         if (!value) return '';
         const date = parseDate(value);
         if (!date) return value;
@@ -395,37 +388,23 @@
 
       const editableHeaders = () => headersInUse();
 
-      const syncSheetMutation = async (action, row) => {
-        const writeUrl = getSheetWriteUrl();
-        if (!writeUrl) {
-          throw new Error(`Configure a URL de escrita do Google Apps Script na fonte Pendências ou em localStorage: ${WRITE_URL_STORAGE_KEY}.`);
+      const saveIssueMutation = async (task) => {
+        const projectId = await resolveIssueProjectId({ createIfMissing: true });
+        const issuesTable = getCockpitConfig()?.supabase?.issuesTable || 'issues';
+        const payload = taskToIssuePayload(task, projectId);
+        if (task.__db_id) {
+          const rows = await supabaseRequest(`${issuesTable}?id=eq.${encodeURIComponent(task.__db_id)}`, 'PATCH', payload);
+          return rows?.[0] || { ...payload, id: task.__db_id };
         }
+        const rows = await supabaseRequest(`${issuesTable}?on_conflict=project_id,external_id`, 'POST', [payload]);
+        return rows?.[0] || payload;
+      };
 
-        const target = getSheetWriteTarget();
-        if (!target.spreadsheetId) {
-          throw new Error('Informe o ID da planilha ou uma URL de leitura Google Sheets /d/{ID}/ na configuração da fonte Pendências.');
-        }
-
-        const response = await fetch(writeUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            sheet: 'pendencias',
-            action,
-            id: row?.ID || row?.['ID'],
-            row,
-            spreadsheetId: target.spreadsheetId,
-            sheetName: target.sheetName,
-          }),
-        });
-
-        const text = await response.text();
-        let payload = null;
-        try { payload = text ? JSON.parse(text) : null; } catch (err) { payload = { ok: response.ok, message: text }; }
-        if (!response.ok || payload?.ok === false) {
-          throw new Error(payload?.message || payload?.error || 'Não foi possível sincronizar com o Google Sheets.');
-        }
-        return payload;
+      const deleteIssueMutation = async (task) => {
+        const projectId = await resolveIssueProjectId({ createIfMissing: false });
+        const issuesTable = getCockpitConfig()?.supabase?.issuesTable || 'issues';
+        if (task.__db_id) return supabaseRequest(`${issuesTable}?id=eq.${encodeURIComponent(task.__db_id)}`, 'DELETE');
+        return supabaseRequest(`${issuesTable}?project_id=eq.${projectId}&external_id=eq.${encodeURIComponent(task['ID'])}`, 'DELETE');
       };
 
       const upsertLocalTask = (task) => {
@@ -451,32 +430,28 @@
 
       const openTaskModal = (row) => {
         setSelectedTask(row);
-        setTaskDraft(headersInUse().reduce((acc, header) => ({ ...acc, [header]: row[header] || '' }), {}));
+        setTaskDraft({ ...headersInUse().reduce((acc, header) => ({ ...acc, [header]: row[header] || '' }), {}), __db_id: row.__db_id || '' });
         setSyncMessage('');
       };
 
       const updateTaskDraft = (header, value) => {
-        const finalValue = ['Data Identificação', 'Data Planejada', 'Data Conclusão'].includes(header) ? formatDateForSheet(value) : header === '% Conclusão' ? normalizeProgress(value) : value;
+        const finalValue = ['Data Identificação', 'Data Planejada', 'Data Conclusão'].includes(header) ? formatDateForDisplay(value) : header === '% Conclusão' ? normalizeProgress(value) : value;
         setTaskDraft(prev => ({ ...prev, [header]: finalValue }));
       };
 
       const saveTaskDraft = async () => {
         if (!taskDraft) return;
-        if (!isSheetWriteConfigured()) {
-          setSyncMessage('Configure a URL de escrita antes de salvar na planilha.');
-          openWriteUrlConfig();
-          return;
-        }
-        const action = dataset.data.some(row => String(row['ID']) === String(taskDraft['ID'])) ? 'update' : 'create';
         setSavingTask(true);
-        setSyncMessage('Sincronizando com Google Sheets...');
+        setSyncMessage('Salvando no Supabase...');
         try {
-          await syncSheetMutation(action, taskDraft);
-          upsertLocalTask(taskDraft);
-          setSelectedTask(taskDraft);
-          setSyncMessage('Alterações salvas e enviadas para a planilha.');
+          const savedIssue = await saveIssueMutation(taskDraft);
+          const savedTask = { ...taskDraft, __db_id: savedIssue.id || taskDraft.__db_id || '' };
+          upsertLocalTask(savedTask);
+          setSelectedTask(savedTask);
+          setTaskDraft(savedTask);
+          setSyncMessage('Alterações salvas no Supabase.');
         } catch (err) {
-          setSyncMessage(err.message);
+          setSyncMessage(err.message || 'Não foi possível salvar no Supabase.');
         } finally {
           setSavingTask(false);
         }
@@ -484,21 +459,16 @@
 
       const deleteTask = async (task) => {
         if (!task) return;
-        if (!isSheetWriteConfigured()) {
-          setSyncMessage('Configure a URL de escrita antes de excluir na planilha.');
-          openWriteUrlConfig();
-          return;
-        }
         setSavingTask(true);
-        setSyncMessage('Excluindo na planilha...');
+        setSyncMessage('Excluindo no Supabase...');
         try {
-          await syncSheetMutation('delete', task);
+          await deleteIssueMutation(task);
           removeLocalTask(task['ID']);
           setSelectedTask(null);
           setTaskDraft(null);
           setSyncMessage('');
         } catch (err) {
-          setSyncMessage(err.message);
+          setSyncMessage(err.message || 'Não foi possível excluir no Supabase.');
         } finally {
           setSavingTask(false);
         }
@@ -507,29 +477,27 @@
       const requestDeleteTask = (task) => {
         setPopup({
           title: `Excluir pendência #${task?.['ID'] || ''}?`,
-          message: 'Esta ação remove a linha também na planilha Google Sheet configurada.',
+          message: 'Esta ação remove a pendência diretamente da tabela issues no Supabase.',
           cancelLabel: 'Cancelar',
           confirmLabel: 'Excluir',
           onConfirm: () => deleteTask(task),
         });
       };
 
-
       const loadData = async () => {
         setLoading(true);
         setError(null);
         try {
-          const response = await fetch(getSheetReadUrl());
-          if (!response.ok) throw new Error("Falha na comunicação com o Google Sheets.");
-          const csvText = await response.text();
-          const parsed = parseCSVToObjects(csvText);
-          setDataset(parsed);
+          const projectId = await resolveIssueProjectId({ createIfMissing: true });
+          const issuesTable = getCockpitConfig()?.supabase?.issuesTable || 'issues';
+          const rows = await supabaseRequest(`${issuesTable}?project_id=eq.${projectId}&select=id,external_id,area,category,stage,project_stage,sprint,activity,description,owner,client_owner,criticality,identified_at,planned_at,days_to_complete,condition,issue_condition,completed_at,completion_pct,status&order=external_id.asc`);
+          setDataset({ headers: EXPECTED_HEADERS, data: rows.map(issueRowToTask) });
           setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         } catch (err) {
-          console.error("Erro no fetch, usando fallback:", err);
-          setError("Bloqueio de rede identificado (CORS). Carregando base de segurança.");
-          setDataset(parseCSVToObjects(FALLBACK_CSV));
-          setLastUpdated("Offline (Fallback)");
+          console.error('Erro ao carregar pendências do Supabase:', err);
+          setError(err.message || 'Não foi possível carregar as pendências do Supabase.');
+          setDataset({ headers: EXPECTED_HEADERS, data: [] });
+          setLastUpdated('Erro Supabase');
         } finally {
           setLoading(false);
         }
@@ -902,6 +870,28 @@
       );
       const renderGroupBadges = (stats) => <div className="flex flex-wrap gap-1.5"><span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[11px] font-semibold">{stats.total} registros</span><span className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-100 text-rose-700 text-[11px] font-semibold">{stats.criticas} críticas</span><span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-100 text-red-700 text-[11px] font-semibold">{stats.atrasadas} atrasadas</span><span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-semibold">{stats.pendentes} pendentes</span><span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-semibold">{stats.avgProgress}% médio</span></div>;
 
+      const escapeForExcel = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+      const exportCurrentListToExcel = () => {
+        const headers = headersInUse();
+        const headerHtml = headers.map(header => `<th>${escapeForExcel(header)}</th>`).join('');
+        const bodyHtml = filteredData.map(row => `<tr>${headers.map(header => `<td>${escapeForExcel(row[header])}</td>`).join('')}</tr>`).join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px}th{background:#eef2ff;font-weight:700}td,th{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top}td{mso-number-format:"\@"}</style></head><body><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></body></html>`;
+        const blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = `pendencias-${stamp}.xls`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
       const renderTaskCard = (row) => (
         <article key={row['ID'] || row['Atividade']} onClick={() => openTaskModal(row)} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer">
           <div className="flex items-start justify-between gap-3 mb-3"><div><p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">#{row['ID']} · {row['Área'] || 'Sem área'}</p><h3 className="text-sm font-semibold text-slate-800 leading-snug mt-1">{row['Atividade'] || 'Atividade sem título'}</h3></div><div className="flex flex-col items-end gap-1">{renderCriticidadeBadge(row['Criticidade'])}{renderScoreBadge(row)}</div></div>
@@ -923,24 +913,6 @@
 
       const SelectField = ({ label, value, onChange, options }) => <label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>{label}</span><select value={value} onChange={e => onChange(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"><option value="">Todos</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></label>;
       const ToggleField = ({ label, checked, onChange }) => <label className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 font-medium"><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />{label}</label>;
-      const WriteUrlConfigModal = () => writeUrlConfigOpen ? (
-        <div className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex items-start gap-3"><span className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0"><IconRefreshCw size={20} /></span><div><h2 className="text-lg font-bold text-slate-900">Configurar escrita no Google Sheets</h2><p className="mt-2 text-sm leading-6 text-slate-600">Cole a URL publicada do Web App do Google Apps Script. A planilha e a aba são lidas automaticamente da configuração da fonte Pendências do projeto ativo.</p></div></div>
-            </div>
-            <div className="p-6 space-y-3">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide">URL de escrita do Apps Script</label>
-              <input type="url" value={writeUrlDraft} onChange={e => setWriteUrlDraft(e.target.value)} placeholder="https://script.google.com/macros/s/.../exec" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300" autoFocus />
-              <p className="text-xs text-slate-500">Dica: no Apps Script, publique como implantação Web App e use a URL terminada em <strong>/exec</strong>. O payload de salvamento envia <strong>spreadsheetId</strong> e <strong>sheetName</strong> do projeto ativo.</p>
-            </div>
-            <div className="px-6 py-4 bg-slate-50 flex flex-col-reverse sm:flex-row justify-end gap-3">
-              <button type="button" onClick={() => setWriteUrlConfigOpen(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-100">Cancelar</button>
-              <button type="button" onClick={saveSheetWriteUrl} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-sm">Salvar URL</button>
-            </div>
-          </div>
-        </div>
-      ) : null;
       const PopupModal = () => popup ? (
         <div className="fixed inset-0 z-[100] bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
@@ -958,19 +930,18 @@
       return (
         <div className="min-h-screen bg-slate-50/50 flex flex-col">
           <PopupModal />
-          <WriteUrlConfigModal />
           <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sticky top-0 z-30 shadow-sm">
             <div className="flex items-center gap-3"><div className="bg-indigo-600 p-2 rounded-lg shadow-sm"><IconLayoutDashboard size={20} className="text-white" /></div><div><h1 className="text-xl font-bold text-slate-800 leading-tight">Painel de Pendências</h1><p className="text-xs text-slate-500">Gestão e acompanhamento do projeto</p></div></div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm w-full sm:w-auto">{error && <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-md font-medium text-xs"><IconAlertCircle size={14} /> <span className="hidden md:inline">{error}</span></div>}<div className="flex items-center gap-2 text-slate-500 text-xs font-medium ml-auto sm:ml-0"><span>Sincronizado:</span><span className="bg-slate-100 px-2 py-1 rounded text-slate-700">{lastUpdated || 'Carregando...'}</span></div><button onClick={openWriteUrlConfig} className={`flex items-center gap-2 border px-4 py-2 rounded-lg transition-all shadow-sm font-medium ${isSheetWriteConfigured() ? 'bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'}`} title="Configurar URL de escrita do Google Apps Script"><IconRefreshCw size={16} /><span className="hidden sm:inline">Configurar Escrita</span></button><button onClick={openNewTaskModal} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-medium"><IconPlus size={16} /><span className="hidden sm:inline">Nova Pendência</span></button><button onClick={loadData} disabled={loading} className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50 font-medium ml-auto sm:ml-0"><IconRefreshCw size={16} className={loading ? "animate-spin text-indigo-600" : "text-slate-400"} /><span className="hidden sm:inline">Sincronizar Dados</span></button><a href="index.html?menu=1" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-medium">Voltar ao Menu Principal</a></div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm w-full sm:w-auto">{error && <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-md font-medium text-xs"><IconAlertCircle size={14} /> <span className="hidden md:inline">{error}</span></div>}<div className="flex items-center gap-2 text-slate-500 text-xs font-medium ml-auto sm:ml-0"><span>Sincronizado:</span><span className="bg-slate-100 px-2 py-1 rounded text-slate-700">{lastUpdated || 'Carregando...'}</span></div><button onClick={openNewTaskModal} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-medium"><IconPlus size={16} /><span className="hidden sm:inline">Nova Pendência</span></button><button onClick={loadData} disabled={loading} className="flex items-center gap-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50 font-medium ml-auto sm:ml-0"><IconRefreshCw size={16} className={loading ? "animate-spin text-indigo-600" : "text-slate-400"} /><span className="hidden sm:inline">Sincronizar Dados</span></button><a href="index.html?menu=1" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all shadow-sm font-medium">Voltar ao Menu Principal</a></div>
           </header>
 
-          <main className="flex-1 p-4 sm:p-6 max-w-[1600px] w-full mx-auto flex flex-col gap-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <main className={`${contentMaximized ? 'max-w-none px-4 sm:px-6' : 'max-w-[1600px]'} flex-1 p-4 sm:p-6 w-full mx-auto flex flex-col gap-6`}>
+            {!contentMaximized && <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {[['Total', kpis.total, 'indigo', <IconListTodo size={24} />], ['Concluídas', kpis.concluidas, 'emerald', <IconCheckCircle2 size={24} />], ['Em Execução', kpis.emExecucao, 'blue', <IconTrendingUp size={24} />], ['Pendentes', kpis.pendentes, 'amber', <IconClock size={24} />], ['Críticas', kpis.criticas, 'rose', <IconAlertTriangle size={24} />], ['Atrasadas', kpis.atrasadas, 'red', <IconAlertCircle size={24} />]].map(([label, value, color, icon]) => <div key={label} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4 hover:border-indigo-200 hover:shadow-md transition-all"><div className={`p-3 bg-${color}-50 text-${color}-600 rounded-lg`}>{icon}</div><div><p className="text-sm text-slate-500 font-medium mb-0.5">{label}</p><h3 className="text-2xl font-bold text-slate-800">{value}</h3></div></div>)}
-            </div>
+            </div>}
 
-            <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
-              <aside className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden xl:sticky xl:top-24">
+            <div className={`${contentMaximized ? 'grid-cols-1' : 'xl:grid-cols-[300px_minmax(0,1fr)]'} grid grid-cols-1 gap-6 items-start`}>
+              {!contentMaximized && <aside className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden xl:sticky xl:top-24">
                 <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/80">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Visões rápidas</p>
                   <p className="text-sm text-slate-500 mt-1">Acesse filtros prontos ou listas rápidas salvas.</p>
@@ -1007,10 +978,10 @@
 
                   <button onClick={() => { setAdvancedFiltersOpen(true); setSaveForm(prev => ({ ...prev, name: prev.name || `${viewMode === 'kanban' ? 'Kanban' : 'Lista'} personalizada` })); }} className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-3 py-3 text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"><IconPlus size={16} /> Salvar nova visão</button>
                 </div>
-              </aside>
+              </aside>}
 
               <div className="min-w-0 flex flex-col gap-6">
-                <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                {!contentMaximized && <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="p-5 flex flex-col gap-4">
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                       <div className="relative flex-1 min-w-[240px]"><IconSearch size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input value={filters.searchTerm} onChange={e => updateFilter('searchTerm', e.target.value)} placeholder="Buscar por descrição, responsável, categoria..." className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-200" /></div>
@@ -1033,10 +1004,10 @@
                     </div>}
                   </div>
                   {activeChips.length > 0 && <div className="px-5 pb-5 flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Filtros ativos</span>{activeChips.map(chip => <span key={chip.key} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-semibold"><span>{chip.label}: {chip.value}</span><button onClick={chip.onRemove} className="text-indigo-500 hover:text-indigo-900">×</button></span>)}<button onClick={resetFilters} className="text-xs font-bold text-slate-600 hover:text-slate-900 px-2">Limpar tudo</button></div>}
-                </section>
+                </section>}
 
             <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
-              <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white"><div><h2 className="text-base font-bold text-slate-800">{viewMode === 'kanban' ? 'Quadro Kanban' : 'Lista profissional completa'}</h2><p className="text-sm text-slate-500">Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros{filteredData.length !== dataset.data.length && ` de ${dataset.data.length}`}.</p></div><div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">Agrupamento ativo: <strong className="text-slate-700">{groupByPrimary || (viewMode === 'kanban' ? 'Status' : 'Nenhum')}</strong>{groupBySecondary && <span> / {groupBySecondary}</span>}</div></div>
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white"><div><h2 className="text-base font-bold text-slate-800">{viewMode === 'kanban' ? 'Quadro Kanban' : 'Lista profissional completa'}</h2><p className="text-sm text-slate-500">Exibindo <span className="font-semibold text-slate-700">{filteredData.length}</span> registros{filteredData.length !== dataset.data.length && ` de ${dataset.data.length}`}.</p></div><div className="flex flex-wrap items-center gap-2"><div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">Agrupamento ativo: <strong className="text-slate-700">{groupByPrimary || (viewMode === 'kanban' ? 'Status' : 'Nenhum')}</strong>{groupBySecondary && <span> / {groupBySecondary}</span>}</div>{viewMode === 'lista' && <button onClick={exportCurrentListToExcel} disabled={!filteredData.length} className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"><IconDownload size={15} /> Exportar Excel</button>}<button onClick={() => setContentMaximized(prev => !prev)} className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100">{contentMaximized ? <IconMinimize2 size={15} /> : <IconMaximize2 size={15} />}{contentMaximized ? 'Restaurar' : 'Maximizar'}</button></div></div>
               {loading && dataset.data.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-3"><div className="animate-spin text-indigo-400"><IconRefreshCw size={32} /></div><p>Processando base de dados...</p></div> : filteredData.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2"><div className="text-slate-300 mb-2"><IconSearch size={32} /></div><p className="font-medium text-slate-700">Nenhum resultado encontrado.</p><p className="text-sm">Tente ajustar seus filtros de busca ou selecionar outra visão.</p></div> : viewMode === 'kanban' ? <div className="p-5 overflow-x-auto flex-1 bg-slate-50/70"><div className="flex gap-4 min-w-max pb-2">{groupedData.map(group => {
                 const collapsed = isGroupCollapsed('kanban', group.key);
                 return <div key={group.key} className="w-[360px] flex-shrink-0"><div className={`sticky top-0 z-10 rounded-xl px-4 py-3 mb-3 shadow-sm transition-colors ${collapsed ? 'bg-indigo-50/95 border border-indigo-200' : 'bg-indigo-100/95 border border-indigo-200'}`}><div className="flex items-start justify-between gap-2 mb-2"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-1">Agrupador</p><h3 className="font-bold text-indigo-950 text-sm truncate">{group.label}</h3></div><span className="text-xs font-bold text-indigo-700 bg-white border border-indigo-200 rounded-full px-2 py-0.5">{group.stats.total}</span></div><div className="flex flex-col gap-3">{renderGroupBadges(group.stats)}<GroupToggleButton collapsed={collapsed} onClick={() => toggleGroupCollapse('kanban', group.key)} /></div></div>{!collapsed && <div className="flex flex-col gap-3">{group.rows.map(renderTaskCard)}</div>}</div>;
@@ -1054,7 +1025,7 @@
 
           {saveModalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className={`bg-white rounded-2xl shadow-xl border border-slate-200 w-full ${saveForm.editingViewId ? 'max-w-5xl' : 'max-w-lg'} max-h-[92vh] overflow-hidden flex flex-col`}><div className="px-5 py-4 border-b border-slate-100"><h3 className="text-lg font-bold text-slate-800">{saveForm.editingViewId ? 'Editar visão executiva' : 'Salvar visão executiva'}</h3><p className="text-sm text-slate-500">{saveForm.editingViewId ? 'Revise e altere todos os filtros, agrupamentos, ordenação e modo que foram salvos para esta visão.' : 'Guarde filtros, agrupamentos, ordenação e modo de visualização.'}</p></div><div className="p-5 flex flex-col gap-4 overflow-y-auto"><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><label className="text-sm font-semibold text-slate-600">Nome<input value={saveForm.name} onChange={e => setSaveForm(prev => ({ ...prev, name: e.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="flex items-center gap-2 text-sm text-slate-700 md:pt-7"><input type="checkbox" checked={saveForm.setAsDefault} onChange={e => setSaveForm(prev => ({ ...prev, setAsDefault: e.target.checked }))} />Definir como visão padrão</label><label className="text-sm font-semibold text-slate-600 md:col-span-2">Descrição opcional<textarea value={saveForm.description} onChange={e => setSaveForm(prev => ({ ...prev, description: e.target.value }))} rows="2" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label></div>{saveForm.editingViewId && saveForm.config && <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 flex flex-col gap-4"><div className="flex flex-col md:flex-row md:items-center justify-between gap-3"><div><h4 className="text-sm font-bold text-slate-800">Filtros salvos nesta visão</h4><p className="text-xs text-slate-500">Altere os campos abaixo e clique em salvar para atualizar a visão. Resultado estimado: <strong className="text-indigo-700">{getViewCount(saveForm.config)}</strong> pendência(s).</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={resetSaveFormConfigFilters} className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">Limpar filtros do modal</button><button type="button" onClick={applySaveFormConfigToScreen} className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50">Aplicar prévia na tela</button></div></div><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Busca livre</span><input value={saveForm.config.filters.searchTerm} onChange={e => updateSaveFormConfigFilter('searchTerm', e.target.value)} placeholder="Buscar por descrição, responsável, categoria..." className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><div className="grid grid-cols-1 lg:grid-cols-4 gap-4"><div className="rounded-xl border border-slate-100 bg-white/80 p-3"><h5 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Status</h5><div className="grid gap-3"><SelectField label="Status" value={saveForm.config.filters.statusFilter} onChange={v => updateSaveFormConfigFilter('statusFilter', v)} options={uniqueValues.status} /><SelectField label="Criticidade" value={saveForm.config.filters.criticidadeFilter} onChange={v => updateSaveFormConfigFilter('criticidadeFilter', v)} options={uniqueValues.criticidade} /><SelectField label="Condição da Pendência" value={saveForm.config.filters.condicaoFilter} onChange={v => updateSaveFormConfigFilter('condicaoFilter', v)} options={uniqueValues.condicoes} /><ToggleField label="Não concluídas" checked={saveForm.config.filters.onlyNaoConcluidas} onChange={v => updateSaveFormConfigFilter('onlyNaoConcluidas', v)} /></div></div><div className="rounded-xl border border-slate-100 bg-white/80 p-3"><h5 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Equipe</h5><div className="grid gap-3"><SelectField label="Responsável TOTVS" value={saveForm.config.filters.responsavelFilter} onChange={v => updateSaveFormConfigFilter('responsavelFilter', v)} options={uniqueValues.responsaveis} /><SelectField label="Responsável Cliente" value={saveForm.config.filters.responsavelClienteFilter} onChange={v => updateSaveFormConfigFilter('responsavelClienteFilter', v)} options={uniqueValues.responsaveisCliente} /><ToggleField label="Sem responsável" checked={saveForm.config.filters.onlySemResponsavel} onChange={v => updateSaveFormConfigFilter('onlySemResponsavel', v)} /><ToggleField label="Sem responsável TOTVS" checked={saveForm.config.filters.onlySemResponsavelTotvs} onChange={v => updateSaveFormConfigFilter('onlySemResponsavelTotvs', v)} /><ToggleField label="Sem responsável cliente" checked={saveForm.config.filters.onlySemResponsavelCliente} onChange={v => updateSaveFormConfigFilter('onlySemResponsavelCliente', v)} /></div></div><div className="rounded-xl border border-slate-100 bg-white/80 p-3"><h5 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Projeto</h5><div className="grid gap-3"><SelectField label="Área" value={saveForm.config.filters.areaFilter} onChange={v => updateSaveFormConfigFilter('areaFilter', v)} options={uniqueValues.areas} /><SelectField label="Categoria" value={saveForm.config.filters.categoriaFilter} onChange={v => updateSaveFormConfigFilter('categoriaFilter', v)} options={uniqueValues.categorias} /><SelectField label="Etapa do Projeto" value={saveForm.config.filters.etapaFilter} onChange={v => updateSaveFormConfigFilter('etapaFilter', v)} options={uniqueValues.etapas} /><SelectField label="Sprint" value={saveForm.config.filters.sprintFilter} onChange={v => updateSaveFormConfigFilter('sprintFilter', v)} options={uniqueValues.sprints} /></div></div><div className="rounded-xl border border-slate-100 bg-white/80 p-3"><h5 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Período e flags</h5><div className="grid gap-3"><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Data Planejada de</span><input type="date" value={saveForm.config.filters.plannedFrom} onChange={e => updateSaveFormConfigFilter('plannedFrom', e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Data Planejada até</span><input type="date" value={saveForm.config.filters.plannedTo} onChange={e => updateSaveFormConfigFilter('plannedTo', e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100" /></label><ToggleField label="Apenas atrasadas" checked={saveForm.config.filters.onlyAtrasadas} onChange={v => updateSaveFormConfigFilter('onlyAtrasadas', v)} /><ToggleField label="Vencendo em 7 dias" checked={saveForm.config.filters.onlyVencendo7} onChange={v => updateSaveFormConfigFilter('onlyVencendo7', v)} /><ToggleField label="Dependência do cliente" checked={saveForm.config.filters.onlyDependenciaCliente} onChange={v => updateSaveFormConfigFilter('onlyDependenciaCliente', v)} /><ToggleField label="Risco para Go Live" checked={saveForm.config.filters.onlyRiscoGoLive} onChange={v => updateSaveFormConfigFilter('onlyRiscoGoLive', v)} /></div></div></div><div className="grid grid-cols-1 md:grid-cols-4 gap-3"><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Modo</span><select value={saveForm.config.viewMode} onChange={e => updateSaveFormConfig({ viewMode: e.target.value })} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100"><option value="lista">Lista</option><option value="kanban">Kanban</option></select></label><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Agrupamento principal</span><select value={saveForm.config.groupByPrimary} onChange={e => updateSaveFormConfig({ groupByPrimary: e.target.value })} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100">{groupOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Agrupamento secundário</span><select value={saveForm.config.groupBySecondary} onChange={e => updateSaveFormConfig({ groupBySecondary: e.target.value })} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100">{groupOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label><label className="flex flex-col gap-1 text-xs font-semibold text-slate-500"><span>Ordenação</span><select value={saveForm.config.sortBy} onChange={e => updateSaveFormConfig({ sortBy: e.target.value })} className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-100">{sortOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label></div></div>}</div><div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2 bg-white"><button onClick={closeSaveModal} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold">Cancelar</button><button onClick={saveCurrentView} disabled={!saveForm.name.trim()} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed">{saveForm.editingViewId ? 'Salvar alterações' : 'Salvar visão'}</button></div></div></div>}
 
-          {selectedTask && taskDraft && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"><div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"><div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4"><div><p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">Pendência #{taskDraft['ID'] || 'nova'}</p><h3 className="text-lg font-bold text-slate-800">{taskDraft['Atividade'] || 'Atividade sem título'}</h3><div className="flex flex-wrap gap-2 mt-2">{renderStatusBadge(taskDraft['Status'])}{renderCriticidadeBadge(taskDraft['Criticidade'])}{syncMessage && <span className={`px-2 py-1 rounded-full text-xs font-bold border ${syncMessage.includes('salvas') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{syncMessage}</span>}</div></div><button onClick={() => { setSelectedTask(null); setTaskDraft(null); }} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">×</button></div><div className="p-5 overflow-y-auto"><div className={`mb-4 rounded-xl border p-3 text-sm ${isSheetWriteConfigured() ? 'border-blue-100 bg-blue-50 text-blue-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><span><strong>Edição conectada:</strong> altere, inclua ou exclua campos e clique em <strong>Salvar na planilha</strong> para refletir diretamente no Google Sheet configurado.{!isSheetWriteConfigured() && ' Configure a URL de escrita antes de salvar.'}</span>{!isSheetWriteConfigured() && <button type="button" onClick={openWriteUrlConfig} className="shrink-0 px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">Configurar agora</button>}</div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{editableHeaders().map(header => { const isLong = header === 'Descrição' || header === 'Atividade'; const isDate = ['Data Identificação', 'Data Planejada', 'Data Conclusão'].includes(header); const isTextArea = isLong || header === 'Condição Pendência'; return <label key={header} className={`rounded-xl border border-slate-200 bg-slate-50 p-3 ${isLong ? 'md:col-span-2' : ''}`}><span className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">{header}</span>{isTextArea ? <textarea value={taskDraft[header] || ''} onChange={e => updateTaskDraft(header, e.target.value)} rows={isLong ? 3 : 2} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100" /> : <input type={isDate ? 'date' : 'text'} value={isDate ? toInputDate(taskDraft[header]) : (taskDraft[header] || '')} onChange={e => updateTaskDraft(header, e.target.value)} disabled={header === 'ID'} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-100 disabled:text-slate-500" />}</label>; })}</div></div><div className="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between gap-3 bg-white"><button onClick={() => requestDeleteTask(taskDraft)} disabled={savingTask || !dataset.data.some(row => String(row['ID']) === String(taskDraft['ID']))} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-rose-200 text-rose-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><IconTrash size={16} />Excluir linha</button><div className="flex justify-end gap-2"><button onClick={() => { setSelectedTask(null); setTaskDraft(null); }} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold">Cancelar</button><button onClick={saveTaskDraft} disabled={savingTask || !taskDraft['ID']} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><IconRefreshCw size={16} className={savingTask ? 'animate-spin' : ''} />{savingTask ? 'Salvando...' : 'Salvar na planilha'}</button></div></div></div></div>}
+          {selectedTask && taskDraft && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4"><div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"><div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4"><div><p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">Pendência #{taskDraft['ID'] || 'nova'}</p><h3 className="text-lg font-bold text-slate-800">{taskDraft['Atividade'] || 'Atividade sem título'}</h3><div className="flex flex-wrap gap-2 mt-2">{renderStatusBadge(taskDraft['Status'])}{renderCriticidadeBadge(taskDraft['Criticidade'])}{syncMessage && <span className={`px-2 py-1 rounded-full text-xs font-bold border ${syncMessage.includes('salvas') || syncMessage.includes('Supabase') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{syncMessage}</span>}</div></div><button onClick={() => { setSelectedTask(null); setTaskDraft(null); }} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">×</button></div><div className="p-5 overflow-y-auto"><div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800"><strong>Edição conectada ao Supabase:</strong> altere, inclua ou exclua campos e clique em <strong>Salvar no Supabase</strong>. Depois use <strong>Exportar Excel</strong> na lista para levar os dados ao Google Sheets.</div><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{editableHeaders().map(header => { const isLong = header === 'Descrição' || header === 'Atividade'; const isDate = ['Data Identificação', 'Data Planejada', 'Data Conclusão'].includes(header); const isTextArea = isLong || header === 'Condição Pendência'; return <label key={header} className={`rounded-xl border border-slate-200 bg-slate-50 p-3 ${isLong ? 'md:col-span-2' : ''}`}><span className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">{header}</span>{isTextArea ? <textarea value={taskDraft[header] || ''} onChange={e => updateTaskDraft(header, e.target.value)} rows={isLong ? 3 : 2} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100" /> : <input type={isDate ? 'date' : 'text'} value={isDate ? toInputDate(taskDraft[header]) : (taskDraft[header] || '')} onChange={e => updateTaskDraft(header, e.target.value)} disabled={header === 'ID'} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-100 disabled:text-slate-500" />}</label>; })}</div></div><div className="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between gap-3 bg-white"><button onClick={() => requestDeleteTask(taskDraft)} disabled={savingTask || !dataset.data.some(row => String(row['ID']) === String(taskDraft['ID']))} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-rose-200 text-rose-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><IconTrash size={16} />Excluir linha</button><div className="flex justify-end gap-2"><button onClick={() => { setSelectedTask(null); setTaskDraft(null); }} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold">Cancelar</button><button onClick={saveTaskDraft} disabled={savingTask || !taskDraft['ID']} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed"><IconRefreshCw size={16} className={savingTask ? 'animate-spin' : ''} />{savingTask ? 'Salvando...' : 'Salvar no Supabase'}</button></div></div></div></div>}
         </div>
       );
     }

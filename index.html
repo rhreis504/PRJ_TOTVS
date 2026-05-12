@@ -1154,14 +1154,14 @@
             });
         }
         const defaultSources = () => ({
-            pendencias: { label: 'Pendências', sourceType: 'csv', url: '', writeUrl: '', spreadsheetId: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
-            stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
-            riscos: { label: 'Riscos', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
-            gaps: { label: 'GAPs e Mudanças', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
-            tap: { label: 'TAP', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:B200', hasHeader: true, icon: 'file-signature' },
-            statusReport: { label: 'Status Report Executivo', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'clipboard-check' },
-            atividades: { label: 'Atividades', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'calendar-check' },
-            treinamentos: { label: 'Treinamentos', sourceType: 'csv', url: '', writeUrl: '', range: 'A1:Z100', hasHeader: true, icon: 'graduation-cap' },
+            pendencias: { label: 'Pendências', sourceType: 'csv', url: '', spreadsheetId: '', range: 'A1:Z100', hasHeader: true, icon: 'list-todo' },
+            stakeholders: { label: 'Stakeholders', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'users' },
+            riscos: { label: 'Riscos', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'alert-triangle' },
+            gaps: { label: 'GAPs e Mudanças', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
+            tap: { label: 'TAP', sourceType: 'csv', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-signature' },
+            statusReport: { label: 'Status Report Executivo', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'clipboard-check' },
+            atividades: { label: 'Atividades', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'calendar-check' },
+            treinamentos: { label: 'Treinamentos', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'graduation-cap' },
         });
         let config = { password: 'admin', interval: 5, activeProjectId: '', selectedProjectIds: [], projects: [], supabase: { ...SUPABASE_DEFAULT_CONFIG } };
         let lastSyncStatus = {};
@@ -2297,7 +2297,6 @@
                 active.sources[k].label = document.getElementById(`label-${k}`).value || 'Nova Fonte';
                 active.sources[k].sourceType = document.getElementById(`sourceType-${k}`)?.value || 'csv';
                 active.sources[k].url = document.getElementById(`url-${k}`).value;
-                active.sources[k].writeUrl = document.getElementById(`writeUrl-${k}`)?.value || '';
                 active.sources[k].spreadsheetId = document.getElementById(`spreadsheetId-${k}`)?.value || '';
                 active.sources[k].range = document.getElementById(`range-${k}`).value;
                 active.sources[k].sheet = document.getElementById(`sheet-${k}`).value;
@@ -2871,10 +2870,6 @@ ${hints}`);
                         <div class="config-input-group">
                             <label>Endereço de Rede (URL)</label>
                             <input type="text" id="url-${k}" value="${escapeHtml(it.url || '')}" placeholder="https://docs.google.com/spreadsheets/d/...">
-                        </div>
-                        <div class="config-input-group">
-                            <label>URL de Escrita (Apps Script)</label>
-                            <input type="text" id="writeUrl-${k}" value="${escapeHtml(it.writeUrl || '')}" placeholder="https://script.google.com/macros/s/.../exec">
                         </div>
                         <div class="config-input-group">
                             <label>ID da Planilha (Opcional)</label>
