@@ -408,6 +408,15 @@
         }
         .btn-ghost:hover { background: var(--input-bg); border-color: #cbd5e1; }
 
+        .btn-secondary {
+            background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);
+            padding: 10px 20px; border-radius: var(--radius-md); font-weight: 600;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px;
+            line-height: 1.2; min-height: 40px; transition: var(--transition);
+        }
+        .btn-secondary:hover { background: var(--input-bg); border-color: #cbd5e1; transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+
         .btn-danger { color: var(--totvs-danger); background: var(--totvs-danger-light); border: none; padding: 8px; border-radius: var(--radius-md); cursor: pointer; display: flex;}
         .btn-danger:hover { background: #fecaca; }
 
@@ -557,7 +566,37 @@
         .config-checkbox span { font-size: 13px; font-weight: 600; color: var(--text-main); }
 
 
-        .general-settings-card { margin-top: 20px; }
+        .settings-accordion {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .settings-accordion[open] { box-shadow: var(--shadow-md); }
+        .settings-accordion-summary {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 20px 24px;
+            cursor: pointer;
+            user-select: none;
+            background: var(--bg-card);
+        }
+        .settings-accordion-summary::-webkit-details-marker { display: none; }
+        .settings-accordion-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .settings-accordion-title .section-title { margin: 0; }
+        .settings-accordion-subtitle { margin-top: 8px; color: var(--text-muted); font-size: 14px; }
+        .settings-accordion-chevron { color: var(--text-muted); transition: transform 0.2s ease-in-out; flex-shrink: 0; }
+        .settings-accordion[open] .settings-accordion-chevron { transform: rotate(180deg); }
+        .settings-accordion-body { padding: 0 24px 24px; }
+        .settings-accordion-body > .card { margin: 0; box-shadow: none; border: 0; padding: 0; border-radius: 0; }
+        .settings-accordion .tap-project-cards-grid { margin-bottom: 0; }
+
+        .general-settings-card { margin-top: 0; }
         .general-settings-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
         .general-list-column { background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 14px; min-height: 260px; box-shadow: var(--shadow-sm); }
         .general-list-header { display:flex; justify-content:space-between; gap: 10px; align-items:center; margin-bottom: 6px; }
@@ -884,37 +923,56 @@
                     <div style="margin-top: 16px;"><button class="btn-ghost" onclick="createProject()"><i data-lucide="folder-plus" size="16"></i> Cadastrar Novo Projeto</button></div>
                 </div>
                 
-                <div class="card">
-                    <h3 class="section-title"><i data-lucide="sliders" size="20"></i> Ajustes Globais</h3>
-                    <div class="config-input-group" style="max-width: 250px;">
-                        <label>Intervalo de Auto-Atualização (Min)</label>
-                        <input type="number" id="update-interval" placeholder="Padrão: 5 minutos">
+                <details class="settings-accordion" open>
+                    <summary class="settings-accordion-summary">
+                        <div class="settings-accordion-title"><h3 class="section-title"><i data-lucide="sliders" size="20"></i> Ajustes Globais</h3></div>
+                        <i class="settings-accordion-chevron" data-lucide="chevron-down" size="20"></i>
+                    </summary>
+                    <div class="settings-accordion-body">
+                        <div class="config-input-group" style="max-width: 250px;">
+                            <label>Intervalo de Auto-Atualização (Min)</label>
+                            <input type="number" id="update-interval" placeholder="Padrão: 5 minutos">
+                        </div>
                     </div>
-                </div>
+                </details>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin: 32px 0 16px;">
-                    <div>
-                        <h3 class="section-title" style="margin: 0;"><i data-lucide="database" size="20"></i> Fontes de Dados (Planilhas Google/CSV)</h3>
-                        <p style="margin-top: 8px; color: var(--text-muted); font-size: 14px;">Clique no card do projeto para abrir as origens de dados em um modal de configuração.</p>
+                <details class="settings-accordion" open>
+                    <summary class="settings-accordion-summary">
+                        <div>
+                            <div class="settings-accordion-title"><h3 class="section-title"><i data-lucide="database" size="20"></i> Fontes de Dados (Planilhas Google/CSV)</h3></div>
+                            <p class="settings-accordion-subtitle">Clique no card do projeto para abrir as origens de dados em um modal de configuração.</p>
+                        </div>
+                        <i class="settings-accordion-chevron" data-lucide="chevron-down" size="20"></i>
+                    </summary>
+                    <div class="settings-accordion-body">
+                        <div id="tap-project-cards-container" class="tap-project-cards-grid" aria-live="polite">
+                            <!-- Cards dos projetos cadastrados na TAP -->
+                        </div>
                     </div>
-                </div>
+                </details>
 
-                <div id="tap-project-cards-container" class="tap-project-cards-grid" aria-live="polite">
-                    <!-- Cards dos projetos cadastrados na TAP -->
-                </div>
-
-                <div class="card">
-                    <h3 class="section-title"><i data-lucide="cloud" size="20"></i> Integração de Backup Supabase</h3>
-                    <div class="config-grid">
-                        <div class="config-input-group"><label>URL do Projeto</label><input type="text" id="supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
-                        <div class="config-input-group"><label>Chave Service Role (Secret)</label><input type="password" id="supabase-secret" placeholder="sb_secret_..."></div>
+                <details class="settings-accordion" open>
+                    <summary class="settings-accordion-summary">
+                        <div class="settings-accordion-title"><h3 class="section-title"><i data-lucide="cloud" size="20"></i> Integração de Backup Supabase</h3></div>
+                        <i class="settings-accordion-chevron" data-lucide="chevron-down" size="20"></i>
+                    </summary>
+                    <div class="settings-accordion-body">
+                        <div class="config-grid">
+                            <div class="config-input-group"><label>URL do Projeto</label><input type="text" id="supabase-url" placeholder="https://SEU-PROJETO.supabase.co"></div>
+                            <div class="config-input-group"><label>Chave Service Role (Secret)</label><input type="password" id="supabase-secret" placeholder="sb_secret_..."></div>
+                        </div>
                     </div>
-                </div>
+                </details>
 
-                <div class="card general-settings-card">
-                    <h3 class="section-title"><i data-lucide="kanban" size="20"></i> Configurações Gerais</h3>
-                    <div id="general-settings-board" class="general-settings-board" aria-live="polite"></div>
-                </div>
+                <details class="settings-accordion general-settings-card" open>
+                    <summary class="settings-accordion-summary">
+                        <div class="settings-accordion-title"><h3 class="section-title"><i data-lucide="kanban" size="20"></i> Configurações Gerais</h3></div>
+                        <i class="settings-accordion-chevron" data-lucide="chevron-down" size="20"></i>
+                    </summary>
+                    <div class="settings-accordion-body">
+                        <div id="general-settings-board" class="general-settings-board" aria-live="polite"></div>
+                    </div>
+                </details>
             </div>
         </main>
     </div>
