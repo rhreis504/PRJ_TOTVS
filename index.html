@@ -1576,14 +1576,32 @@
             openStaticPage('tap', 'tap.html', el);
         }
 
-        function openStaticPage(pageId, fileName, el) {
-            const iframe = document.querySelector(`#page-${pageId} iframe`);
+        function buildProjectContextParams() {
             const params = new URLSearchParams();
-            params.set('primaryProject', config.activeProjectId);
+            params.set('primaryProject', config.activeProjectId || '');
             params.set('projects', (config.selectedProjectIds || []).join(','));
             const activeProject = getActiveProject();
             const activeTapEntryId = config.activeTapEntryId || activeProject?.tapEntryId || '';
             if(activeTapEntryId) params.set('tapEntry', activeTapEntryId);
+            return params;
+        }
+
+        function notifyEmbeddedProjectContext() {
+            const params = buildProjectContextParams();
+            const payload = {
+                type: 'totvs-project-context-updated',
+                primaryProject: params.get('primaryProject') || '',
+                projects: params.get('projects') || '',
+                tapEntry: params.get('tapEntry') || ''
+            };
+            document.querySelectorAll('iframe').forEach(frame => {
+                try { frame.contentWindow?.postMessage(payload, window.location.origin); } catch (_e) {}
+            });
+        }
+
+        function openStaticPage(pageId, fileName, el) {
+            const iframe = document.querySelector(`#page-${pageId} iframe`);
+            const params = buildProjectContextParams();
             const srcWithProjects = `${fileName}?${params.toString()}`;
             if (iframe && iframe.getAttribute('src') !== srcWithProjects) {
                 iframe.setAttribute('src', srcWithProjects);
@@ -2898,6 +2916,7 @@ ${hints}`);
             };
             config.selectedProjectIds = [projectId];
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+            notifyEmbeddedProjectContext();
         }
         function setTapProjectSelectorMessage(select, message, isError = false) {
             select.innerHTML = `<option value="" disabled selected>${escapeHtml(message)}</option>`;
