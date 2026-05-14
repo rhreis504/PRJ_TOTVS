@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "whatsapp": "npm --prefix server/whatsapp install && npm --prefix server/whatsapp start",
-    "whatsapp:mock": "npm --prefix server/whatsapp install && WHATSAPP_MOCK=true npm --prefix server/whatsapp start"
+    "whatsapp": "cd server/whatsapp && npm install && npm start"
   }
 }
