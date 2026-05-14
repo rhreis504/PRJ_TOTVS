@@ -644,6 +644,38 @@
         .general-add-row input:focus { border-color: var(--totvs-primary); box-shadow: 0 0 0 3px rgba(0,161,228,0.1); }
         .general-add-row button { padding: 9px 10px; }
 
+
+        /* --- WHATSAPP HISTORY --- */
+        .whatsapp-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: end; }
+        .whatsapp-actions-row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+        .whatsapp-status-grid { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+        .whatsapp-status-item, .whatsapp-empty-state { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--input-bg); padding: 14px; }
+        .whatsapp-status-item strong { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+        .whatsapp-status-item span { font-weight: 800; color: var(--text-main); font-size: 13px; word-break: break-word; }
+        .whatsapp-link-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto; gap: 12px; align-items: end; margin-bottom: 16px; }
+        .whatsapp-chat-list { display: grid; gap: 10px; max-height: 430px; overflow-y: auto; padding-right: 4px; }
+        .whatsapp-chat-item { display: grid; grid-template-columns: minmax(220px, 1fr) 120px 170px 110px 90px 120px; gap: 12px; align-items: center; padding: 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #ffffff; box-shadow: var(--shadow-sm); }
+        .whatsapp-chat-name { font-weight: 800; color: var(--totvs-brand); line-height: 1.35; }
+        .whatsapp-chat-id { color: var(--text-muted); font-size: 11px; word-break: break-all; margin-top: 4px; }
+        .whatsapp-badge { display: inline-flex; align-items: center; justify-content: center; padding: 5px 10px; border-radius: 999px; background: rgba(0, 161, 228, 0.1); color: var(--totvs-brand); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+        .whatsapp-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-main); }
+        .whatsapp-check input { accent-color: var(--totvs-primary); }
+        .whatsapp-history-list { display: grid; gap: 16px; }
+        .whatsapp-day-card { border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: #ffffff; overflow: hidden; box-shadow: var(--shadow-sm); }
+        .whatsapp-day-header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 18px; background: linear-gradient(135deg, #f8fbff 0%, #eef7ff 100%); border-bottom: 1px solid var(--border-color); }
+        .whatsapp-day-header h4 { color: var(--totvs-brand); font-size: 15px; margin: 0; }
+        .whatsapp-day-header p { color: var(--text-muted); font-size: 12px; margin: 4px 0 0; }
+        .whatsapp-message-row { padding: 14px 18px; border-bottom: 1px solid var(--border-color); }
+        .whatsapp-message-row:last-child { border-bottom: none; }
+        .whatsapp-message-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: var(--text-main); margin-bottom: 6px; }
+        .whatsapp-message-text { color: var(--text-main); font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+        .whatsapp-qr-box { min-height: 240px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color); border-radius: var(--radius-lg); background: var(--input-bg); padding: 18px; text-align: center; }
+        .whatsapp-qr-box img { max-width: 260px; width: 100%; height: auto; border-radius: var(--radius-md); background: white; padding: 10px; border: 1px solid var(--border-color); }
+        #whatsapp-qr-modal, #whatsapp-export-modal { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        #whatsapp-qr-modal .card, #whatsapp-export-modal .card { width: 100%; max-width: 620px; padding: 0; overflow: hidden; border: none; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); animation: fadeIn .3s ease-out; }
+        @media (max-width: 1200px) { .whatsapp-filter-grid, .whatsapp-status-grid, .whatsapp-link-toolbar { grid-template-columns: 1fr 1fr; } .whatsapp-chat-item { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 720px) { .whatsapp-filter-grid, .whatsapp-status-grid, .whatsapp-link-toolbar { grid-template-columns: 1fr; } .whatsapp-chat-item { grid-template-columns: 1fr; } }
+
         /* --- TOAST --- */
         .toast { 
             position: fixed; bottom: 30px; right: 30px; 
@@ -746,6 +778,7 @@
                 <div class="nav-item" id="nav-treinamentos" onclick="showPage('treinamentos', this)"><i data-lucide="graduation-cap"></i> Roteiros de Treino</div>
                 <div class="nav-item" id="nav-agenda" onclick="showPage('agenda', this)"><i data-lucide="calendar-days"></i> Agenda de Capacitação</div>
                 <div class="nav-item" id="nav-reunioes" onclick="showPage('reunioes', this)"><i data-lucide="presentation"></i> Agenda de Reuniões</div>
+                <div class="nav-item" id="nav-whatsapp-history" onclick="showPage('whatsapp-history', this)"><i data-lucide="message-circle"></i> Histórico WhatsApp</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" id="nav-config" onclick="showPage('config', this)"><i data-lucide="settings"></i> Configurações do Sistema</div>
             </nav>
@@ -931,6 +964,52 @@
                 <iframe class="embedded-page-frame" src="riscos.html" title="Riscos" loading="lazy"></iframe>
             </div>
 
+
+            <!-- HISTÓRICO WHATSAPP -->
+            <div id="page-whatsapp-history" class="hidden">
+                <div class="page-header">
+                    <div class="page-header-text">
+                        <h2>Histórico WhatsApp do Projeto</h2>
+                        <p>Consulte conversas autorizadas, decisões, pendências e registros vinculados ao projeto selecionado.</p>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn-ghost" onclick="loadWhatsappHistory()"><i data-lucide="refresh-cw" size="18"></i> Atualizar</button>
+                        <button class="btn-primary" onclick="openWhatsappExportModal()"><i data-lucide="download" size="18"></i> Exportar</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="section-title"><i data-lucide="filter" size="20"></i> Filtros do Histórico</h3>
+                    <div class="whatsapp-filter-grid">
+                        <div class="config-input-group"><label>Projeto</label><select id="whatsapp-history-project"></select></div>
+                        <div class="config-input-group"><label>Fonte (grupo ou pessoa)</label><select id="whatsapp-history-source"><option value="">Todas as fontes autorizadas</option></select></div>
+                        <div class="config-input-group"><label>Tipo de registro</label><select id="whatsapp-history-type"><option value="all">Tudo</option><option value="messages">Mensagens</option><option value="decision">Decisões</option><option value="pending">Pendências</option><option value="risk">Riscos</option><option value="summary">Resumos</option></select></div>
+                        <div class="config-input-group"><label>Data inicial</label><input type="date" id="whatsapp-history-start"></div>
+                        <div class="config-input-group"><label>Data final</label><input type="date" id="whatsapp-history-end"></div>
+                        <div class="config-input-group"><label>Busca por texto</label><input type="text" id="whatsapp-history-search" placeholder="Digite termo, remetente ou evidência"></div>
+                    </div>
+                    <div class="whatsapp-actions-row" style="margin-top:16px;">
+                        <button class="btn-ghost" onclick="clearWhatsappHistoryFilters()"><i data-lucide="eraser" size="16"></i> Limpar</button>
+                        <button class="btn-primary" onclick="applyWhatsappHistoryFilters()"><i data-lucide="search" size="16"></i> Aplicar Filtros</button>
+                    </div>
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-card"><div class="kpi-icon blue"><i data-lucide="message-square" size="24"></i></div><div class="kpi-info"><h4>Mensagens Capturadas</h4><p id="whatsapp-kpi-messages">0</p></div></div>
+                    <div class="kpi-card"><div class="kpi-icon green"><i data-lucide="shield-check" size="24"></i></div><div class="kpi-info"><h4>Fontes Autorizadas</h4><p id="whatsapp-kpi-sources">0</p></div></div>
+                    <div class="kpi-card"><div class="kpi-icon orange"><i data-lucide="list-todo" size="24"></i></div><div class="kpi-info"><h4>Pendências Detectadas</h4><p id="whatsapp-kpi-pending">0</p></div></div>
+                    <div class="kpi-card"><div class="kpi-icon red"><i data-lucide="alert-triangle" size="24"></i></div><div class="kpi-info"><h4>Riscos Detectados</h4><p id="whatsapp-kpi-risks">0</p></div></div>
+                </div>
+
+                <div class="card">
+                    <h3 class="section-title"><i data-lucide="messages-square" size="20"></i> Histórico Autorizado</h3>
+                    <div id="whatsapp-history-list" class="whatsapp-history-list" aria-live="polite">
+                        <div class="whatsapp-empty-state">Selecione um projeto e clique em Atualizar para consultar conversas autorizadas.</div>
+                    </div>
+                </div>
+            </div>
+
+
             <!-- CONFIGURAÇÕES -->
             <div id="page-config" class="hidden">
                 <div class="page-header">
@@ -977,6 +1056,45 @@
                     <div class="settings-accordion-body">
                         <div id="tap-project-cards-container" class="tap-project-cards-grid" aria-live="polite">
                             <!-- Cards dos projetos cadastrados na TAP -->
+                        </div>
+                    </div>
+                </details>
+
+
+                <details class="settings-accordion" open>
+                    <summary class="settings-accordion-summary">
+                        <div>
+                            <div class="settings-accordion-title"><h3 class="section-title"><i data-lucide="message-circle" size="20"></i> Integração WhatsApp</h3></div>
+                            <p class="settings-accordion-subtitle">Conecte via QR Code e autorize manualmente grupos ou pessoas por projeto. O MVP é somente leitura.</p>
+                        </div>
+                        <i class="settings-accordion-chevron" data-lucide="chevron-down" size="20"></i>
+                    </summary>
+                    <div class="settings-accordion-body">
+                        <div class="card">
+                            <h3 class="section-title"><i data-lucide="wifi" size="20"></i> Status da conexão WhatsApp</h3>
+                            <div class="whatsapp-status-grid">
+                                <div class="whatsapp-status-item"><strong>Status da conexão</strong><span id="whatsapp-status-connection">Desconectado</span></div>
+                                <div class="whatsapp-status-item"><strong>Número conectado</strong><span id="whatsapp-status-phone">--</span></div>
+                                <div class="whatsapp-status-item"><strong>Última leitura</strong><span id="whatsapp-status-last-sync">--</span></div>
+                                <div class="whatsapp-status-item"><strong>Total de grupos</strong><span id="whatsapp-status-groups">0</span></div>
+                                <div class="whatsapp-status-item"><strong>Total de pessoas</strong><span id="whatsapp-status-contacts">0</span></div>
+                            </div>
+                            <div class="whatsapp-actions-row">
+                                <button class="btn-primary" onclick="connectWhatsappQr()"><i data-lucide="qr-code" size="18"></i> Conectar via QR Code</button>
+                                <button class="btn-ghost" onclick="refreshWhatsappChats()"><i data-lucide="refresh-cw" size="18"></i> Atualizar Conversas</button>
+                                <button class="btn-ghost" onclick="disconnectWhatsapp()"><i data-lucide="power" size="18"></i> Desconectar</button>
+                            </div>
+                        </div>
+                        <div class="card" style="margin-bottom:0;">
+                            <h3 class="section-title"><i data-lucide="link" size="20"></i> Vincular WhatsApp ao Projeto</h3>
+                            <div class="whatsapp-link-toolbar">
+                                <div class="config-input-group"><label>Projeto</label><select id="whatsapp-link-project" onchange="renderWhatsappChatLinkList()"></select></div>
+                                <div class="config-input-group"><label>Buscar grupo ou pessoa</label><input type="text" id="whatsapp-chat-search" placeholder="Nome, tipo ou identificador técnico" oninput="renderWhatsappChatLinkList()"></div>
+                                <button class="btn-ghost" onclick="filterWhatsappChatsForLink()"><i data-lucide="search" size="16"></i> Filtrar</button>
+                            </div>
+                            <div id="whatsapp-chat-link-list" class="whatsapp-chat-list" aria-live="polite">
+                                <div class="whatsapp-empty-state">Clique em Atualizar Conversas para listar grupos e pessoas disponíveis.</div>
+                            </div>
                         </div>
                     </div>
                 </details>
@@ -1258,6 +1376,37 @@
                 <button id="color-config-clear" type="button" class="btn-ghost">Limpar cor</button>
                 <button id="color-config-save" type="button" class="btn-primary">Salvar cor</button>
             </div>
+        </div>
+    </div>
+
+
+    <div id="whatsapp-qr-modal" class="generic-modal" style="display:none; align-items:center; justify-content:center; padding:20px;">
+        <div class="card">
+            <div class="modal-header">
+                <div><h3>Conectar WhatsApp</h3><p class="modal-subtitle">Escaneie o QR Code pelo WhatsApp do celular.</p></div>
+                <button class="modal-close" onclick="closeWhatsappQrModal()" aria-label="Fechar modal de QR Code"><i data-lucide="x" size="24"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="whatsapp-qr-container" class="whatsapp-qr-box">Solicitando QR Code ao backend...</div>
+                <p class="modal-subtitle" style="margin-top:14px;"><strong>Privacidade:</strong> nenhuma conversa será salva sem autorização manual e vínculo explícito com um projeto.</p>
+            </div>
+            <div class="modal-footer"><button class="btn-ghost" onclick="closeWhatsappQrModal()">Fechar</button></div>
+        </div>
+    </div>
+
+    <div id="whatsapp-export-modal" class="generic-modal" style="display:none; align-items:center; justify-content:center; padding:20px;">
+        <div class="card">
+            <div class="modal-header">
+                <div><h3>Exportar Histórico WhatsApp</h3><p class="modal-subtitle">A exportação respeita os filtros aplicados na tela.</p></div>
+                <button class="modal-close" onclick="closeWhatsappExportModal()" aria-label="Fechar modal de exportação"><i data-lucide="x" size="24"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="config-grid">
+                    <div class="config-input-group"><label>Formato</label><select id="whatsapp-export-format"><option value="json">JSON completo</option><option value="csv">CSV analítico</option><option value="markdown">Markdown executivo</option><option value="txt">TXT simples</option></select></div>
+                    <div class="config-input-group"><label>Conteúdo</label><select id="whatsapp-export-content"><option value="messages">Mensagens filtradas</option><option value="summary">Resumo do período</option><option value="decisions">Decisões</option><option value="pending">Pendências</option><option value="risks">Riscos</option><option value="full">Pacote completo</option></select></div>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn-ghost" onclick="closeWhatsappExportModal()">Cancelar</button><button class="btn-primary" onclick="exportWhatsappHistory()"><i data-lucide="download" size="18"></i> Exportar</button></div>
         </div>
     </div>
 
@@ -1564,7 +1713,7 @@
 
         // --- NAVIGATION ---
         function showPage(id, el) {
-            ['cockpit', 'status', 'onepage', 'tap', 'pendencias', 'cronograma', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'reunioes', 'config'].forEach(p => {
+            ['cockpit', 'status', 'onepage', 'tap', 'pendencias', 'cronograma', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'reunioes', 'whatsapp-history', 'config'].forEach(p => {
                 const element = document.getElementById('page-' + p);
                 if(element) element.classList.add('hidden');
             });
@@ -1578,7 +1727,8 @@
             if(id === 'reunioes') renderReunioesList();
             if(id === 'cockpit') updateDashboardStats();
             if(id === 'stakeholders') renderStkTable();
-            if(id === 'config') generateConfigRows();
+            if(id === 'config') { generateConfigRows(); pollWhatsappStatus(); refreshWhatsappChats(); }
+            if(id === 'whatsapp-history') { prepareWhatsappProjectSelects(); loadWhatsappHistory(); }
         }
 
         function showTapPage(el) {
@@ -3598,6 +3748,309 @@ ${hints}`);
             h += dataset.rows.map(row => "<tr>" + dataset.headers.map((_, index) => `<td>${escapeHtml(row[index] || '-')}</td>`).join('') + "</tr>").join('') + "</tbody></table>";
             c.innerHTML = h;
             lucide.createIcons();
+        }
+
+
+        // --- WHATSAPP READ-ONLY INTEGRATION ---
+        const WHATSAPP_API_BASE = localStorage.getItem('totvs_whatsapp_api_base') || 'http://localhost:3031';
+        let whatsappChatsCache = [];
+        let whatsappHistoryCache = [];
+        let whatsappStatusTimer = null;
+
+        function notifyWhatsapp(message, type = 'info') {
+            if(typeof showToast === 'function') showToast(message);
+            else console[type === 'error' ? 'error' : 'log'](message);
+        }
+
+        async function whatsappApi(path, options = {}) {
+            const url = `${WHATSAPP_API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+            const headers = { ...(options.headers || {}) };
+            if(options.body && !(options.body instanceof FormData)) headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+            try {
+                const response = await fetch(url, { ...options, headers });
+                const contentType = response.headers.get('content-type') || '';
+                const data = contentType.includes('application/json') ? await response.json() : await response.text();
+                if(!response.ok) {
+                    const errorMessage = (data && data.message) || 'Operação WhatsApp não concluída.';
+                    throw new Error(errorMessage);
+                }
+                return data;
+            } catch (error) {
+                throw new Error(error?.message || 'Backend WhatsApp indisponível. Verifique se o serviço está em execução.');
+            }
+        }
+
+        function prepareWhatsappProjectSelects() {
+            const projectOptions = (config.projects || []).map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || project.id)}</option>`).join('');
+            ['whatsapp-link-project', 'whatsapp-history-project'].forEach(id => {
+                const select = document.getElementById(id);
+                if(!select) return;
+                const previousValue = select.value || config.activeProjectId || '';
+                select.innerHTML = projectOptions || '<option value="">Nenhum projeto cadastrado</option>';
+                select.value = (config.projects || []).some(project => project.id === previousValue) ? previousValue : (config.activeProjectId || select.value);
+            });
+            renderWhatsappHistorySourceOptions();
+        }
+
+        async function connectWhatsappQr() {
+            openWhatsappQrModal();
+            const box = document.getElementById('whatsapp-qr-container');
+            if(box) box.textContent = 'Solicitando QR Code ao backend...';
+            try {
+                const result = await whatsappApi('/connect', { method: 'POST' });
+                if(result?.qrDataUrl && box) box.innerHTML = `<img src="${escapeHtml(result.qrDataUrl)}" alt="QR Code WhatsApp">`;
+                else if(box) box.innerHTML = '<div>Cliente iniciado. Se já estiver conectado, nenhum QR Code será necessário.</div>';
+                updateWhatsappStatusUI(result?.status ? result : { status: 'qr_pending', connected: false });
+                pollWhatsappStatus();
+            } catch (error) {
+                if(box) box.textContent = 'Não foi possível obter o QR Code. Backend WhatsApp indisponível.';
+                notifyWhatsapp(error.message, 'error');
+            }
+        }
+
+        function openWhatsappQrModal() {
+            const modal = document.getElementById('whatsapp-qr-modal');
+            if(modal) modal.style.display = 'flex';
+            lucide.createIcons();
+        }
+
+        function closeWhatsappQrModal() {
+            const modal = document.getElementById('whatsapp-qr-modal');
+            if(modal) modal.style.display = 'none';
+            if(whatsappStatusTimer) clearInterval(whatsappStatusTimer);
+            whatsappStatusTimer = null;
+        }
+
+        async function pollWhatsappStatus() {
+            if(whatsappStatusTimer) clearInterval(whatsappStatusTimer);
+            const load = async () => {
+                try { updateWhatsappStatusUI(await whatsappApi('/status')); }
+                catch (error) { updateWhatsappStatusUI({ status: 'offline', connected: false, error: true }); }
+            };
+            await load();
+            whatsappStatusTimer = setInterval(load, 10000);
+        }
+
+        function updateWhatsappStatusUI(status = {}) {
+            const groups = whatsappChatsCache.filter(chat => chat.type === 'group').length;
+            const contacts = whatsappChatsCache.filter(chat => chat.type !== 'group').length;
+            const values = {
+                'whatsapp-status-connection': status.connected ? 'Conectado' : (status.status === 'offline' ? 'Backend fora do ar' : (status.status || 'Desconectado')),
+                'whatsapp-status-phone': status.phoneNumber || status.phone_number || '--',
+                'whatsapp-status-last-sync': formatWhatsappDateTime(status.lastSyncAt || status.last_sync_at),
+                'whatsapp-status-groups': status.totalGroups ?? groups,
+                'whatsapp-status-contacts': status.totalContacts ?? contacts
+            };
+            Object.entries(values).forEach(([id, value]) => { const el = document.getElementById(id); if(el) el.textContent = value; });
+        }
+
+        async function disconnectWhatsapp() {
+            try {
+                const result = await whatsappApi('/disconnect', { method: 'POST' });
+                updateWhatsappStatusUI(result);
+                notifyWhatsapp('WhatsApp desconectado com segurança.');
+            } catch (error) { notifyWhatsapp(error.message, 'error'); }
+        }
+
+        async function refreshWhatsappChats() {
+            prepareWhatsappProjectSelects();
+            const list = document.getElementById('whatsapp-chat-link-list');
+            if(list) list.innerHTML = '<div class="whatsapp-empty-state">Carregando conversas do backend...</div>';
+            try {
+                const projectId = document.getElementById('whatsapp-link-project')?.value || config.activeProjectId || '';
+                const result = await whatsappApi(`/chats${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`);
+                whatsappChatsCache = Array.isArray(result?.chats) ? result.chats : [];
+                updateWhatsappStatusUI(result?.status || {});
+                renderWhatsappChatLinkList();
+                renderWhatsappHistorySourceOptions();
+            } catch (error) {
+                if(list) list.innerHTML = '<div class="whatsapp-empty-state">Backend WhatsApp indisponível. Nenhuma conversa foi carregada.</div>';
+                notifyWhatsapp(error.message, 'error');
+            }
+        }
+
+        function filterWhatsappChatsForLink() { renderWhatsappChatLinkList(); }
+
+        function renderWhatsappChatLinkList() {
+            prepareWhatsappProjectSelects();
+            const container = document.getElementById('whatsapp-chat-link-list');
+            if(!container) return;
+            const projectId = document.getElementById('whatsapp-link-project')?.value || config.activeProjectId || '';
+            const search = (document.getElementById('whatsapp-chat-search')?.value || '').toLowerCase().trim();
+            const items = whatsappChatsCache.filter(chat => !search || [chat.name, chat.id, chat.type].some(value => String(value || '').toLowerCase().includes(search)));
+            if(!items.length) {
+                container.innerHTML = '<div class="whatsapp-empty-state">Nenhum grupo ou pessoa encontrado para os filtros informados.</div>';
+                return;
+            }
+            container.innerHTML = items.map(chat => {
+                const chatId = chat.id || chat.wa_chat_id || '';
+                const enabled = Boolean(chat.enabled && (!chat.project_id || chat.project_id === projectId));
+                const ai = Boolean(chat.can_analyze_ai && (!chat.project_id || chat.project_id === projectId));
+                const typeLabel = chat.type === 'group' ? 'Grupo' : 'Pessoa';
+                return `<div class="whatsapp-chat-item">
+                    <div><div class="whatsapp-chat-name">${escapeHtml(chat.name || chat.chat_name || chatId)}</div><div class="whatsapp-chat-id">${escapeHtml(chatId)}</div></div>
+                    <span class="whatsapp-badge">${typeLabel}</span>
+                    <span class="whatsapp-chat-id">${escapeHtml(chatId)}</span>
+                    <label class="whatsapp-check"><input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleWhatsappProjectSource('${escapeJs(chatId)}', this.checked)"> Capturar</label>
+                    <label class="whatsapp-check"><input type="checkbox" ${ai ? 'checked' : ''} onchange="toggleWhatsappAi('${escapeJs(chatId)}', this.checked)"> IA</label>
+                    <button class="btn-ghost" onclick="syncWhatsappChatHistory('${escapeJs(chatId)}')"><i data-lucide="refresh-cw" size="14"></i> Sincronizar</button>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        async function toggleWhatsappProjectSource(chatId, enabled) {
+            const projectId = document.getElementById('whatsapp-link-project')?.value || config.activeProjectId || '';
+            const chat = whatsappChatsCache.find(item => (item.id || item.wa_chat_id) === chatId) || {};
+            if(!projectId) return notifyWhatsapp('Selecione um projeto antes de vincular a fonte.', 'error');
+            try {
+                await whatsappApi('/project-sources', { method: 'POST', body: JSON.stringify({ project_id: projectId, chat_id: chatId, chat_name: chat.name || chat.chat_name || chatId, chat_type: chat.type === 'group' ? 'group' : 'contact', enabled, capture_from: new Date().toISOString(), can_analyze_ai: Boolean(chat.can_analyze_ai), retention_days: 365 }) });
+                chat.enabled = enabled; chat.project_id = projectId;
+                notifyWhatsapp(enabled ? 'Captura autorizada para o projeto.' : 'Captura desativada para a fonte.');
+                renderWhatsappChatLinkList();
+            } catch (error) { notifyWhatsapp(error.message, 'error'); renderWhatsappChatLinkList(); }
+        }
+
+        async function toggleWhatsappAi(chatId, canAnalyzeAi) {
+            const projectId = document.getElementById('whatsapp-link-project')?.value || config.activeProjectId || '';
+            try {
+                await whatsappApi('/project-sources/ai', { method: 'POST', body: JSON.stringify({ project_id: projectId, chat_id: chatId, can_analyze_ai: canAnalyzeAi }) });
+                const chat = whatsappChatsCache.find(item => (item.id || item.wa_chat_id) === chatId);
+                if(chat) chat.can_analyze_ai = canAnalyzeAi;
+                notifyWhatsapp(canAnalyzeAi ? 'Análise por IA permitida para esta fonte.' : 'Análise por IA bloqueada para esta fonte.');
+            } catch (error) { notifyWhatsapp(error.message, 'error'); renderWhatsappChatLinkList(); }
+        }
+
+        async function syncWhatsappChatHistory(chatId) {
+            const projectId = document.getElementById('whatsapp-link-project')?.value || config.activeProjectId || '';
+            try {
+                const result = await whatsappApi('/sync-chat', { method: 'POST', body: JSON.stringify({ project_id: projectId, chat_id: chatId }) });
+                if(result?.skipped) notifyWhatsapp('Sincronização ignorada: fonte não autorizada para este projeto.');
+                else notifyWhatsapp('Histórico autorizado sincronizado.');
+                await loadWhatsappHistory();
+            } catch (error) { notifyWhatsapp(error.message, 'error'); }
+        }
+
+        function getWhatsappHistoryQuery(extra = {}) {
+            const params = new URLSearchParams();
+            const projectId = document.getElementById('whatsapp-history-project')?.value || config.activeProjectId || '';
+            const sourceId = document.getElementById('whatsapp-history-source')?.value || '';
+            const start = document.getElementById('whatsapp-history-start')?.value || '';
+            const end = document.getElementById('whatsapp-history-end')?.value || '';
+            const search = document.getElementById('whatsapp-history-search')?.value || '';
+            const type = document.getElementById('whatsapp-history-type')?.value || 'all';
+            if(projectId) params.set('project_id', projectId);
+            if(sourceId) params.set('source_id', sourceId);
+            if(start) params.set('start', start);
+            if(end) params.set('end', end);
+            if(search) params.set('search', search);
+            if(type && type !== 'all') params.set('type', type);
+            Object.entries(extra).forEach(([key, value]) => { if(value) params.set(key, value); });
+            return params;
+        }
+
+        async function loadWhatsappHistory() {
+            prepareWhatsappProjectSelects();
+            const container = document.getElementById('whatsapp-history-list');
+            if(container) container.innerHTML = '<div class="whatsapp-empty-state">Carregando histórico autorizado...</div>';
+            try {
+                const result = await whatsappApi(`/history?${getWhatsappHistoryQuery().toString()}`);
+                whatsappHistoryCache = Array.isArray(result?.items) ? result.items : (Array.isArray(result?.batches) ? result.batches : []);
+                renderWhatsappHistory(whatsappHistoryCache);
+                updateWhatsappHistoryKpis(result);
+            } catch (error) {
+                whatsappHistoryCache = [];
+                renderWhatsappHistory([]);
+                updateWhatsappHistoryKpis({});
+                notifyWhatsapp(error.message, 'error');
+            }
+        }
+
+        function applyWhatsappHistoryFilters() { loadWhatsappHistory(); }
+
+        function clearWhatsappHistoryFilters() {
+            ['whatsapp-history-source', 'whatsapp-history-start', 'whatsapp-history-end', 'whatsapp-history-search'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+            const type = document.getElementById('whatsapp-history-type'); if(type) type.value = 'all';
+            loadWhatsappHistory();
+        }
+
+        function renderWhatsappHistory(items = []) {
+            const container = document.getElementById('whatsapp-history-list');
+            if(!container) return;
+            const expanded = [];
+            items.forEach(batch => {
+                const payload = batch.payload || batch;
+                const messages = Array.isArray(batch.messages) ? batch.messages : (Array.isArray(payload.messages) ? payload.messages : []);
+                expanded.push({ batch, payload, messages });
+            });
+            if(!expanded.length || expanded.every(item => !item.messages.length)) {
+                container.innerHTML = '<div class="whatsapp-empty-state">Nenhum histórico autorizado encontrado para os filtros aplicados.</div>';
+                return;
+            }
+            container.innerHTML = expanded.map(({ batch, payload, messages }) => {
+                const source = payload.source || batch.source || {};
+                const batchInfo = payload.batch || batch.batch || {};
+                const date = batch.batch_date || batchInfo.date || (messages[0]?.timestamp || '').slice(0, 10);
+                const chatName = batch.chat_name || source.chat_name || 'Fonte autorizada';
+                const typeLabel = (batch.chat_type || source.chat_type) === 'group' ? 'Grupo' : 'Pessoa';
+                return `<div class="whatsapp-day-card">
+                    <div class="whatsapp-day-header"><div><h4>Data: ${escapeHtml(formatWhatsappDate(date))}</h4><p>${typeLabel}: ${escapeHtml(chatName)}</p></div><span class="whatsapp-badge">${messages.length} mensagens</span></div>
+                    ${messages.map(message => `<div class="whatsapp-message-row"><div class="whatsapp-message-meta"><span>${escapeHtml(formatWhatsappTime(message.timestamp))}</span><span>|</span><span>${escapeHtml(message.senderName || message.senderId || 'Remetente')}</span>${message.hasMedia ? '<span class="whatsapp-badge">mídia</span>' : ''}</div><div class="whatsapp-message-text">${escapeHtml(message.text || (message.hasMedia ? '[Mensagem com mídia não baixada no MVP]' : '[Mensagem sem texto]'))}</div></div>`).join('')}
+                </div>`;
+            }).join('');
+        }
+
+        function updateWhatsappHistoryKpis(result = {}) {
+            const messageCount = result.messageCount ?? whatsappHistoryCache.reduce((sum, batch) => sum + ((batch.messages || batch.payload?.messages || []).length), 0);
+            const sourceCount = result.sourceCount ?? new Set(whatsappHistoryCache.map(batch => batch.wa_chat_id || batch.payload?.source?.wa_chat_id).filter(Boolean)).size;
+            const pendingCount = result.pendingCount ?? result.insights?.pending ?? 0;
+            const riskCount = result.riskCount ?? result.insights?.risks ?? 0;
+            [['whatsapp-kpi-messages', messageCount], ['whatsapp-kpi-sources', sourceCount], ['whatsapp-kpi-pending', pendingCount], ['whatsapp-kpi-risks', riskCount]].forEach(([id, value]) => { const el = document.getElementById(id); if(el) el.textContent = value; });
+        }
+
+        function renderWhatsappHistorySourceOptions() {
+            const select = document.getElementById('whatsapp-history-source');
+            if(!select) return;
+            const enabled = whatsappChatsCache.filter(chat => chat.enabled).map(chat => `<option value="${escapeHtml(chat.id || chat.wa_chat_id || '')}">${escapeHtml(chat.name || chat.chat_name || chat.id)}</option>`).join('');
+            select.innerHTML = `<option value="">Todas as fontes autorizadas</option>${enabled}`;
+        }
+
+        function openWhatsappExportModal() { const modal = document.getElementById('whatsapp-export-modal'); if(modal) modal.style.display = 'flex'; lucide.createIcons(); }
+        function closeWhatsappExportModal() { const modal = document.getElementById('whatsapp-export-modal'); if(modal) modal.style.display = 'none'; }
+
+        async function exportWhatsappHistory() {
+            const format = document.getElementById('whatsapp-export-format')?.value || 'json';
+            const content = document.getElementById('whatsapp-export-content')?.value || 'messages';
+            try {
+                const result = await whatsappApi(`/export?${getWhatsappHistoryQuery({ format, content }).toString()}`);
+                const blob = new Blob([typeof result === 'string' ? result : JSON.stringify(result, null, 2)], { type: format === 'json' ? 'application/json' : 'text/plain;charset=utf-8' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `whatsapp-history-${new Date().toISOString().slice(0,10)}.${format === 'markdown' ? 'md' : format}`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+                closeWhatsappExportModal();
+            } catch (error) { notifyWhatsapp(error.message, 'error'); }
+        }
+
+        function formatWhatsappDate(value) {
+            if(!value) return '--';
+            const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('pt-BR');
+        }
+        function formatWhatsappTime(value) {
+            if(!value) return '--:--';
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? String(value).slice(11, 16) : date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+        function formatWhatsappDateTime(value) {
+            if(!value) return '--';
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleString('pt-BR');
+        }
+
+        function escapeJs(value) {
+            return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n').replace(/\r/g, '');
         }
 
         function initApp() {

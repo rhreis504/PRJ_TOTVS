@@ -1,0 +1,10 @@
+begin;
+select has_table('public', 'whatsapp_sessions');
+select has_table('public', 'whatsapp_chats');
+select has_table('public', 'whatsapp_project_sources');
+select has_table('public', 'whatsapp_message_batches');
+select has_table('public', 'whatsapp_project_insights');
+select col_type_is('public', 'whatsapp_message_batches', 'payload', 'jsonb');
+select col_is_unique('public', 'whatsapp_project_sources', array['project_id', 'wa_chat_id']);
+select col_is_unique('public', 'whatsapp_message_batches', array['project_id', 'wa_chat_id', 'batch_date']);
+rollback;

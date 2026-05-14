@@ -1,0 +1,28 @@
+{
+  "name": "totvs-whatsapp-history-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "lint": "eslint .",
+    "validate": "npm run lint && npm run test && npm run test:e2e"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "latest",
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "qrcode": "latest",
+    "whatsapp-web.js": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "eslint": "latest",
+    "vitest": "latest"
+  }
+}
