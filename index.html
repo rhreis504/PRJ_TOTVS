@@ -3757,9 +3757,20 @@ ${hints}`);
         let whatsappHistoryCache = [];
         let whatsappStatusTimer = null;
 
+        function getWhatsappApiErrorMessage(error) {
+            const message = String(error?.message ?? error ?? '').trim();
+            const normalized = message.toLowerCase();
+            const networkFailures = ['failed to fetch', 'networkerror', 'load failed', 'network request failed'];
+            if(!normalized || networkFailures.some(fragment => normalized.includes(fragment))) {
+                return 'Backend WhatsApp indisponível. Verifique se o serviço está em execução.';
+            }
+            return message;
+        }
+
         function notifyWhatsapp(message, type = 'info') {
-            if(typeof showToast === 'function') showToast(message);
-            else console[type === 'error' ? 'error' : 'log'](message);
+            const safeMessage = type === 'error' ? getWhatsappApiErrorMessage(message) : message;
+            if(typeof showToast === 'function') showToast(safeMessage);
+            else console[type === 'error' ? 'error' : 'log'](safeMessage);
         }
 
         async function whatsappApi(path, options = {}) {
@@ -3776,18 +3787,33 @@ ${hints}`);
                 }
                 return data;
             } catch (error) {
-                throw new Error(error?.message || 'Backend WhatsApp indisponível. Verifique se o serviço está em execução.');
+                throw new Error(getWhatsappApiErrorMessage(error));
             }
         }
 
+        function getUniqueWhatsappProjects() {
+            const projects = Array.isArray(config.projects) ? config.projects : [];
+            const uniqueByName = new Map();
+            projects.forEach(project => {
+                if(!project || !project.id) return;
+                const label = `${project.name || project.id}`.trim();
+                const key = (label || project.id).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ');
+                const existing = uniqueByName.get(key);
+                if(!existing || project.id === config.activeProjectId) uniqueByName.set(key, project);
+            });
+            return Array.from(uniqueByName.values());
+        }
+
         function prepareWhatsappProjectSelects() {
-            const projectOptions = (config.projects || []).map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || project.id)}</option>`).join('');
+            const uniqueProjects = getUniqueWhatsappProjects();
+            const projectOptions = uniqueProjects.map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || project.id)}</option>`).join('');
             ['whatsapp-link-project', 'whatsapp-history-project'].forEach(id => {
                 const select = document.getElementById(id);
                 if(!select) return;
                 const previousValue = select.value || config.activeProjectId || '';
                 select.innerHTML = projectOptions || '<option value="">Nenhum projeto cadastrado</option>';
-                select.value = (config.projects || []).some(project => project.id === previousValue) ? previousValue : (config.activeProjectId || select.value);
+                const nextValue = uniqueProjects.some(project => project.id === previousValue) ? previousValue : (uniqueProjects[0]?.id || '');
+                select.value = nextValue;
             });
             renderWhatsappHistorySourceOptions();
         }
@@ -3803,8 +3829,9 @@ ${hints}`);
                 updateWhatsappStatusUI(result?.status ? result : { status: 'qr_pending', connected: false });
                 pollWhatsappStatus();
             } catch (error) {
-                if(box) box.textContent = 'Não foi possível obter o QR Code. Backend WhatsApp indisponível.';
-                notifyWhatsapp(error.message, 'error');
+                const message = getWhatsappApiErrorMessage(error);
+                if(box) box.textContent = `Não foi possível obter o QR Code. ${message}`;
+                notifyWhatsapp(message, 'error');
             }
         }
 
