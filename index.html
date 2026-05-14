@@ -3771,7 +3771,7 @@ ${hints}`);
             const normalized = message.toLowerCase();
             const networkFailures = ['failed to fetch', 'networkerror', 'load failed', 'network request failed'];
             if(!normalized || networkFailures.some(fragment => normalized.includes(fragment))) {
-                return `Backend WhatsApp indisponível em ${WHATSAPP_API_BASE}. Inicie o serviço pela raiz do projeto com "npm run whatsapp" e depois abra http://localhost:3031/.`;
+                return `Backend WhatsApp indisponível em ${WHATSAPP_API_BASE}. Pela raiz do projeto, rode "npm run whatsapp" (ou "npm run whatsapp:mock" para teste sem WhatsApp real), aguarde a mensagem "WhatsApp history service listening on 3031" e depois abra http://localhost:3031/.`;
             }
             return message;
         }
