@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Report Executivo - OnePage Projeto</title>
+    <style>
+        :root {
+            --header: #434343;
+            --section: #3C78D8;
+            --subtitle: #C9DAF8;
+            --subtitle2: #CFE2F3;
+            --alt: #F3F3F3;
+            --border: #D9D9D9;
+            --text: #434343;
+            --page-bg: #F4F7F9;
+            --white: #fff;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--page-bg); color: var(--text); font-family: Arial, Tahoma, "Segoe UI", sans-serif; font-size: 12px; }
+        .onepage-toolbar { max-width: 1480px; margin: 14px auto 8px; display: flex; gap: 8px; justify-content: flex-end; padding: 0 10px; }
+        .onepage-toolbar button { border: 1px solid #b7b7b7; background: #fff; color: #333; padding: 7px 12px; border-radius: 3px; cursor: pointer; font-weight: 700; font-size: 12px; }
+        .onepage-toolbar button:hover { background: #edf4ff; border-color: var(--section); }
+        .onepage-sheet { width: calc(100% - 24px); max-width: 1480px; min-height: 850px; margin: 0 auto 22px; background: var(--white); border: 1px solid var(--border); box-shadow: 0 10px 24px rgba(0,0,0,.12); padding: 10px; }
+        .top-title { background: var(--header); color: #fff; text-align: center; font-weight: 700; font-size: 20px; letter-spacing: .2px; padding: 10px; border: 1px solid #333; }
+        .project-id { border: 1px solid var(--border); border-top: none; text-align: center; padding: 7px 10px; font-size: 14px; font-weight: 700; background: #fff; }
+        .status-line { display: grid; grid-template-columns: 160px 1fr; border: 1px solid var(--border); border-top: none; margin-bottom: 8px; }
+        .status-line .label { background: var(--subtitle); font-weight: 700; padding: 6px 8px; border-right: 1px solid var(--border); }
+        .status-line .value { padding: 6px 8px; font-weight: 700; }
+        .top-grid { display: grid; grid-template-columns: 1.05fr 1.15fr .85fr 1.75fr; gap: 8px; margin-bottom: 8px; align-items: stretch; }
+        .two-col { display: grid; grid-template-columns: 1.06fr .94fr; gap: 8px; margin-bottom: 8px; }
+        .section-box { border: 1px solid var(--border); background: #fff; min-height: 100%; }
+        .section-title { background: var(--section); color: #fff; text-align: center; font-size: 13px; font-weight: 700; padding: 5px 8px; border-bottom: 1px solid #2f5fae; text-transform: uppercase; }
+        .section-subtitle { background: var(--subtitle); color: #1f3f6d; font-weight: 700; padding: 4px 7px; border-bottom: 1px solid var(--border); }
+        .section-subtitle.secondary { background: var(--subtitle2); }
+        .progress-content { padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .metric-cell { border: 1px solid var(--border); text-align: center; min-height: 76px; display: flex; flex-direction: column; justify-content: center; background: #fff; }
+        .metric-label { font-weight: 700; background: var(--subtitle2); padding: 4px; border-bottom: 1px solid var(--border); }
+        .metric-value { font-size: 24px; font-weight: 700; padding-top: 4px; }
+        .big-light { font-size: 27px; line-height: 1; padding: 3px 0; }
+        .legend { grid-column: 1 / -1; border: 1px solid var(--border); padding: 4px 6px; font-size: 11px; display: flex; gap: 10px; justify-content: center; background: var(--alt); flex-wrap: wrap; }
+        .risk-grid { padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .risk-card { border: 1px solid var(--border); display: grid; grid-template-columns: 1fr 42px; align-items: center; min-height: 36px; background: #fff; }
+        .risk-card span:first-child { padding: 6px; font-weight: 700; background: var(--alt); height: 100%; display: flex; align-items: center; }
+        .risk-card span:last-child { text-align: center; font-size: 22px; }
+        .idp-content { padding: 8px; text-align: center; }
+        .idp-sub { background: var(--subtitle); border: 1px solid var(--border); font-weight: 700; padding: 5px; margin-bottom: 6px; }
+        .idp-value { font-size: 30px; font-weight: 700; border: 1px solid var(--border); padding: 5px; }
+        .curva-wrap { padding: 6px; min-height: 158px; }
+        .empty-chart { height: 128px; display: flex; align-items: center; justify-content: center; color: #777; border: 1px dashed #b7b7b7; background: #fafafa; font-weight: 700; }
+        .chart-legend { display: flex; gap: 10px; justify-content: center; font-size: 10px; margin-top: 3px; }
+        .dot { width: 10px; height: 3px; display: inline-block; vertical-align: middle; margin-right: 3px; }
+        table.excel { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        table.excel th, table.excel td { border: 1px solid var(--border); padding: 4px 5px; vertical-align: top; line-height: 1.25; word-wrap: break-word; white-space: normal; }
+        table.excel th { background: var(--subtitle2); font-weight: 700; text-align: center; }
+        table.excel tbody tr:nth-child(even) td { background: var(--alt); }
+        .min-activities { min-height: 210px; }
+        .timeline-content { padding: 7px; }
+        .overall { display: grid; grid-template-columns: 120px 1fr 52px; gap: 6px; align-items: center; margin-bottom: 7px; font-weight: 700; }
+        .bar { height: 16px; border: 1px solid var(--border); background: #f7f7f7; position: relative; overflow: hidden; }
+        .bar > span { display: block; height: 100%; background: #6aa84f; }
+        .timeline-table td:nth-child(2), .timeline-table td:nth-child(3) { text-align: center; }
+        .timeline-stage { display: flex; align-items: center; gap: 5px; }
+        .stage-fill { height: 10px; min-width: 34px; border: 1px solid var(--border); background: #fff; }
+        .stage-fill span { display: block; height: 100%; background: #3C78D8; }
+        .small { font-size: 11px; }
+        .nowrap { white-space: nowrap !important; }
+        @media (max-width: 1100px) { .top-grid, .two-col { grid-template-columns: 1fr; } .onepage-sheet { width: calc(100% - 12px); } }
+        @media print {
+          @page { size: A4 landscape; margin: 6mm; }
+          body { background: #fff; }
+          .onepage-toolbar { display: none !important; }
+          .onepage-sheet { width: 100%; max-width: none; box-shadow: none; border: none; page-break-inside: avoid; margin: 0; padding: 0; min-height: auto; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+    </style>
+</head>
+<body>
+  <div class="onepage-toolbar no-print">
+     <button type="button" onclick="loadOnePageData()">Atualizar</button>
+     <button type="button" onclick="printOnePage()">Imprimir / PDF</button>
+  </div>
+
+  <main class="onepage-sheet" id="onepage-sheet">
+     <div class="top-title">Status Report Executivo - OnePage Projeto</div>
+     <div class="empty-chart">Carregando One Page Executivo...</div>
+  </main>
+
+  <script>
+    const ONEPAGE_FALLBACK = {
+      tap: { codPsa: "D000076642001", cliente: "AFFIX ADMIN DE BENEFICIOS", projeto: "IMPL. FOLHA - PROTHEUS - SAAS", gerenteProjeto: "REGIANE DINIZ", produto: "TOTVS RM RH", escopo: "Implantação TOTVS RM - Gestão de Folha de Pagamento, App Meu RH, carga de dados, integração contábil/financeira com Protheus, integração com Ahgora e rollouts." },
+      status: { dataStatus: "19/02/2026", realizado: 0.02, planejado: 0.02, idpSpi: 1, semaforos: { realizado: "🟢", planejado: "🟢", aderencia: "🟢", integracao: "🟡", escopo: "🟡", financeiro: "🟢", idpSpi: "🟢" } },
+      etapas: [
+        { etapa: "Iniciação", peso: 0.02, progresso: 1, dataFinal: "13/02/2026", status: "🟢 ETAPA CONCLUÍDA" },
+        { etapa: "Refinamento", peso: 0.12, progresso: 0, dataFinal: "10/03/2026", status: "ETAPA NÃO INICIADA" },
+        { etapa: "Execução", peso: 0.65, progresso: 0, dataFinal: "30/05/2026", status: "ETAPA NÃO INICIADA" },
+        { etapa: "Go Live", peso: 0.20, progresso: 0, dataFinal: "01/06/2026", status: "⚪ ETAPA NÃO INICIADA" },
+        { etapa: "Op. Assistida (MIT062)", peso: 0.01, progresso: 0, dataFinal: "01/07/2026", status: "⚪ ETAPA NÃO INICIADA" }
+      ],
+      atividadesRealizadas: [ { descricao: "Reunião com Parceiro - TNU para alinhamento da proposta comercial", dataFinal: "05/01/2026" }, { descricao: "Realização de Kickoff - cliente e parceiro TNU", dataFinal: "13/02/2026" } ],
+      pontosAtencao: [
+        { data: "18/02/2026", criticidade: "🟡", descricao: "Integração - Integração Financeira e Contábil com Protheus para envio de lançamentos" },
+        { data: "18/02/2026", criticidade: "🟡", descricao: "Escopo - Carga de dados do sistema ADP e validação, pelo cliente, dos dados carregados." },
+        { data: "18/02/2026", criticidade: "🟡", descricao: "Integração - Integração com o Ponto Eletrônico Ahgora ainda não realizada." }
+      ],
+      proximosPassos: [ { item: "1", descricao: "Envio de Documento Kickoff para assinatura do cliente", dataFinal: "20/02/2026" }, { item: "2", descricao: "Mapeamento de Processos - Recursos Humanos", dataFinal: "20/02/2026" }, { item: "3", descricao: "Preparação de Cronograma e apresentação para validação do cliente", dataFinal: "10/03/2026" } ],
+      curvaS: []
+    };
+
+    const stripDiacritics = (value = '') => value.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const normalizeKey = (k = '') => stripDiacritics(k).toLowerCase().trim();
+    const compactKey = (k = '') => normalizeKey(k).replace(/[^a-z0-9]+/g, '');
+    function normalizeRow(row = {}) { if (Array.isArray(row)) return row.reduce((acc, value, index) => { acc[`col${index + 1}`] = value; return acc; }, {}); return Object.entries(row || {}).reduce((acc, [k, v]) => { acc[normalizeKey(k)] = v; acc[compactKey(k)] = v; return acc; }, {}); }
+    function firstFrom(row, keys = []) { const n = row && (row[normalizeKey(keys[0] || '')] !== undefined || row[compactKey(keys[0] || '')] !== undefined) ? row : normalizeRow(row || {}); for (const k of keys) { const val = n[normalizeKey(k)] ?? n[compactKey(k)]; if (val !== undefined && val !== null && `${val}`.trim() !== '') return `${val}`.trim(); } return ''; }
+    function escapeHtml(value = '') { return `${value ?? ''}`.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c])); }
+    function toNumber(value = '') { const cleaned = `${value ?? ''}`.replace(/[^0-9,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'); const n = parseFloat(cleaned); return Number.isFinite(n) ? n : 0; }
+    function parseDateValue(value = '') { if (!value) return null; const raw = `${value}`.trim(); if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return new Date(`${raw.slice(0, 10)}T00:00:00`); const br = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if (br) { const year = br[3].length === 2 ? `20${br[3]}` : br[3]; return new Date(`${year}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}T00:00:00`); } const parsed = new Date(raw); return Number.isNaN(parsed.getTime()) ? null : parsed; }
+    function formatDate(value = '') { const d = value instanceof Date ? value : parseDateValue(value); return d ? d.toLocaleDateString('pt-BR') : (value || ''); }
+    function formatDateBR(value = '') { return formatDate(value); }
+
+    function getCockpitConfig() { const parse = (value) => { try { return value ? JSON.parse(value) : {}; } catch { return {}; } }; const localCfg = parse(localStorage.getItem('totvs_cockpit_config') || '{}'); try { const parentCfg = (window.parent && window.parent !== window && window.parent.config) ? window.parent.config : null; if (parentCfg && Object.keys(parentCfg).length) return parentCfg; } catch (_e) {} return localCfg; }
+    function getUrlProjectParams() { const params = new URLSearchParams(window.location.search || ''); const primaryProject = params.get('primaryProject') || ''; const selectedProjects = (params.get('projects') || '').split(',').map(v => v.trim()).filter(Boolean); const tapEntry = params.get('tapEntry') || ''; return { primaryProject, selectedProjects, tapEntry }; }
+    function getActiveProjectCode(cfg = getCockpitConfig()) { const urlParams = getUrlProjectParams(); return urlParams.primaryProject || cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds[0] : '') || 'default'; }
+    function getSelectedProjectCodes(cfg = getCockpitConfig()) { const urlParams = getUrlProjectParams(); const codes = [urlParams.primaryProject, ...urlParams.selectedProjects, cfg?.activeProjectId, ...(Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds : [])].map(v => `${v || ''}`.trim()).filter(Boolean); return [...new Set(codes.length ? codes : ['default'])]; }
+    function getActiveProjectConfig(cfg = getCockpitConfig()) { const projects = Array.isArray(cfg?.projects) ? cfg.projects : []; if (!projects.length) return {}; const activeId = getActiveProjectCode(cfg); return projects.find(p => p.id === activeId) || projects.find(p => getSelectedProjectCodes(cfg).includes(p.id)) || projects[0] || {}; }
+    function resolveSourceByLabel(sources = {}, aliases = []) { const normalizedAliases = aliases.map(normalizeKey); return Object.values(sources || {}).find(source => normalizedAliases.includes(normalizeKey(source?.label || ''))) || null; }
+    function getConfiguredSource(sourceKey) { const cfg = getCockpitConfig(); const active = getActiveProjectConfig(cfg); const activeSources = active?.sources || {}; const globalSources = cfg?.sources || {}; const aliases = { statusReport: ['Status Report Executivo - Input', 'Status Report Executivo', 'Status Report'], stakeholders: ['Stakeholders'], pendencias: ['Pendências', 'Pendencias'], riscos: ['Riscos'], gaps: ['GAPs e Mudanças', 'Gaps e Mudanças', 'Gaps'], tap: ['TAP'], curvaS: ['Curva S - Atividades', 'Curva S', 'CurvaS'], atividades: ['Nova Fonte', 'Atividades', 'Resumo Semanal de Atividades'], treinamentos: ['Treinamentos', 'Agenda de Treinamentos'] }; const candidates = [activeSources[sourceKey], resolveSourceByLabel(activeSources, aliases[sourceKey] || []), globalSources[sourceKey], resolveSourceByLabel(globalSources, aliases[sourceKey] || [])]; return candidates.find(source => (source?.url || '').trim()) || candidates.find(Boolean) || {}; }
+    function resolveConfiguredCsvUrl(source = {}) { let url = (source.url || '').trim(); if (!url) return ''; if ((source.sourceType || 'csv') !== 'csv') return url; if (url.includes('docs.google.com/spreadsheets')) { if (url.includes('/pub')) { if (!url.includes('output=csv')) url += (url.includes('?') ? '&' : '?') + 'output=csv'; } else if (url.includes('/pubhtml')) { url = url.replace('/pubhtml', '/pub?output=csv'); } else if (url.includes('spreadsheets/d/') && !url.includes('format=csv')) { url = url.replace(/\/edit.*$/, '/export?format=csv'); } if (source.sheet && !url.includes('gid=')) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`; } return url; }
+
+    function parseCSVRows(csv = '', keepEmpty = false) { const rows = []; let row = []; let cell = ''; let quoted = false; for (let i = 0; i < csv.length; i++) { const ch = csv[i]; if (ch === '"' && csv[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') quoted = !quoted; else if ((ch === ',' || ch === ';') && !quoted) { row.push(cell.trim()); cell = ''; } else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && csv[i + 1] === '\n') i++; row.push(cell.trim()); if (keepEmpty || row.some(Boolean)) rows.push(row); row = []; cell = ''; } else cell += ch; } row.push(cell.trim()); if (keepEmpty || row.some(Boolean)) rows.push(row); return rows; }
+    function parseCSV(csv) { const rows = parseCSVRows(csv, false); if (!rows.length) return []; const headerIndex = rows.findIndex(r => r.some(v => /id|chave|campo|indicador|valor|conte[uú]do|resposta|descri|nome|status/i.test(v))); const headers = (headerIndex >= 0 ? rows[headerIndex] : rows[0]).map(h => h.trim()); return rows.slice((headerIndex >= 0 ? headerIndex : 0) + 1).map(cols => { const o = {}; headers.forEach((h, i) => o[h || `col${i + 1}`] = (cols[i] || '').trim()); return o; }).filter(o => Object.values(o).some(Boolean)); }
+    function parseCSVMatrix(csvText) { return parseCSVRows(csvText || '', true); }
+    function columnLettersToIndex(letters = '') { return `${letters}`.toUpperCase().split('').reduce((sum, ch) => sum * 26 + (ch.charCodeAt(0) - 64), 0) - 1; }
+    function cellAddressToIndexes(cellAddress = '') { const match = `${cellAddress}`.trim().match(/^([A-Z]+)(\d+)$/i); if (!match) return { rowIndex: -1, colIndex: -1 }; return { rowIndex: parseInt(match[2], 10) - 1, colIndex: columnLettersToIndex(match[1]) }; }
+    function getCell(matrix = [], cellAddress = '') { const { rowIndex, colIndex } = cellAddressToIndexes(cellAddress); return rowIndex >= 0 && colIndex >= 0 ? `${matrix?.[rowIndex]?.[colIndex] ?? ''}`.trim() : ''; }
+    async function fetchCsv(url) { if (!url) return []; const resp = await fetch(url, { cache: 'no-store' }); if (!resp.ok) throw new Error(`Falha ao carregar ${url} (${resp.status})`); return parseCSV(await resp.text()); }
+    async function fetchCsvText(url) { if (!url) return ''; const resp = await fetch(url, { cache: 'no-store' }); if (!resp.ok) throw new Error(`Falha ao carregar ${url} (${resp.status})`); return resp.text(); }
+
+    function normalizeSupabaseBaseUrl(raw = '') { const value = (raw || '').trim(); if (!value) return ''; const parsed = new URL(value.startsWith('http') ? value : `https://${value}`); if (parsed.hostname.endsWith('supabase.com') || parsed.hostname === 'app.supabase.com') throw new Error('Use a URL do projeto Supabase, não a URL do dashboard.'); return `${parsed.protocol}//${parsed.host}`; }
+    function getSupabaseRuntime() { const cfg = getCockpitConfig(); const rawUrl = cfg?.supabase?.url || cfg?.supabase?.apiUrl || (cfg?.supabase?.projectRef ? `https://${cfg.supabase.projectRef}.supabase.co` : ''); let baseUrl = ''; try { baseUrl = normalizeSupabaseBaseUrl(rawUrl); } catch (e) { console.warn(e.message); } const key = cfg?.supabase?.secret || cfg?.supabase?.serviceRole || cfg?.supabase?.currentKey || cfg?.supabase?.publishableKey || cfg?.supabase?.anonKey || ''; return { baseUrl, key, cfg }; }
+    async function supabaseGet(path) { const { baseUrl, key } = getSupabaseRuntime(); if (!baseUrl || !key) return []; const resp = await fetch(`${baseUrl}/rest/v1/${path}`, { cache: 'no-store', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } }); if (!resp.ok) throw new Error(`Supabase GET ${path} -> ${resp.status}`); return resp.json(); }
+    function getSupabaseTableName(key, fallback) { const cfg = getCockpitConfig(); const configured = cfg?.supabase?.[`${key}Table`] || cfg?.supabase?.tables?.[key]; return (configured || fallback).trim(); }
+    function parseSupabasePayload(payload) { if (payload && typeof payload === 'object' && !Array.isArray(payload)) return payload; if (typeof payload === 'string') { try { const parsed = JSON.parse(payload); return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {}; } catch (_e) { return {}; } } return {}; }
+    function mergeTapRow(row = {}) { const payload = parseSupabasePayload(row.payload); return { ...row, ...payload, _dbId: row.id, _projectId: row.project_id, _createdAt: row.created_at }; }
+    async function getSupabaseProjectId() { const cfg = getCockpitConfig(); const projectCode = cfg?.supabase?.projectCode || getActiveProjectCode(cfg); const projectsTable = getSupabaseTableName('projects', 'projects'); const projects = await supabaseGet(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=*`); return projects?.[0] || null; }
+    async function loadSupabaseTapRows() { const urlParams = getUrlProjectParams(); const tapTable = getSupabaseTableName('tap', 'tap_entries'); if (urlParams.tapEntry) { const exact = await supabaseGet(`${tapTable}?id=eq.${encodeURIComponent(urlParams.tapEntry)}&select=*&limit=1`).catch(() => []); if (exact?.length) return exact.map(mergeTapRow); } const activeProject = await getSupabaseProjectId().catch(() => null); const tapPath = activeProject?.id ? `${tapTable}?project_id=eq.${encodeURIComponent(activeProject.id)}&select=*&order=created_at.desc.nullslast&limit=1` : `${tapTable}?select=*&order=created_at.desc.nullslast&limit=1`; const rows = await supabaseGet(tapPath).catch(() => []); return (rows || []).map(mergeTapRow); }
+    async function loadSupabaseRows(sourceType) { try { if (sourceType === 'tap') return await loadSupabaseTapRows(); const project = await getSupabaseProjectId(); if (!project?.id) return []; const rowsTable = getSupabaseTableName('sourceRows', 'source_rows'); const rows = await supabaseGet(`${rowsTable}?project_id=eq.${project.id}&source_type=eq.${sourceType}&select=row_data,created_at&order=created_at.desc&limit=500`); return rows.map(r => r.row_data).filter(Boolean); } catch (e) { console.warn(`Falha ao buscar ${sourceType} no Supabase.`, e); return []; } }
+    async function loadRows(sourceKey) { if (sourceKey === 'tap') { const tapRows = await loadSupabaseRows(sourceKey); if (tapRows.length) return tapRows; } const source = getConfiguredSource(sourceKey); const url = resolveConfiguredCsvUrl(source); if (url) { try { return await fetchCsv(url); } catch (e) { console.warn(`Falha ao carregar fonte configurada ${sourceKey}.`, e); } } const supabaseRows = await loadSupabaseRows(sourceKey); return supabaseRows.length ? supabaseRows : []; }
+    async function loadMatrixFromSource(sourceKey) { const source = getConfiguredSource(sourceKey); const url = resolveConfiguredCsvUrl(source); if (!url) return []; try { return parseCSVMatrix(await fetchCsvText(url)); } catch (e) { console.warn(`Falha ao carregar matriz ${sourceKey}.`, e); return []; } }
+
+    function normalizePercent(value) { if (value === null || value === undefined || value === '') return 0; if (typeof value === 'number') return value > 1 ? value / 100 : value; const raw = `${value}`.trim(); const n = toNumber(raw); if (!Number.isFinite(n)) return 0; return raw.includes('%') || n > 1 ? n / 100 : n; }
+    function formatPercent(value) { const n = normalizePercent(value); return `${Math.round(n * 100)}%`; }
+    function resolveSemaforo(value = '', metric = null) { const raw = `${value || ''}`.trim(); if (/🟢|verde|green|no prazo|conclu/i.test(raw)) return '🟢'; if (/🟡|amarel|yellow|aten/i.test(raw)) return '🟡'; if (/🔴|vermelh|red|atras|cr[ií]t/i.test(raw)) return '🔴'; if (/⚪|branco|neutr|parad|nao iniciado|não iniciado/i.test(raw)) return '⚪'; if (metric !== null && metric !== undefined && metric !== '') { const n = toNumber(metric); if (!n) return '⚪'; if (n < 0.85) return '🔴'; if (n < 1) return '🟡'; return '🟢'; } return raw || '⚪'; }
+    function calculateOverallProgress(etapas = []) { return etapas.reduce((sum, etapa) => sum + normalizePercent(etapa.peso) * normalizePercent(etapa.progresso), 0); }
+    function cloneFallback() { return JSON.parse(JSON.stringify(ONEPAGE_FALLBACK)); }
+    function prefer(value, fallback) { return value !== undefined && value !== null && `${value}`.trim() !== '' ? value : fallback; }
+    function mergeModel(model = {}) { const fb = cloneFallback(); return { tap: { ...fb.tap, ...(model.tap || {}) }, status: { ...fb.status, ...(model.status || {}), semaforos: { ...fb.status.semaforos, ...(model.status?.semaforos || {}) } }, etapas: (model.etapas || []).length ? model.etapas : fb.etapas, atividadesRealizadas: (model.atividadesRealizadas || []).length ? model.atividadesRealizadas : fb.atividadesRealizadas, pontosAtencao: (model.pontosAtencao || []).length ? model.pontosAtencao : fb.pontosAtencao, proximosPassos: (model.proximosPassos || []).length ? model.proximosPassos : fb.proximosPassos, curvaS: model.curvaS || [] }; }
+
+    function buildOnePageModelFromMatrix(statusMatrix = [], tapMatrix = [], curvaMatrix = []) {
+      const etapasRows = [22, 23, 24, 25, 26];
+      const model = { tap: { codPsa: getCell(tapMatrix, 'C6'), cliente: getCell(tapMatrix, 'C7'), projeto: getCell(tapMatrix, 'C8'), gerenteProjeto: getCell(tapMatrix, 'G6'), produto: getCell(tapMatrix, 'G9'), escopo: getCell(tapMatrix, 'B25') || getCell(tapMatrix, 'B15') }, status: { dataStatus: formatDateBR(getCell(statusMatrix, 'S11')), realizado: normalizePercent(getCell(statusMatrix, 'S16')), planejado: normalizePercent(getCell(statusMatrix, 'S17')), idpSpi: toNumber(getCell(statusMatrix, 'S18')), semaforos: { realizado: resolveSemaforo(getCell(statusMatrix, 'S27')), planejado: resolveSemaforo(getCell(statusMatrix, 'S28')), aderencia: resolveSemaforo(getCell(statusMatrix, 'S29')), integracao: resolveSemaforo(getCell(statusMatrix, 'S30')), escopo: resolveSemaforo(getCell(statusMatrix, 'S31')), financeiro: resolveSemaforo(getCell(statusMatrix, 'S32')), idpSpi: resolveSemaforo(getCell(statusMatrix, 'V18'), getCell(statusMatrix, 'S18')) } }, etapas: etapasRows.map(r => ({ etapa: getCell(statusMatrix, `B${r}`), peso: normalizePercent(getCell(statusMatrix, `P${r}`)), progresso: normalizePercent(getCell(statusMatrix, `S${r}`)), dataFinal: formatDateBR(getCell(statusMatrix, `V${r}`)), status: getCell(statusMatrix, `AA${r}`) })).filter(e => e.etapa || e.status), atividadesRealizadas: [], pontosAtencao: [], proximosPassos: [], curvaS: [] };
+      for (let r = 36; r <= 44; r++) { const descricao = getCell(statusMatrix, `S${r}`); const dataFinal = formatDateBR(getCell(statusMatrix, `AY${r}`)); if (descricao || dataFinal) model.atividadesRealizadas.push({ descricao, dataFinal }); }
+      for (let r = 46; r <= 56; r++) { const data = formatDateBR(getCell(statusMatrix, `S${r}`)); const criticidade = resolveSemaforo(getCell(statusMatrix, `V${r}`)); const descricao = getCell(statusMatrix, `X${r}`); if (data || descricao) model.pontosAtencao.push({ data, criticidade, descricao }); }
+      for (let r = 59; r <= 69; r++) { const item = getCell(statusMatrix, `S${r}`); const dataFinal = formatDateBR(getCell(statusMatrix, `V${r}`)); const descricao = getCell(statusMatrix, `AA${r}`); if (item || descricao || dataFinal) model.proximosPassos.push({ item, descricao, dataFinal }); }
+      const monthRow = ['D','E','F','G','H','I','J','K','L','M','N','O'].map(c => getCell(curvaMatrix, `${c}4`)).some(Boolean) ? 4 : 10;
+      ['D','E','F','G','H','I','J','K','L','M','N','O'].forEach(c => { const mes = getCell(curvaMatrix, `${c}${monthRow}`); const planejado = normalizePercent(getCell(curvaMatrix, `${c}5`)); const baseline = normalizePercent(getCell(curvaMatrix, `${c}6`)); const realizado = normalizePercent(getCell(curvaMatrix, `${c}7`)); if (mes || planejado || baseline || realizado) model.curvaS.push({ mes, planejado, baseline, realizado }); });
+      return mergeModel(model);
+    }
+
+    function buildOnePageModelFromNormalizedRows(statusRows = [], tapRows = [], curvaRows = []) {
+      const kv = {};
+      statusRows.map(normalizeRow).forEach(row => { const key = firstFrom(row, ['chave', 'campo', 'indicador', 'item', 'col1']); const val = firstFrom(row, ['valor', 'conteúdo', 'conteudo', 'resposta', 'descricao', 'descrição', 'col2']); if (key) kv[compactKey(key)] = val; });
+      const tap = normalizeRow(tapRows[0] || {});
+      const model = { tap: { codPsa: firstFrom(tap, ['código psa / cfp', 'codigo psa', 'cod psa', 'psa', 'cfp', 'codigo', 'col3']), cliente: firstFrom(tap, ['nome do cliente', 'cliente', 'client_name', 'col4']), projeto: firstFrom(tap, ['nome do projeto psa', 'nome projeto', 'projeto', 'project_name', 'name', 'col5']), gerenteProjeto: firstFrom(tap, ['gp / cp / lp', 'gerente projeto', 'gerente', 'pmo', 'coordenador', 'manager_totvs']), produto: firstFrom(tap, ['produto totvs', 'produto', 'produtos', 'produtos contratados']), escopo: firstFrom(tap, ['escopo principal', 'descricao escopo', 'descrição escopo', 'escopo', 'observacao', 'observação']) }, status: { dataStatus: formatDateBR(kv.datastatus || kv.data || firstFrom(normalizeRow(statusRows[0] || {}), ['data status', 'data'])), realizado: normalizePercent(kv.realizado || kv.realizadopercentual || kv.realizado || kv.evolucaoreal), planejado: normalizePercent(kv.planejado || kv.planejadopercentual || kv.evolucaoplanejada), idpSpi: toNumber(kv.idpspi || kv.spi || kv.idp), semaforos: { realizado: resolveSemaforo(kv.semafororealizado), planejado: resolveSemaforo(kv.semaforoplanejado), aderencia: resolveSemaforo(kv.riscoaderencia || kv.aderencia), integracao: resolveSemaforo(kv.riscointegracao || kv.integracao), escopo: resolveSemaforo(kv.riscoescopo || kv.escopo), financeiro: resolveSemaforo(kv.riscofinanceiro || kv.financeiro), idpSpi: resolveSemaforo(kv.semaforoidpspi, kv.idpspi || kv.spi || kv.idp) } }, etapas: [], atividadesRealizadas: [], pontosAtencao: [], proximosPassos: [], curvaS: [] };
+      statusRows.map(normalizeRow).forEach((row, idx) => { const tipo = compactKey(firstFrom(row, ['tipo', 'grupo', 'seção', 'secao', 'categoria'])); const desc = firstFrom(row, ['descrição', 'descricao', 'atividade', 'conteúdo', 'conteudo', 'resposta']); if (/etapa/.test(tipo) || firstFrom(row, ['etapa'])) model.etapas.push({ etapa: firstFrom(row, ['etapa', 'nome', 'descrição', 'descricao']), peso: normalizePercent(firstFrom(row, ['peso'])), progresso: normalizePercent(firstFrom(row, ['progresso', 'realizado', '% realizado'])), dataFinal: formatDateBR(firstFrom(row, ['data final', 'fim', 'data'])), status: firstFrom(row, ['status']) }); else if (/realiz/.test(tipo) && desc) model.atividadesRealizadas.push({ descricao: desc, dataFinal: formatDateBR(firstFrom(row, ['data final', 'fim', 'data'])) }); else if (/risco|atencao|atenção/.test(tipo) && desc) model.pontosAtencao.push({ data: formatDateBR(firstFrom(row, ['data'])), criticidade: resolveSemaforo(firstFrom(row, ['criticidade', 'c', 'semaforo', 'semáforo'])), descricao: desc }); else if (/proximo|próximo|passo/.test(tipo) && desc) model.proximosPassos.push({ item: firstFrom(row, ['item', 'os', 'item/os']) || `${idx + 1}`, descricao: desc, dataFinal: formatDateBR(firstFrom(row, ['data final', 'fim', 'data'])) }); });
+      curvaRows.map(normalizeRow).forEach(row => { const mes = firstFrom(row, ['mes', 'mês', 'periodo', 'período']); if (mes) model.curvaS.push({ mes, planejado: normalizePercent(firstFrom(row, ['planejado acm', '% planejado acm', 'planejado'])), baseline: normalizePercent(firstFrom(row, ['planejado linha de base', 'baseline', 'linha de base'])), realizado: normalizePercent(firstFrom(row, ['realizado acm', '% realizado acm', 'realizado'])) }); });
+      return mergeModel(model);
+    }
+    function hasAnyMatrixData(matrix = [], cells = []) { return cells.some(cell => getCell(matrix, cell)); }
+    function buildOnePageModel(payload = {}) { const { statusMatrix = [], tapMatrix = [], curvaMatrix = [], statusRows = [], tapRows = [], curvaRows = [] } = payload; if (hasAnyMatrixData(statusMatrix, ['S11', 'S16', 'B22']) || hasAnyMatrixData(tapMatrix, ['C6', 'C7', 'G6'])) return buildOnePageModelFromMatrix(statusMatrix, tapMatrix, curvaMatrix); if (statusRows.length || tapRows.length || curvaRows.length) return buildOnePageModelFromNormalizedRows(statusRows, tapRows, curvaRows); return cloneFallback(); }
+
+    async function loadOnePageData() { const sheet = document.getElementById('onepage-sheet'); sheet.innerHTML = '<div class="top-title">Status Report Executivo - OnePage Projeto</div><div class="empty-chart">Carregando One Page Executivo...</div>'; try { const [statusRows, tapRows, curvaRows, statusMatrix, tapMatrix, curvaMatrix] = await Promise.all([loadRows('statusReport'), loadRows('tap'), loadRows('curvaS'), loadMatrixFromSource('statusReport'), loadMatrixFromSource('tap'), loadMatrixFromSource('curvaS')]); renderOnePage(buildOnePageModel({ statusRows, tapRows, curvaRows, statusMatrix, tapMatrix, curvaMatrix })); } catch (e) { console.warn('Falha geral ao carregar One Page; usando fallback.', e); renderOnePage(cloneFallback()); } }
+
+    function renderHeader(model) { const id = [model.tap.codPsa, model.tap.cliente, model.tap.projeto, model.tap.gerenteProjeto].filter(Boolean).join(' - '); return `<div class="top-title">Status Report Executivo - OnePage Projeto</div><div class="project-id">${escapeHtml(id)}</div><div class="status-line"><div class="label">Data Status</div><div class="value">${escapeHtml(model.status.dataStatus)}</div></div>`; }
+    function renderProgressBlock(model) { return `<section class="section-box"><div class="section-title">PROGRESSO</div><div class="progress-content"><div class="metric-cell"><div class="metric-label">Realizado</div><div class="metric-value">${escapeHtml(formatPercent(model.status.realizado))}</div><div class="big-light">${escapeHtml(model.status.semaforos.realizado)}</div></div><div class="metric-cell"><div class="metric-label">Planej.</div><div class="metric-value">${escapeHtml(formatPercent(model.status.planejado))}</div><div class="big-light">${escapeHtml(model.status.semaforos.planejado)}</div></div><div class="legend"><span>🟢 NO PRAZO</span><span>🟡 PONTO ATENÇÃO</span><span>🔴 ATRASADO</span></div></div></section>`; }
+    function renderRisksBlock(model) { const risks = [['Aderência', model.status.semaforos.aderencia], ['Integração', model.status.semaforos.integracao], ['Escopo', model.status.semaforos.escopo], ['Financeiro', model.status.semaforos.financeiro]]; return `<section class="section-box"><div class="section-title">RISCOS</div><div class="risk-grid">${risks.map(([label, sem]) => `<div class="risk-card"><span>${escapeHtml(label)}</span><span>${escapeHtml(sem)}</span></div>`).join('')}</div></section>`; }
+    function renderIdpBlock(model) { const sem = resolveSemaforo(model.status.semaforos.idpSpi, model.status.idpSpi); return `<section class="section-box"><div class="section-title">Indice de Desempenho</div><div class="idp-content"><div class="idp-sub">IDP / SPI</div><div class="idp-value">${escapeHtml((model.status.idpSpi || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 }))}</div><div class="big-light">${escapeHtml(sem)}</div></div></section>`; }
+    function svgPoints(data, key, width, height, pad) { const max = 1; return data.map((d, i) => { const x = pad + (data.length <= 1 ? 0 : i * ((width - pad * 2) / (data.length - 1))); const y = height - pad - (Math.max(0, Math.min(max, normalizePercent(d[key]))) * (height - pad * 2)); return `${x.toFixed(1)},${y.toFixed(1)}`; }).join(' '); }
+    function renderCurvaS(model) { if (!model.curvaS.length) return `<section class="section-box"><div class="section-title">CURVA S - ENTREGAS</div><div class="curva-wrap"><div class="empty-chart">Curva S ainda não informada</div></div></section>`; const w = 430, h = 136, p = 24; const labels = model.curvaS.map((d, i) => i % 2 === 0 ? `<text x="${p + (model.curvaS.length <= 1 ? 0 : i * ((w - p * 2) / (model.curvaS.length - 1)))}" y="130" font-size="9" text-anchor="middle">${escapeHtml(d.mes)}</text>` : '').join(''); return `<section class="section-box"><div class="section-title">CURVA S - ENTREGAS</div><div class="curva-wrap"><svg viewBox="0 0 ${w} ${h}" width="100%" height="136" role="img" aria-label="Curva S"><line x1="${p}" y1="${h-p}" x2="${w-p}" y2="${h-p}" stroke="#999"/><line x1="${p}" y1="${p}" x2="${p}" y2="${h-p}" stroke="#999"/><polyline points="${svgPoints(model.curvaS, 'planejado', w, h, p)}" fill="none" stroke="#3C78D8" stroke-width="2"/><polyline points="${svgPoints(model.curvaS, 'baseline', w, h, p)}" fill="none" stroke="#F1C232" stroke-width="2"/><polyline points="${svgPoints(model.curvaS, 'realizado', w, h, p)}" fill="none" stroke="#6AA84F" stroke-width="2"/>${labels}</svg><div class="chart-legend"><span><i class="dot" style="background:#3C78D8"></i>Planejado ACM</span><span><i class="dot" style="background:#F1C232"></i>Planejado Linha de Base</span><span><i class="dot" style="background:#6AA84F"></i>Realizado ACM</span></div></div></section>`; }
+    function renderActivities(model) { const rows = model.atividadesRealizadas.filter(r => r.descricao || r.dataFinal); return `<section class="section-box min-activities"><div class="section-title">ATIVIDADES REALIZADAS</div><div class="section-subtitle">Produto(s) TOTVS - ${escapeHtml(model.tap.produto)}</div><table class="excel"><thead><tr><th>Descrição</th><th style="width:110px">Data Final</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.descricao)}</td><td class="nowrap">${escapeHtml(r.dataFinal)}</td></tr>`).join('') || '<tr><td colspan="2">Sem atividades realizadas informadas.</td></tr>'}</tbody></table></section>`; }
+    function renderTimeline(model) { const overall = calculateOverallProgress(model.etapas); return `<section class="section-box"><div class="section-title">TIMELINE</div><div class="timeline-content"><div class="overall"><span>Progresso geral</span><div class="bar"><span style="width:${Math.min(100, overall * 100)}%"></span></div><span>${escapeHtml(formatPercent(overall))}</span></div><table class="excel timeline-table"><thead><tr><th>Etapas</th><th style="width:70px">Peso</th><th style="width:82px">Progresso</th><th style="width:92px">Data final</th><th>Status</th></tr></thead><tbody>${model.etapas.map(e => `<tr><td><div class="timeline-stage"><div class="stage-fill"><span style="width:${Math.min(100, normalizePercent(e.progresso) * 100)}%"></span></div>${escapeHtml(e.etapa)}</div></td><td>${escapeHtml(formatPercent(e.peso))}</td><td>${escapeHtml(formatPercent(e.progresso))}</td><td class="nowrap">${escapeHtml(e.dataFinal)}</td><td class="small">${escapeHtml(e.status)}</td></tr>`).join('')}</tbody></table></div></section>`; }
+    function renderAttentionPoints(model) { const rows = model.pontosAtencao.filter(r => r.data || r.descricao); return `<section class="section-box"><div class="section-title">PONTOS DE ATENÇÃO / RISCOS</div><table class="excel"><thead><tr><th style="width:95px">Data</th><th style="width:42px">C</th><th>Descrição - Situação, Impacto e Ação</th></tr></thead><tbody>${rows.map(r => `<tr><td class="nowrap">${escapeHtml(r.data)}</td><td style="text-align:center;font-size:16px">${escapeHtml(resolveSemaforo(r.criticidade))}</td><td>${escapeHtml(r.descricao)}</td></tr>`).join('') || '<tr><td colspan="3">Sem pontos de atenção informados.</td></tr>'}</tbody></table></section>`; }
+    function renderNextSteps(model) { const rows = model.proximosPassos.filter(r => r.item || r.descricao || r.dataFinal); return `<section class="section-box"><div class="section-title">PRÓXIMOS PASSOS</div><table class="excel"><thead><tr><th style="width:75px">Item/OS</th><th>Descrição</th><th style="width:105px">Data Final</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.item)}</td><td>${escapeHtml(r.descricao)}</td><td class="nowrap">${escapeHtml(r.dataFinal)}</td></tr>`).join('') || '<tr><td colspan="3">Sem próximos passos informados.</td></tr>'}</tbody></table></section>`; }
+    function renderOnePage(model) { document.getElementById('onepage-sheet').innerHTML = `${renderHeader(model)}<div class="top-grid">${renderProgressBlock(model)}${renderRisksBlock(model)}${renderIdpBlock(model)}${renderCurvaS(model)}</div><div class="two-col">${renderActivities(model)}${renderTimeline(model)}</div><div class="two-col">${renderAttentionPoints(model)}${renderNextSteps(model)}</div>`; }
+    function printOnePage() { window.print(); }
+
+    document.addEventListener('DOMContentLoaded', loadOnePageData);
+    window.addEventListener('message', (event) => { if (event.data?.type === 'totvs-project-context-updated') loadOnePageData(); });
+    window.addEventListener('storage', (event) => { if (event.key === 'totvs_cockpit_config') loadOnePageData(); });
+  </script>
+</body>
+</html>
