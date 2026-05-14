@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assertProjectChat } from './authService.js';
 import { createSupabaseFromEnv } from './supabaseClient.js';
 import { connect, disconnect, fetchMessages, getChats, getStatus } from './whatsappClient.js';
@@ -9,14 +11,24 @@ import { getHistory, listChatsWithProjectState, saveProjectSource, syncAuthorize
 
 const app = express();
 const port = Number(process.env.PORT || 3031);
-const supabase = createSupabaseFromEnv();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '../..');
+const supabase = await createSupabaseFromEnv();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json({ limit: '2mb' }));
 
+app.use(express.static(repoRoot, {
+  dotfiles: 'ignore',
+  extensions: ['html'],
+  index: false
+}));
+
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
+
+app.get('/', (_req, res) => res.sendFile(path.join(repoRoot, 'index.html')));
 
 app.get('/status', (_req, res) => res.json(getStatus()));
 

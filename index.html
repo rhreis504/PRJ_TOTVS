@@ -3752,7 +3752,16 @@ ${hints}`);
 
 
         // --- WHATSAPP READ-ONLY INTEGRATION ---
-        const WHATSAPP_API_BASE = localStorage.getItem('totvs_whatsapp_api_base') || 'http://localhost:3031';
+        function getWhatsappApiBase() {
+            const savedBase = localStorage.getItem('totvs_whatsapp_api_base');
+            if(savedBase) return savedBase.replace(/\/$/, '');
+            const isHttp = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+            const isLocalHost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+            if(isHttp && isLocalHost) return `${window.location.protocol}//${window.location.hostname}:3031`;
+            return 'http://localhost:3031';
+        }
+
+        const WHATSAPP_API_BASE = getWhatsappApiBase();
         let whatsappChatsCache = [];
         let whatsappHistoryCache = [];
         let whatsappStatusTimer = null;
@@ -3762,7 +3771,7 @@ ${hints}`);
             const normalized = message.toLowerCase();
             const networkFailures = ['failed to fetch', 'networkerror', 'load failed', 'network request failed'];
             if(!normalized || networkFailures.some(fragment => normalized.includes(fragment))) {
-                return 'Backend WhatsApp indisponível. Verifique se o serviço está em execução.';
+                return `Backend WhatsApp indisponível em ${WHATSAPP_API_BASE}. Inicie o serviço pela raiz do projeto com "npm run whatsapp" e depois abra http://localhost:3031/.`;
             }
             return message;
         }
