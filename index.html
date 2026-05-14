@@ -3757,25 +3757,13 @@ ${hints}`);
         }
 
         function getWhatsappApiBases() {
-            const savedBase = normalizeWhatsappApiBase(localStorage.getItem('totvs_whatsapp_api_base'));
-            if(savedBase) return [savedBase];
-
-            const bases = [];
-            const addBase = (base) => {
-                const normalized = normalizeWhatsappApiBase(base);
-                if(normalized && !bases.includes(normalized)) bases.push(normalized);
-            };
-            const isHttp = window.location.protocol === 'http:' || window.location.protocol === 'https:';
-            const isLocalHost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
-
-            if(isHttp) addBase(window.location.origin);
-            if(isHttp && isLocalHost) addBase(`${window.location.protocol}//${window.location.hostname}:3031`);
-            addBase('http://localhost:3031');
-            return bases;
+            return [normalizeWhatsappApiBase(localStorage.getItem('totvs_whatsapp_api_base')) || 'http://localhost:3031'];
         }
 
         const WHATSAPP_API_BASES = getWhatsappApiBases();
         let WHATSAPP_API_BASE = WHATSAPP_API_BASES[0] || 'http://localhost:3031';
+        const WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE = 'Backend WhatsApp indisponível. Inicie o serviço com npm run whatsapp e aguarde o servidor em http://localhost:3031.';
+        const WHATSAPP_BACKEND_FOLDER_MESSAGE = 'Backend WhatsApp indisponível. Execute npm run whatsapp na pasta server/whatsapp.';
         const WHATSAPP_LOCAL_MOCK_STORAGE_KEY = 'totvs_whatsapp_local_mock_state';
         let whatsappChatsCache = [];
         let whatsappHistoryCache = [];
@@ -3809,7 +3797,7 @@ ${hints}`);
         }
 
         function getWhatsappMockQrDataUrl() {
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260" viewBox="0 0 260 260"><rect width="260" height="260" fill="white"/><rect x="18" y="18" width="64" height="64" fill="#071d33"/><rect x="32" y="32" width="36" height="36" fill="white"/><rect x="178" y="18" width="64" height="64" fill="#071d33"/><rect x="192" y="32" width="36" height="36" fill="white"/><rect x="18" y="178" width="64" height="64" fill="#071d33"/><rect x="32" y="192" width="36" height="36" fill="white"/><g fill="#00a1e4"><rect x="104" y="24" width="18" height="18"/><rect x="132" y="24" width="18" height="18"/><rect x="104" y="58" width="46" height="18"/><rect x="96" y="102" width="18" height="18"/><rect x="124" y="102" width="18" height="18"/><rect x="152" y="102" width="46" height="18"/><rect x="210" y="102" width="18" height="18"/><rect x="96" y="136" width="46" height="18"/><rect x="162" y="136" width="18" height="18"/><rect x="196" y="136" width="46" height="18"/><rect x="104" y="178" width="18" height="18"/><rect x="132" y="178" width="46" height="18"/><rect x="196" y="178" width="18" height="18"/><rect x="104" y="212" width="46" height="18"/><rect x="168" y="212" width="18" height="18"/><rect x="210" y="212" width="18" height="18"/></g><text x="130" y="128" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#071d33">DEMO</text></svg>`;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260" viewBox="0 0 260 260"><rect width="260" height="260" fill="white"/><rect x="18" y="18" width="64" height="64" fill="#071d33"/><rect x="32" y="32" width="36" height="36" fill="white"/><rect x="178" y="18" width="64" height="64" fill="#071d33"/><rect x="192" y="32" width="36" height="36" fill="white"/><rect x="18" y="178" width="64" height="64" fill="#071d33"/><rect x="32" y="192" width="36" height="36" fill="white"/><g fill="#00a1e4"><rect x="104" y="24" width="18" height="18"/><rect x="132" y="24" width="18" height="18"/><rect x="104" y="58" width="46" height="18"/><rect x="96" y="102" width="18" height="18"/><rect x="124" y="102" width="18" height="18"/><rect x="152" y="102" width="46" height="18"/><rect x="210" y="102" width="18" height="18"/><rect x="96" y="136" width="46" height="18"/><rect x="162" y="136" width="18" height="18"/><rect x="196" y="136" width="46" height="18"/><rect x="104" y="178" width="18" height="18"/><rect x="132" y="178" width="46" height="18"/><rect x="196" y="178" width="18" height="18"/><rect x="104" y="212" width="46" height="18"/><rect x="168" y="212" width="18" height="18"/><rect x="210" y="212" width="18" height="18"/></g><text x="130" y="128" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#071d33">TESTE</text></svg>`;
             return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
         }
 
@@ -3930,11 +3918,18 @@ ${hints}`);
 
         function getWhatsappApiErrorMessage(error) {
             const message = String(error?.message ?? error ?? '').trim();
-            if(isWhatsappNetworkFailure(message)) {
-                const bases = WHATSAPP_API_BASES.join(', ');
-                return `Backend WhatsApp indisponível em ${bases}. Pela raiz do projeto, rode "npm run whatsapp" (ou "npm run whatsapp:mock" para teste sem WhatsApp real), aguarde a mensagem "WhatsApp history service listening on 3031" e depois abra http://localhost:3031/.`;
+            if(!message || isWhatsappNetworkFailure(message) || message.includes('não encontrado') || message.includes('Resposta inválida')) {
+                return WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE;
             }
             return message;
+        }
+
+        async function checkWhatsappBackendHealth() {
+            const response = await fetch(`${WHATSAPP_API_BASE}/health`, { cache: 'no-store' });
+            if(!response.ok) throw new Error('Backend WhatsApp não respondeu corretamente.');
+            const contentType = response.headers.get('content-type') || '';
+            if(!contentType.includes('application/json')) throw new Error('Backend WhatsApp retornou uma resposta inválida.');
+            return response.json();
         }
 
         function notifyWhatsapp(message, type = 'info') {
@@ -3945,9 +3940,9 @@ ${hints}`);
 
         async function whatsappApi(path, options = {}) {
             const apiPath = path.startsWith('/') ? path : `/${path}`;
+            const allowDemo = localStorage.getItem('totvs_whatsapp_demo_mode') === 'true';
             const headers = { ...(options.headers || {}) };
             if(options.body && !(options.body instanceof FormData)) headers['Content-Type'] = headers['Content-Type'] || 'application/json';
-            let lastNetworkError = null;
 
             for(const base of WHATSAPP_API_BASES) {
                 const url = `${base}${apiPath}`;
@@ -3957,26 +3952,22 @@ ${hints}`);
                     const expectsJson = !apiPath.startsWith('/export');
                     const data = contentType.includes('application/json') ? await response.json() : await response.text();
                     if(!response.ok) {
-                        if([404, 405].includes(response.status)) { lastNetworkError = new Error(`Backend WhatsApp não encontrado em ${base}.`); continue; }
+                        if([404, 405].includes(response.status)) continue;
                         const errorMessage = (data && data.message) || 'Operação WhatsApp não concluída.';
                         throw new Error(errorMessage);
                     }
-                    if(expectsJson && !contentType.includes('application/json')) {
-                        lastNetworkError = new Error(`Resposta inválida do backend WhatsApp em ${base}.`);
-                        continue;
-                    }
+                    if(expectsJson && !contentType.includes('application/json')) continue;
                     WHATSAPP_API_BASE = base;
                     whatsappUsingLocalMock = false;
                     return data;
                 } catch (error) {
                     if(!isWhatsappNetworkFailure(error?.message)) throw new Error(getWhatsappApiErrorMessage(error));
-                    lastNetworkError = error;
                 }
             }
 
-            const localResult = runWhatsappLocalMockApi(apiPath, options);
-            if(apiPath.startsWith('/connect')) notifyWhatsapp('Backend WhatsApp indisponível. Ativei o modo demonstração local para liberar a tela sem depender de servidor na sua máquina. Para capturar WhatsApp real, rode npm run whatsapp e acesse http://localhost:3031/.', 'info');
-            return localResult;
+            if(allowDemo) return runWhatsappLocalMockApi(apiPath, options);
+            whatsappUsingLocalMock = false;
+            throw new Error(WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE);
         }
 
         function getUniqueWhatsappProjects() {
@@ -4009,21 +4000,56 @@ ${hints}`);
         async function connectWhatsappQr() {
             openWhatsappQrModal();
             const box = document.getElementById('whatsapp-qr-container');
-            if(box) box.textContent = 'Solicitando QR Code ao backend...';
+            const allowDemo = localStorage.getItem('totvs_whatsapp_demo_mode') === 'true';
+            if(box) box.textContent = allowDemo ? 'Modo demonstração ativo. Solicitando QR Code local...' : 'Validando backend WhatsApp...';
             try {
-                const result = await whatsappApi('/connect', { method: 'POST' });
-                if(result?.qrDataUrl && box) {
-                    const localMockNotice = result?.localMock ? '<p style="margin-top:12px; color:var(--text-muted); font-size:12px;">Modo demonstração local ativo. A tela funciona sem backend, mas a captura real exige <strong>npm run whatsapp</strong> e acesso por <strong>http://localhost:3031/</strong>.</p>' : '';
-                    box.innerHTML = `<div><img src="${escapeHtml(result.qrDataUrl)}" alt="QR Code WhatsApp">${localMockNotice}</div>`;
+                if(!allowDemo) {
+                    await checkWhatsappBackendHealth();
+                    if(box) box.textContent = 'Solicitando QR Code real ao backend...';
                 }
-                else if(box) box.innerHTML = '<div>Cliente iniciado. Se já estiver conectado, nenhum QR Code será necessário.</div>';
-                updateWhatsappStatusUI(result?.status ? result : { status: 'qr_pending', connected: false });
+                const result = await whatsappApi('/connect', { method: 'POST' });
+                if(result?.connected) {
+                    if(box) box.innerHTML = '<div>WhatsApp já conectado.</div>';
+                    updateWhatsappStatusUI(result);
+                    pollWhatsappStatus();
+                    return;
+                }
+                if(result?.qrDataUrl && box) {
+                    const demoNotice = allowDemo && result?.localMock ? '<p style="margin-top:12px; color:var(--text-muted); font-size:12px;">Modo demonstração explicitamente ativado por localStorage. Para conexão real, remova <strong>totvs_whatsapp_demo_mode</strong> e rode <strong>npm run whatsapp</strong>.</p>' : '';
+                    box.innerHTML = `<div><img src="${escapeHtml(result.qrDataUrl)}" alt="QR Code real WhatsApp">${demoNotice}</div>`;
+                } else if(box) {
+                    box.textContent = 'Aguardando geração do QR Code...';
+                    await waitWhatsappQrOrConnection(box, allowDemo);
+                }
+                updateWhatsappStatusUI(result?.status ? result : { status: result?.status || 'waiting_qr', connected: false });
                 pollWhatsappStatus();
             } catch (error) {
-                const message = getWhatsappApiErrorMessage(error);
+                const message = allowDemo ? getWhatsappApiErrorMessage(error) : WHATSAPP_BACKEND_FOLDER_MESSAGE;
                 if(box) box.textContent = `Não foi possível obter o QR Code. ${message}`;
                 notifyWhatsapp(message, 'error');
             }
+        }
+
+        async function waitWhatsappQrOrConnection(box, allowDemo = false) {
+            const startedAt = Date.now();
+            while(Date.now() - startedAt < 60000) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const status = await whatsappApi('/status');
+                updateWhatsappStatusUI(status);
+                if(status?.connected) {
+                    box.innerHTML = '<div>WhatsApp conectado com sucesso.</div>';
+                    return;
+                }
+                if(status?.hasQr || status?.status === 'qr_ready') {
+                    const result = await whatsappApi('/connect', { method: 'POST' });
+                    if(result?.qrDataUrl) {
+                        const demoNotice = allowDemo && result?.localMock ? '<p style="margin-top:12px; color:var(--text-muted); font-size:12px;">Modo demonstração explicitamente ativado por localStorage.</p>' : '';
+                        box.innerHTML = `<div><img src="${escapeHtml(result.qrDataUrl)}" alt="QR Code real WhatsApp">${demoNotice}</div>`;
+                        return;
+                    }
+                }
+            }
+            box.textContent = 'Tempo esgotado aguardando geração do QR Code. Verifique o backend WhatsApp e tente novamente.';
         }
 
         function openWhatsappQrModal() {
