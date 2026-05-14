@@ -3752,26 +3752,45 @@ ${hints}`);
 
 
         // --- WHATSAPP READ-ONLY INTEGRATION ---
-        function getWhatsappApiBase() {
-            const savedBase = localStorage.getItem('totvs_whatsapp_api_base');
-            if(savedBase) return savedBase.replace(/\/$/, '');
-            const isHttp = window.location.protocol === 'http:' || window.location.protocol === 'https:';
-            const isLocalHost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
-            if(isHttp && isLocalHost) return `${window.location.protocol}//${window.location.hostname}:3031`;
-            return 'http://localhost:3031';
+        function normalizeWhatsappApiBase(base) {
+            return String(base || '').trim().replace(/\/$/, '');
         }
 
-        const WHATSAPP_API_BASE = getWhatsappApiBase();
+        function getWhatsappApiBases() {
+            const savedBase = normalizeWhatsappApiBase(localStorage.getItem('totvs_whatsapp_api_base'));
+            if(savedBase) return [savedBase];
+
+            const bases = [];
+            const addBase = (base) => {
+                const normalized = normalizeWhatsappApiBase(base);
+                if(normalized && !bases.includes(normalized)) bases.push(normalized);
+            };
+            const isHttp = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+            const isLocalHost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+
+            if(isHttp) addBase(window.location.origin);
+            if(isHttp && isLocalHost) addBase(`${window.location.protocol}//${window.location.hostname}:3031`);
+            addBase('http://localhost:3031');
+            return bases;
+        }
+
+        const WHATSAPP_API_BASES = getWhatsappApiBases();
+        let WHATSAPP_API_BASE = WHATSAPP_API_BASES[0] || 'http://localhost:3031';
         let whatsappChatsCache = [];
         let whatsappHistoryCache = [];
         let whatsappStatusTimer = null;
 
+        function isWhatsappNetworkFailure(message) {
+            const normalized = String(message || '').toLowerCase();
+            const networkFailures = ['failed to fetch', 'networkerror', 'load failed', 'network request failed'];
+            return !normalized || networkFailures.some(fragment => normalized.includes(fragment));
+        }
+
         function getWhatsappApiErrorMessage(error) {
             const message = String(error?.message ?? error ?? '').trim();
-            const normalized = message.toLowerCase();
-            const networkFailures = ['failed to fetch', 'networkerror', 'load failed', 'network request failed'];
-            if(!normalized || networkFailures.some(fragment => normalized.includes(fragment))) {
-                return `Backend WhatsApp indisponível em ${WHATSAPP_API_BASE}. Pela raiz do projeto, rode "npm run whatsapp" (ou "npm run whatsapp:mock" para teste sem WhatsApp real), aguarde a mensagem "WhatsApp history service listening on 3031" e depois abra http://localhost:3031/.`;
+            if(isWhatsappNetworkFailure(message)) {
+                const bases = WHATSAPP_API_BASES.join(', ');
+                return `Backend WhatsApp indisponível em ${bases}. Pela raiz do projeto, rode "npm run whatsapp" (ou "npm run whatsapp:mock" para teste sem WhatsApp real), aguarde a mensagem "WhatsApp history service listening on 3031" e depois abra http://localhost:3031/.`;
             }
             return message;
         }
@@ -3783,21 +3802,36 @@ ${hints}`);
         }
 
         async function whatsappApi(path, options = {}) {
-            const url = `${WHATSAPP_API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+            const apiPath = path.startsWith('/') ? path : `/${path}`;
             const headers = { ...(options.headers || {}) };
             if(options.body && !(options.body instanceof FormData)) headers['Content-Type'] = headers['Content-Type'] || 'application/json';
-            try {
-                const response = await fetch(url, { ...options, headers });
-                const contentType = response.headers.get('content-type') || '';
-                const data = contentType.includes('application/json') ? await response.json() : await response.text();
-                if(!response.ok) {
-                    const errorMessage = (data && data.message) || 'Operação WhatsApp não concluída.';
-                    throw new Error(errorMessage);
+            let lastNetworkError = null;
+
+            for(const base of WHATSAPP_API_BASES) {
+                const url = `${base}${apiPath}`;
+                try {
+                    const response = await fetch(url, { ...options, headers });
+                    const contentType = response.headers.get('content-type') || '';
+                    const expectsJson = !apiPath.startsWith('/export');
+                    const data = contentType.includes('application/json') ? await response.json() : await response.text();
+                    if(!response.ok) {
+                        if([404, 405].includes(response.status) && base !== WHATSAPP_API_BASES[WHATSAPP_API_BASES.length - 1]) continue;
+                        const errorMessage = (data && data.message) || 'Operação WhatsApp não concluída.';
+                        throw new Error(errorMessage);
+                    }
+                    if(expectsJson && !contentType.includes('application/json')) {
+                        if(base !== WHATSAPP_API_BASES[WHATSAPP_API_BASES.length - 1]) continue;
+                        throw new Error('Resposta inválida do backend WhatsApp.');
+                    }
+                    WHATSAPP_API_BASE = base;
+                    return data;
+                } catch (error) {
+                    if(!isWhatsappNetworkFailure(error?.message)) throw new Error(getWhatsappApiErrorMessage(error));
+                    lastNetworkError = error;
                 }
-                return data;
-            } catch (error) {
-                throw new Error(getWhatsappApiErrorMessage(error));
             }
+
+            throw new Error(getWhatsappApiErrorMessage(lastNetworkError));
         }
 
         function getUniqueWhatsappProjects() {
