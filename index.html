@@ -3762,6 +3762,15 @@ ${hints}`);
             else console[type === 'error' ? 'error' : 'log'](message);
         }
 
+        function getWhatsappApiErrorMessage(error) {
+            const message = String(error?.message || '').trim();
+            const networkFailures = ['Failed to fetch', 'NetworkError', 'Load failed', 'Network request failed'];
+            if(!message || networkFailures.some(fragment => message.includes(fragment))) {
+                return 'Backend WhatsApp indisponível. Verifique se o serviço está em execução.';
+            }
+            return message;
+        }
+
         async function whatsappApi(path, options = {}) {
             const url = `${WHATSAPP_API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
             const headers = { ...(options.headers || {}) };
@@ -3776,18 +3785,33 @@ ${hints}`);
                 }
                 return data;
             } catch (error) {
-                throw new Error(error?.message || 'Backend WhatsApp indisponível. Verifique se o serviço está em execução.');
+                throw new Error(getWhatsappApiErrorMessage(error));
             }
         }
 
+        function getUniqueWhatsappProjects() {
+            const projects = Array.isArray(config.projects) ? config.projects : [];
+            const uniqueByName = new Map();
+            projects.forEach(project => {
+                if(!project || !project.id) return;
+                const label = `${project.name || project.id}`.trim();
+                const key = (label || project.id).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ');
+                const existing = uniqueByName.get(key);
+                if(!existing || project.id === config.activeProjectId) uniqueByName.set(key, project);
+            });
+            return Array.from(uniqueByName.values());
+        }
+
         function prepareWhatsappProjectSelects() {
-            const projectOptions = (config.projects || []).map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || project.id)}</option>`).join('');
+            const uniqueProjects = getUniqueWhatsappProjects();
+            const projectOptions = uniqueProjects.map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || project.id)}</option>`).join('');
             ['whatsapp-link-project', 'whatsapp-history-project'].forEach(id => {
                 const select = document.getElementById(id);
                 if(!select) return;
                 const previousValue = select.value || config.activeProjectId || '';
                 select.innerHTML = projectOptions || '<option value="">Nenhum projeto cadastrado</option>';
-                select.value = (config.projects || []).some(project => project.id === previousValue) ? previousValue : (config.activeProjectId || select.value);
+                const nextValue = uniqueProjects.some(project => project.id === previousValue) ? previousValue : (uniqueProjects[0]?.id || '');
+                select.value = nextValue;
             });
             renderWhatsappHistorySourceOptions();
         }
