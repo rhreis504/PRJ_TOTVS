@@ -3757,18 +3757,20 @@ ${hints}`);
         let whatsappHistoryCache = [];
         let whatsappStatusTimer = null;
 
-        function notifyWhatsapp(message, type = 'info') {
-            if(typeof showToast === 'function') showToast(message);
-            else console[type === 'error' ? 'error' : 'log'](message);
-        }
-
         function getWhatsappApiErrorMessage(error) {
-            const message = String(error?.message || '').trim();
-            const networkFailures = ['Failed to fetch', 'NetworkError', 'Load failed', 'Network request failed'];
-            if(!message || networkFailures.some(fragment => message.includes(fragment))) {
+            const message = String(error?.message ?? error ?? '').trim();
+            const normalized = message.toLowerCase();
+            const networkFailures = ['failed to fetch', 'networkerror', 'load failed', 'network request failed'];
+            if(!normalized || networkFailures.some(fragment => normalized.includes(fragment))) {
                 return 'Backend WhatsApp indisponível. Verifique se o serviço está em execução.';
             }
             return message;
+        }
+
+        function notifyWhatsapp(message, type = 'info') {
+            const safeMessage = type === 'error' ? getWhatsappApiErrorMessage(message) : message;
+            if(typeof showToast === 'function') showToast(safeMessage);
+            else console[type === 'error' ? 'error' : 'log'](safeMessage);
         }
 
         async function whatsappApi(path, options = {}) {
@@ -3827,8 +3829,9 @@ ${hints}`);
                 updateWhatsappStatusUI(result?.status ? result : { status: 'qr_pending', connected: false });
                 pollWhatsappStatus();
             } catch (error) {
-                if(box) box.textContent = 'Não foi possível obter o QR Code. Backend WhatsApp indisponível.';
-                notifyWhatsapp(error.message, 'error');
+                const message = getWhatsappApiErrorMessage(error);
+                if(box) box.textContent = `Não foi possível obter o QR Code. ${message}`;
+                notifyWhatsapp(message, 'error');
             }
         }
 
