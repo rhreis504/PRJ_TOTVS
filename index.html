@@ -734,6 +734,9 @@
                 <div class="nav-item active" id="nav-cockpit" onclick="showPage('cockpit', this)"><i data-lucide="layout"></i> Dashboard Visão Geral</div>
                 <div class="nav-separator"></div>
                 <div class="nav-item" onclick="openStaticPage('status', 'status_report.html', this)"><i data-lucide="clipboard-check"></i> Status Report</div>
+                <div class="nav-item" onclick="openStaticPage('onepage', 'onepage_executivo.html', this)">
+                    <i data-lucide="file-text"></i> ONE PAGE EXECUTIVO
+                </div>
                 <div class="nav-item" onclick="openStaticPage('pendencias', 'pendencias.html', this)"><i data-lucide="list-todo"></i> Gestão de Pendências</div>
                 <div class="nav-item" onclick="openStaticPage('riscos', 'riscos.html', this)"><i data-lucide="alert-triangle"></i> Matriz de Riscos</div>
                 <div class="nav-item" onclick="showPage('gaps', this)"><i data-lucide="git-merge"></i> Gaps e Mudanças</div>
@@ -849,6 +852,11 @@
             <!-- STATUS REPORT -->
             <div id="page-status" class="hidden">
                 <iframe class="embedded-page-frame" src="status_report.html" title="Status Report" loading="lazy"></iframe>
+            </div>
+
+            <!-- ONE PAGE EXECUTIVO -->
+            <div id="page-onepage" class="hidden">
+                <iframe class="embedded-page-frame" src="onepage_executivo.html" title="One Page Executivo" loading="lazy"></iframe>
             </div>
 
             <!-- AGENDA DE REUNIÕES -->
@@ -1416,6 +1424,7 @@
             gaps: { label: 'GAPs e Mudanças', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'git-merge' },
             tap: { label: 'TAP', sourceType: 'csv', url: '', range: 'A1:B200', hasHeader: true, icon: 'file-signature' },
             statusReport: { label: 'Status Report Executivo', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'clipboard-check' },
+            curvaS: { label: 'Curva S - Atividades', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'chart-line' },
             atividades: { label: 'Atividades', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'calendar-check' },
             treinamentos: { label: 'Treinamentos', sourceType: 'csv', url: '', range: 'A1:Z100', hasHeader: true, icon: 'graduation-cap' },
         });
@@ -1555,7 +1564,7 @@
 
         // --- NAVIGATION ---
         function showPage(id, el) {
-            ['cockpit', 'status', 'tap', 'pendencias', 'cronograma', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'reunioes', 'config'].forEach(p => {
+            ['cockpit', 'status', 'onepage', 'tap', 'pendencias', 'cronograma', 'riscos', 'gaps', 'stakeholders', 'treinamentos', 'agenda', 'reunioes', 'config'].forEach(p => {
                 const element = document.getElementById('page-' + p);
                 if(element) element.classList.add('hidden');
             });
