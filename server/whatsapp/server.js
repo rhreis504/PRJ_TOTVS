@@ -13,7 +13,7 @@ const app = express();
 const port = Number(process.env.PORT || 3031);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
-const supabase = createSupabaseFromEnv();
+const supabase = await createSupabaseFromEnv();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json({ limit: '2mb' }));
