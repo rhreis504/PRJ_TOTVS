@@ -340,10 +340,24 @@
       };
 
       const isUuid = (value = '') => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value));
-      const getPrimaryProjectCode = () => {
-        const cfg = getCockpitConfig();
-        return cfg.activeProjectId || (Array.isArray(cfg.projects) && cfg.projects[0]?.id) || 'default';
+      const getUrlProjectParams = () => {
+        const params = new URLSearchParams(window.location.search || '');
+        return {
+          primaryProject: params.get('primaryProject') || '',
+          selectedProjects: (params.get('projects') || '').split(',').map(project => project.trim()).filter(Boolean),
+          isAllScope: params.get('tapScope') === 'all'
+        };
       };
+      const getSelectedProjectCodes = () => {
+        const cfg = getCockpitConfig();
+        const urlParams = getUrlProjectParams();
+        if (urlParams.selectedProjects.length) return [...new Set(urlParams.selectedProjects)];
+        const configSelected = (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds : [])
+          .filter(project => project && project !== '__ALL_TAP_PROJECTS__');
+        if (configSelected.length) return [...new Set(configSelected)];
+        return [urlParams.primaryProject || cfg.activeProjectId || (Array.isArray(cfg.projects) && cfg.projects[0]?.id) || 'default'];
+      };
+      const getPrimaryProjectCode = () => getSelectedProjectCodes()[0] || 'default';
       const getProjectConfigByCode = (projectCode) => {
         const cfg = getCockpitConfig();
         const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
@@ -367,6 +381,21 @@
         if (byCode[0]?.id) return byCode[0].id;
         if (!createIfMissing) return null;
         return ensureIssueProject(projectCode, projectsTable);
+      };
+      const resolveIssueProjectIds = async ({ createIfMissing = false } = {}) => {
+        const projectsTable = getCockpitConfig()?.supabase?.projectsTable || 'projects';
+        const codes = getSelectedProjectCodes();
+        const ids = [];
+        for (const projectCode of codes) {
+          if (isUuid(projectCode)) {
+            ids.push(projectCode);
+            continue;
+          }
+          const byCode = await supabaseRequest(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`);
+          if (byCode[0]?.id) ids.push(byCode[0].id);
+          else if (createIfMissing) ids.push(await ensureIssueProject(projectCode, projectsTable));
+        }
+        return [...new Set(ids.filter(Boolean))];
       };
 
       const parseSupabaseDate = (value) => {
@@ -634,9 +663,14 @@
         setLoading(true);
         setError(null);
         try {
-          const projectId = await resolveIssueProjectId({ createIfMissing: true });
+          const projectIds = await resolveIssueProjectIds({ createIfMissing: true });
           const issuesTable = getCockpitConfig()?.supabase?.issuesTable || 'issues';
-          const rows = await supabaseRequest(`${issuesTable}?project_id=eq.${projectId}&select=id,external_id,area,category,stage,project_stage,sprint,activity,description,owner,client_owner,criticality,identified_at,planned_at,days_to_complete,condition,issue_condition,completed_at,completion_pct,status&order=external_id.asc`);
+          const projectFilter = projectIds.length === 1
+            ? `eq.${encodeURIComponent(projectIds[0])}`
+            : `in.(${projectIds.map(projectId => encodeURIComponent(projectId)).join(',')})`;
+          const rows = projectIds.length
+            ? await supabaseRequest(`${issuesTable}?project_id=${projectFilter}&select=id,external_id,area,category,stage,project_stage,sprint,activity,description,owner,client_owner,criticality,identified_at,planned_at,days_to_complete,condition,issue_condition,completed_at,completion_pct,status&order=external_id.asc`)
+            : [];
           setDataset({ headers: EXPECTED_HEADERS, data: rows.map(issueRowToTask) });
           setLastUpdated(formatLastSaveDateTime());
         } catch (err) {
