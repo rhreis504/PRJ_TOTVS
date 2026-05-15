@@ -1383,7 +1383,7 @@
     <div id="whatsapp-qr-modal" class="generic-modal" style="display:none; align-items:center; justify-content:center; padding:20px;">
         <div class="card">
             <div class="modal-header">
-                <div><h3>Conectar WhatsApp</h3><p class="modal-subtitle">Escaneie o QR Code pelo WhatsApp do celular.</p></div>
+                <div><h3>Conectar WhatsApp</h3><p class="modal-subtitle">Escaneie no celular o QR Code exibido no terminal do serviço.</p></div>
                 <button class="modal-close" onclick="closeWhatsappQrModal()" aria-label="Fechar modal de QR Code"><i data-lucide="x" size="24"></i></button>
             </div>
             <div class="modal-body">
@@ -3757,12 +3757,16 @@ ${hints}`);
         }
 
         function getWhatsappApiBases() {
-            return ['http://localhost:3031'];
+            return [
+                normalizeWhatsappApiBase(localStorage.getItem('totvs_whatsapp_api_base')),
+                'http://localhost:4545',
+                'http://localhost:3031'
+            ].filter(Boolean);
         }
 
-        const WHATSAPP_API_BASES = ['http://localhost:3031'];
-        let WHATSAPP_API_BASE = 'http://localhost:3031';
-        const WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE = 'Backend WhatsApp indisponível. Execute os comandos abaixo:\ncd server/whatsapp\nnpm install\nnpm start\nDepois acesse http://localhost:3031/health e tente novamente.';
+        const WHATSAPP_API_BASES = getWhatsappApiBases();
+        let WHATSAPP_API_BASE = 'http://localhost:4545';
+        const WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE = 'Serviço WhatsApp indisponível. Execute npm run crm:wa ou rode cd server/whatsapp && npm install && npm start. Depois acesse http://localhost:4545/health e tente novamente.';
         const WHATSAPP_BACKEND_FOLDER_MESSAGE = WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE;
         function isWhatsappNetworkFailure(message) {
             const normalized = String(message || '').toLowerCase();
@@ -3779,11 +3783,7 @@ ${hints}`);
         }
 
         async function checkWhatsappBackendHealth() {
-            const response = await fetch(`${WHATSAPP_API_BASE}/health`, { cache: 'no-store' });
-            if(!response.ok) throw new Error('Backend WhatsApp não respondeu corretamente.');
-            const contentType = response.headers.get('content-type') || '';
-            if(!contentType.includes('application/json')) throw new Error('Backend WhatsApp retornou uma resposta inválida.');
-            return response.json();
+            return whatsappApi('/health');
         }
 
         function notifyWhatsapp(message, type = 'info') {
@@ -3849,52 +3849,66 @@ ${hints}`);
 
         async function connectWhatsappQr() {
             openWhatsappQrModal();
-            const box = document.getElementById('whatsapp-qr-container');
-            if(box) box.textContent = 'Validando backend WhatsApp...';
+
+            const box = document.getElementById('whatsapp-qr-box') || document.getElementById('whatsapp-qr-container');
+
+            if(box) {
+                box.innerHTML = `
+                    <div style="text-align:left; line-height:1.6;">
+                        <strong>Iniciando serviço WhatsApp...</strong><br>
+                        Validando backend local em http://localhost:4545.
+                    </div>
+                `;
+            }
+
             try {
-                await checkWhatsappBackendHealth();
-                if(box) box.textContent = 'Solicitando QR Code real ao backend...';
-                const result = await whatsappApi('/connect', { method: 'POST' });
-                if(result?.connected) {
-                    if(box) box.innerHTML = '<div>WhatsApp já conectado.</div>';
-                    updateWhatsappStatusUI(result);
-                    pollWhatsappStatus();
-                    return;
+                await whatsappApi('/health');
+
+                const result = await whatsappApi('/connect', {
+                    method: 'POST'
+                });
+
+                if(box) {
+                    box.innerHTML = `
+                        <div style="text-align:left; line-height:1.6;">
+                            <strong>Serviço WhatsApp iniciado.</strong><br><br>
+                            O QR Code será exibido no terminal onde você executou o serviço.<br><br>
+                            Execute, se ainda não estiver rodando:<br>
+                            <code>npm run crm:wa</code><br><br>
+                            Ou:<br>
+                            <code>cd server/whatsapp && npm install && npm start</code><br><br>
+                            Depois abra no celular:<br>
+                            WhatsApp > Aparelhos conectados > Conectar aparelho.<br><br>
+                            Depois de escanear, aguarde o status mudar para Conectado.
+                        </div>
+                    `;
                 }
-                if(result?.qrDataUrl && box) {
-                    box.innerHTML = `<div><img src="${escapeHtml(result.qrDataUrl)}" alt="QR Code real WhatsApp"></div>`;
-                } else if(box) {
-                    box.textContent = 'Aguardando geração do QR Code...';
-                    await waitWhatsappQrOrConnection(box);
-                }
-                updateWhatsappStatusUI(result?.status ? result : { status: result?.status || 'waiting_qr', connected: false });
+
+                updateWhatsappStatusUI(result);
                 pollWhatsappStatus();
+
             } catch (error) {
-                const message = getWhatsappApiErrorMessage(error) || WHATSAPP_BACKEND_FOLDER_MESSAGE;
-                if(box) box.textContent = `Não foi possível obter o QR Code. ${message}`;
+                const message = error.message || 'Serviço WhatsApp indisponível.';
+
+                if(box) {
+                    box.innerHTML = `
+                        <div style="text-align:left; line-height:1.6; color:var(--totvs-danger);">
+                            <strong>Não foi possível conectar ao serviço WhatsApp.</strong><br><br>
+                            ${escapeHtml(message)}<br><br>
+                            Execute:<br>
+                            <code>npm run crm:wa</code><br><br>
+                            Ou:<br>
+                            <code>cd server/whatsapp</code><br>
+                            <code>npm install</code><br>
+                            <code>npm start</code><br><br>
+                            Depois teste no navegador:<br>
+                            <code>http://localhost:4545/health</code>
+                        </div>
+                    `;
+                }
+
                 notifyWhatsapp(message, 'error');
             }
-        }
-
-        async function waitWhatsappQrOrConnection(box) {
-            const startedAt = Date.now();
-            while(Date.now() - startedAt < 60000) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                const status = await whatsappApi('/status');
-                updateWhatsappStatusUI(status);
-                if(status?.connected) {
-                    box.innerHTML = '<div>WhatsApp conectado com sucesso.</div>';
-                    return;
-                }
-                if(status?.hasQr || status?.status === 'qr_ready') {
-                    const result = await whatsappApi('/connect', { method: 'POST' });
-                    if(result?.qrDataUrl) {
-                        box.innerHTML = `<div><img src="${escapeHtml(result.qrDataUrl)}" alt="QR Code real WhatsApp"></div>`;
-                        return;
-                    }
-                }
-            }
-            box.textContent = 'Tempo esgotado aguardando geração do QR Code. Verifique o backend WhatsApp e tente novamente.';
         }
 
         function openWhatsappQrModal() {
@@ -3913,11 +3927,19 @@ ${hints}`);
         async function pollWhatsappStatus() {
             if(whatsappStatusTimer) clearInterval(whatsappStatusTimer);
             const load = async () => {
-                try { updateWhatsappStatusUI(await whatsappApi('/status')); }
-                catch (error) { updateWhatsappStatusUI({ status: 'offline', connected: false, error: true }); }
+                try {
+                    const status = await whatsappApi('/status');
+                    updateWhatsappStatusUI(status);
+                    if(status?.connected) {
+                        const box = document.getElementById('whatsapp-qr-box') || document.getElementById('whatsapp-qr-container');
+                        if(box) box.innerHTML = '<div><strong>WhatsApp conectado com sucesso.</strong></div>';
+                    }
+                } catch (error) {
+                    updateWhatsappStatusUI({ status: 'offline', connected: false, error: true });
+                }
             };
             await load();
-            whatsappStatusTimer = setInterval(load, 10000);
+            whatsappStatusTimer = setInterval(load, 3000);
         }
 
         function updateWhatsappStatusUI(status = {}) {

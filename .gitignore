@@ -7,3 +7,5 @@ server/whatsapp/.wwebjs_cache/
 !.env.example
 !.env.*.example
 .DS_Store
+server/whatsapp/auth/
+server/whatsapp/.env

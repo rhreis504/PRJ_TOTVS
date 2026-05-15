@@ -1,39 +1,35 @@
-# Serviço WhatsApp Web - Cockpit PMO
+# Cockpit WhatsApp Service
 
-Este serviço local gera o QR Code real do WhatsApp Web para conexão com o Cockpit.
+Serviço Node independente para manter a sessão do WhatsApp viva fora do ciclo de vida do `index.html`.
 
-## Como executar
+## Como executar pela raiz do projeto
 
-Abra o terminal na raiz do projeto e rode:
+```bash
+npm run crm:wa
+```
 
+## Como executar manualmente
+
+```bash
 cd server/whatsapp
 npm install
 npm start
+```
 
-Depois acesse:
+O serviço sobe por padrão em `http://localhost:4545`.
 
-http://localhost:3031/health
+## Endpoints
 
-O retorno esperado é:
+- `GET /health` — verifica se o serviço está online.
+- `GET /status` — retorna o estado atual da conexão WhatsApp.
+- `POST /connect` — inicia o client e orienta o usuário a escanear o QR exibido no terminal.
+- `GET /chats` — lista conversas depois que o WhatsApp estiver conectado.
+- `POST /restart` — reinicia o client preservando a sessão local.
+- `POST /logout` — encerra a sessão e exige novo QR Code na próxima conexão.
+- `POST /disconnect` — desconecta o client localmente preservando a pasta `auth`.
 
-{
-  "ok": true,
-  "service": "whatsapp",
-  "port": 3031
-}
+## QR Code e sessão
 
-Para gerar QR Code:
+O QR Code real é impresso no terminal via `qrcode-terminal`. O frontend não gera QR Code no navegador e não espera imagem/DataURL do backend.
 
-POST http://localhost:3031/connect
-
-No PowerShell:
-
-Invoke-RestMethod -Method Post http://localhost:3031/connect | ConvertTo-Json -Depth 5
-
-O campo qrDataUrl deve começar com:
-
-data:image/png;base64,
-
-Depois abra o Cockpit e clique em:
-
-Configurações do Sistema > Integração WhatsApp > Conectar via QR Code
+A sessão é persistida em `server/whatsapp/auth` quando o serviço é iniciado pela raiz com `npm run crm:wa` ou manualmente dentro da pasta do serviço. Essa pasta está ignorada pelo Git.
