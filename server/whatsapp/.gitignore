@@ -3,3 +3,6 @@ node_modules/
 auth/
 .wwebjs_auth/
 .wwebjs_cache/
+whatsapp-doctor-report.json
+whatsapp-doctor-report.txt
+whatsapp-service.log

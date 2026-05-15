@@ -1,15 +1,27 @@
 # Cockpit WhatsApp Service
 
-## Como iniciar no Windows
+## Diagnosticar e corrigir automaticamente
 
-Opção 1:
-Dê dois cliques em:
+Na raiz do projeto:
 
-start-whatsapp.bat
+npm run wa:doctor
 
-Opção 2:
-Abra o terminal na pasta server/whatsapp e rode:
+Ou dentro da pasta:
 
+cd server/whatsapp
+node whatsapp-doctor.cjs
+
+## Corrigir automaticamente
+
+npm run wa:fix
+
+## Iniciar serviço
+
+npm run wa:start
+
+Ou:
+
+cd server/whatsapp
 npm install
 npm start
 
@@ -17,17 +29,14 @@ npm start
 
 Abra:
 
-http://localhost:4545/health
-
-ou execute:
-
-check-whatsapp.bat
+http://127.0.0.1:4545/health
 
 ## QR Code
 
 Na primeira execução, o QR Code aparece no terminal.
 
 No celular:
+
 WhatsApp > Aparelhos conectados > Conectar aparelho
 
 A sessão será salva em:

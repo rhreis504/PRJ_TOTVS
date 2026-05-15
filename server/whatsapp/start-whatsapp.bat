@@ -1,4 +1,5 @@
 @echo off
+title Cockpit WhatsApp Service
 echo ==========================================
 echo Iniciando Cockpit WhatsApp Service
 echo ==========================================
@@ -9,6 +10,6 @@ echo.
 echo Instalando dependencias...
 call npm install
 echo.
-echo Iniciando servidor...
+echo Iniciando servidor na porta 4545...
 call npm start
 pause
