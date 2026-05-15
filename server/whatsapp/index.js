@@ -1,4 +1,3 @@
-process.chdir(__dirname);
 require('dotenv').config();
 
 const express = require('express');
@@ -8,12 +7,13 @@ const {
   startClient,
   restartClient,
   logoutClient,
+  disconnectClient,
   getStatus,
   getChats
 } = require('./wa-client');
 
 const app = express();
-const PORT = Number(process.env.WA_SERVICE_PORT || process.env.WHATSAPP_PORT || 4545);
+const PORT = Number(process.env.WA_SERVICE_PORT || 4545);
 
 app.use(cors({
   origin: true,
@@ -28,7 +28,9 @@ app.get('/health', (req, res) => {
     ok: true,
     service: 'cockpit-whatsapp-service',
     port: PORT,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    cwd: process.cwd(),
+    node: process.version
   });
 });
 
@@ -44,7 +46,7 @@ app.post('/connect', async (req, res) => {
       ...status,
       message: status.connected
         ? 'WhatsApp já conectado.'
-        : 'Serviço iniciado. Se ainda não estiver conectado, escaneie o QR Code exibido no terminal.'
+        : 'Serviço iniciado. Se necessário, escaneie o QR Code exibido no terminal.'
     });
   } catch (error) {
     console.error('[POST /connect] Erro:', error);
@@ -73,7 +75,7 @@ app.post('/restart', async (req, res) => {
 
 app.post('/logout', async (req, res) => {
   try {
-    const status = await logoutClient({ keepAuth: false });
+    const status = await logoutClient();
     res.json({
       ...status,
       message: 'Logout realizado. Na próxima inicialização será necessário escanear novo QR Code.'
@@ -89,10 +91,10 @@ app.post('/logout', async (req, res) => {
 
 app.post('/disconnect', async (req, res) => {
   try {
-    const status = await logoutClient({ keepAuth: true });
+    const status = await disconnectClient();
     res.json({
       ...status,
-      message: 'Client desconectado localmente. A sessão auth foi preservada.'
+      message: 'Client desconectado localmente. Sessão preservada em ./auth.'
     });
   } catch (error) {
     console.error('[POST /disconnect] Erro:', error);
@@ -116,11 +118,15 @@ app.get('/chats', async (req, res) => {
   }
 });
 
-app.get('/events', (req, res) => {
+app.get('/diagnostics', (req, res) => {
   res.json({
     ok: true,
-    status: getStatus(),
-    events: []
+    service: 'cockpit-whatsapp-service',
+    port: PORT,
+    cwd: process.cwd(),
+    node: process.version,
+    platform: process.platform,
+    status: getStatus()
   });
 });
 

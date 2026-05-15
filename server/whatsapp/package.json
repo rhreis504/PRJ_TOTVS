@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js",
-    "crm:wa": "node index.js"
+    "crm:wa": "node index.js",
+    "check": "node -e \"fetch('http://localhost:4545/health').then(r=>r.json()).then(console.log).catch(e=>{console.error(e.message); process.exit(1)})\""
   },
   "dependencies": {
     "cors": "^2.8.5",
