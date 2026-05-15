@@ -153,6 +153,108 @@
 4,01/05/2026,Cliente / Governança,Regis Reis,Bloqueada,3,2,6,Mitigar,"Alinhar com o cliente, desde o início, a necessidade de participação ativa durante o projeto, definindo responsáveis claros e garantindo agenda e disponibilidade para validações, decisões e acompanhamento das atividades.",,A iniciar,Prazo,,,Risco: Disponibilidade do cliente. Entendimento: etapas do projeto dependem da participação ativa do cliente para validar informações tomar decisões disponibilizar pessoas-chave e acompanhar atividades.,Aberto,Em análise
 5,01/05/2026,PMO / Cronograma,Regis Reis,Bloqueada,3,3,9,Prevenir/Evitar,"Construir um cronograma único e integrado entre todos os parceiros, consolidando prazos, dependências e sequência de execução das frentes, garantindo alinhamento geral e previsibilidade do projeto.",,A iniciar,Prazo,,,Risco: Falta de cronograma. Entendimento: sem cronograma consolidado entre parceiros não há visão única de execução dependências sequência das atividades e previsibilidade do projeto.,Aberto,Em análise`;
 
+    const stripDiacritics = (value = '') => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const normalizeKey = (value = '') => stripDiacritics(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const isUuidLike = (value = '') => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(`${value || ''}`.trim());
+    function getCockpitConfig() {
+      const parse = (value) => { try { return value ? JSON.parse(value) : {}; } catch { return {}; } };
+      const localCfg = parse(localStorage.getItem('totvs_cockpit_config') || '{}');
+      try {
+        const parentCfg = (window.parent && window.parent !== window && window.parent.config) ? window.parent.config : null;
+        if (parentCfg && Object.keys(parentCfg).length) return parentCfg;
+      } catch (_e) {}
+      return localCfg;
+    }
+    function getUrlProjectParams() {
+      const params = new URLSearchParams(window.location.search || '');
+      return {
+        primaryProject: params.get('primaryProject') || '',
+        selectedProjects: (params.get('projects') || '').split(',').map(v => v.trim()).filter(Boolean)
+      };
+    }
+    function getActiveProjectCode(cfg = getCockpitConfig()) {
+      const urlParams = getUrlProjectParams();
+      const activeProject = `${urlParams.primaryProject || cfg?.activeProjectId || ''}`.trim();
+      if (activeProject) return activeProject;
+      return (urlParams.selectedProjects || []).find(project => project && project !== '__ALL_TAP_PROJECTS__')
+        || (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds.find(project => project && project !== '__ALL_TAP_PROJECTS__') : '')
+        || 'default';
+    }
+    function getActiveProjectConfig(cfg = getCockpitConfig()) {
+      const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
+      const activeId = getActiveProjectCode(cfg);
+      return projects.find(project => project.id === activeId) || { id: activeId, name: activeId, sources: {} };
+    }
+    function resolveSourceByLabel(sources = {}, aliases = []) {
+      const normalizedAliases = aliases.map(normalizeKey);
+      return Object.values(sources || {}).find(source => normalizedAliases.includes(normalizeKey(source?.label || ''))) || null;
+    }
+    function getConfiguredRiskSource() {
+      const cfg = getCockpitConfig();
+      const active = getActiveProjectConfig(cfg);
+      const activeSources = active?.sources || {};
+      const globalSources = cfg?.sources || {};
+      const aliases = ['Riscos', 'Painel de Riscos'];
+      const candidates = [activeSources.riscos, resolveSourceByLabel(activeSources, aliases), globalSources.riscos, resolveSourceByLabel(globalSources, aliases)];
+      return candidates.find(source => (source?.url || '').trim()) || candidates.find(Boolean) || {};
+    }
+    function resolveConfiguredCsvUrl(source = {}) {
+      let url = (source.url || '').trim();
+      if (!url) return '';
+      if ((source.sourceType || 'csv') !== 'csv') return url;
+      if (url.includes('docs.google.com/spreadsheets')) {
+        if (url.includes('/pubhtml')) url = url.replace('/pubhtml', '/pub?output=csv');
+        else if (url.includes('/pub') && !url.includes('output=csv')) url += (url.includes('?') ? '&' : '?') + 'output=csv';
+        else if (url.includes('spreadsheets/d/') && !url.includes('format=csv')) url = url.replace(/\/edit.*$/, '/export?format=csv');
+        if (source.sheet && !url.includes('gid=')) url += (url.includes('?') ? '&' : '?') + `sheet=${encodeURIComponent(source.sheet)}`;
+      }
+      return url;
+    }
+    function normalizeSupabaseBaseUrl(raw = '') {
+      const value = (raw || '').trim();
+      if (!value) return '';
+      const parsed = new URL(value.startsWith('http') ? value : `https://${value}`);
+      return `${parsed.protocol}//${parsed.host}`;
+    }
+    function getSupabaseRuntime() {
+      const cfg = getCockpitConfig();
+      const rawUrl = cfg?.supabase?.url || cfg?.supabase?.apiUrl || (cfg?.supabase?.projectRef ? `https://${cfg.supabase.projectRef}.supabase.co` : '');
+      let baseUrl = '';
+      try { baseUrl = normalizeSupabaseBaseUrl(rawUrl); } catch (_e) {}
+      const key = cfg?.supabase?.secret || cfg?.supabase?.serviceRole || cfg?.supabase?.currentKey || cfg?.supabase?.publishableKey || cfg?.supabase?.anonKey || '';
+      return { baseUrl, key, cfg };
+    }
+    async function supabaseGet(path) {
+      const { baseUrl, key } = getSupabaseRuntime();
+      if (!baseUrl || !key) return [];
+      const resp = await fetch(`${baseUrl}/rest/v1/${path}`, { cache: 'no-store', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
+      if (!resp.ok) throw new Error(`Supabase GET ${path} -> ${resp.status}`);
+      return resp.json();
+    }
+    async function getSupabaseProjectId() {
+      const { cfg } = getSupabaseRuntime();
+      const projectCode = cfg?.supabase?.projectCode || getActiveProjectCode(cfg);
+      const projectsTable = cfg?.supabase?.projectsTable || 'projects';
+      if (isUuidLike(projectCode)) {
+        const byId = await supabaseGet(`${projectsTable}?id=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`).catch(() => []);
+        if (byId?.[0]?.id) return byId[0].id;
+      }
+      const byCode = await supabaseGet(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=id&limit=1`).catch(() => []);
+      return byCode?.[0]?.id || null;
+    }
+    async function loadRiskRowsFromSupabase() {
+      const projectId = await getSupabaseProjectId();
+      if (!projectId) return [];
+      const { cfg } = getSupabaseRuntime();
+      const rowsTable = cfg?.supabase?.sourceRowsTable || cfg?.supabase?.tables?.sourceRows || 'source_rows';
+      const rows = await supabaseGet(`${rowsTable}?project_id=eq.${encodeURIComponent(projectId)}&source_type=eq.riscos&select=row_data,created_at&order=created_at.desc&limit=1000`).catch(() => []);
+      return (rows || []).map(row => row.row_data).filter(Boolean);
+    }
+    function rowsToDataset(rows = []) {
+      const headers = [...new Set(rows.flatMap(row => Object.keys(row || {})))];
+      return { headers, data: rows };
+    }
+
     // --- COMPONENTE PRINCIPAL ---
     function RiscosDashboard() {
       const [dataset, setDataset] = useState({ headers: [], data: [] });
@@ -164,23 +266,29 @@
       const [areaFilter, setAreaFilter] = useState('');
       const [estrategiaFilter, setEstrategiaFilter] = useState('');
 
-      const CSV_URL = ""; 
-
       const loadData = async () => {
         setLoading(true);
         try {
-          if (CSV_URL) {
-            const response = await fetch(CSV_URL);
-            if (!response.ok) throw new Error("Falha no link do Google Sheets");
+          const source = getConfiguredRiskSource();
+          const url = resolveConfiguredCsvUrl(source);
+          if (url) {
+            const response = await fetch(url, { cache: 'no-store' });
+            if (!response.ok) throw new Error("Falha no link configurado de riscos");
             const csvText = await response.text();
             setDataset(parseCSVToObjects(csvText));
-            setLastUpdated(new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }));
-          } else {
-            setDataset(parseCSVToObjects(RISCOS_CSV_DATA));
-            setLastUpdated("Dados Inseridos Manualmente");
+            setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+            return;
           }
+          const supabaseRows = await loadRiskRowsFromSupabase();
+          if (supabaseRows.length) {
+            setDataset(rowsToDataset(supabaseRows));
+            setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+            return;
+          }
+          setDataset(parseCSVToObjects(RISCOS_CSV_DATA));
+          setLastUpdated("Fallback sem fonte configurada para a TAP selecionada");
         } catch (err) {
-          console.error("Erro ao carregar, caindo para fallback:", err);
+          console.error("Erro ao carregar riscos do projeto selecionado, caindo para fallback:", err);
           setDataset(parseCSVToObjects(RISCOS_CSV_DATA));
           setLastUpdated("Offline (Fallback)");
         } finally {
@@ -190,6 +298,14 @@
 
       useEffect(() => {
         loadData();
+        const handleMessage = (event) => { if (event.data?.type === 'totvs-project-context-updated') loadData(); };
+        const handleStorage = (event) => { if (event.key === 'totvs_cockpit_config') loadData(); };
+        window.addEventListener('message', handleMessage);
+        window.addEventListener('storage', handleStorage);
+        return () => {
+          window.removeEventListener('message', handleMessage);
+          window.removeEventListener('storage', handleStorage);
+        };
       }, []);
 
       const uniqueValues = useMemo(() => {

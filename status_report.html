@@ -412,18 +412,19 @@
             const params = new URLSearchParams(window.location.search || '');
             const primaryProject = params.get('primaryProject') || '';
             const selectedProjects = (params.get('projects') || '').split(',').map(v => v.trim()).filter(Boolean);
-            return { primaryProject, selectedProjects };
+            const tapEntry = params.get('tapEntry') || '';
+            return { primaryProject, selectedProjects, tapEntry };
         }
         function getActiveProjectCode(cfg = getCockpitConfig()) {
             const urlParams = getUrlProjectParams();
-            return urlParams.primaryProject || cfg?.activeProjectId || (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds[0] : '') || 'default';
+            const activeProject = `${urlParams.primaryProject || cfg?.activeProjectId || ''}`.trim();
+            if (activeProject) return activeProject;
+            return (urlParams.selectedProjects || []).find(project => project && project !== '__ALL_TAP_PROJECTS__')
+                || (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds.find(project => project && project !== '__ALL_TAP_PROJECTS__') : '')
+                || 'default';
         }
         function getSelectedProjectCodes(cfg = getCockpitConfig()) {
-            const urlParams = getUrlProjectParams();
-            const codes = [urlParams.primaryProject, ...urlParams.selectedProjects, cfg?.activeProjectId, ...(Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds : [])]
-                .map(v => `${v || ''}`.trim())
-                .filter(Boolean);
-            return [...new Set(codes.length ? codes : ['default'])];
+            return [getActiveProjectCode(cfg)];
         }
         function getActiveProjectConfig(cfg = getCockpitConfig()) {
             const projects = Array.isArray(cfg?.projects) ? cfg.projects : [];
@@ -521,7 +522,8 @@
             if (!resp.ok) throw new Error(`Supabase GET ${path} -> ${resp.status}`);
             return resp.json();
         }
-        function getSupabaseTableName(key, fallback) {
+        function isUuidLike(value = '') { return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(`${value || ''}`.trim()); }
+    function getSupabaseTableName(key, fallback) {
             const cfg = getCockpitConfig();
             const configured = cfg?.supabase?.[`${key}Table`] || cfg?.supabase?.tables?.[key];
             return (configured || fallback).trim();
@@ -600,16 +602,24 @@
             const cfg = getCockpitConfig();
             const projectCode = cfg?.supabase?.projectCode || getActiveProjectCode(cfg);
             const projectsTable = getSupabaseTableName('projects', 'projects');
-            const projects = await supabaseGet(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=*`);
+            if (isUuidLike(projectCode)) {
+                const byId = await supabaseGet(`${projectsTable}?id=eq.${encodeURIComponent(projectCode)}&select=*&limit=1`).catch(() => []);
+                if (byId?.[0]) return byId[0];
+            }
+            const projects = await supabaseGet(`${projectsTable}?code=eq.${encodeURIComponent(projectCode)}&select=*&limit=1`).catch(() => []);
             return projects?.[0] || null;
         }
         async function loadSupabaseTapRows() {
+            const urlParams = getUrlProjectParams();
             const tapTable = getSupabaseTableName('tap', 'tap_entries');
             const projectsTable = getSupabaseTableName('projects', 'projects');
+            if (urlParams.tapEntry) {
+                const exact = await supabaseGet(`${tapTable}?id=eq.${encodeURIComponent(urlParams.tapEntry)}&select=*&limit=1`).catch(() => []);
+                if (exact?.length) return exact.map(mergeTapRow);
+            }
             const activeProject = await getSupabaseProjectId().catch(() => null);
-            const tapPath = activeProject?.id
-                ? `${tapTable}?project_id=eq.${encodeURIComponent(activeProject.id)}&select=*&order=created_at.desc.nullslast&limit=50`
-                : `${tapTable}?select=*&order=created_at.desc.nullslast&limit=200`;
+            if (!activeProject?.id) return [];
+            const tapPath = `${tapTable}?project_id=eq.${encodeURIComponent(activeProject.id)}&select=*&order=created_at.desc.nullslast&limit=50`;
             const [allTapRows, projects] = await Promise.all([
                 supabaseGet(tapPath),
                 supabaseGet(`${projectsTable}?select=id,code,name&limit=500`).catch(() => [])
@@ -733,6 +743,8 @@
         function applyTrainings(rows = []) {
             let local = [];
             try { local = JSON.parse(localStorage.getItem('totvs_agenda') || '[]'); } catch { local = []; }
+            const activeProjectId = getActiveProjectCode();
+            local = (local || []).filter(item => `${item.projectId || ''}`.trim() === activeProjectId);
             const fromRows = rows.map(r => { const n = normalizeRow(r); return { title: firstFrom(n, ['titulo', 'título', 'treinamento', 'atividade', 'title']), system: firstFrom(n, ['sistema', 'modulo', 'módulo', 'system']), instructor: firstFrom(n, ['instrutor', 'responsável', 'responsavel', 'instructor']), date: firstFrom(n, ['data', 'date']), time: firstFrom(n, ['hora', 'time']), status: firstFrom(n, ['status']) || 'upcoming' }; }).filter(t => t.title);
             data.trainings = fromRows.length ? fromRows : local;
         }
@@ -925,6 +937,8 @@
             document.getElementById('integration-list').innerHTML = data.integrations.slice(0, 4).map(i => `<li class="flex justify-between"><span>${escapeHtml(i.name)}:</span><span class="${/bloque|atras|crit|aten/i.test(stripDiacritics(i.status)) ? 'text-orange-600' : 'text-green-600'}">${escapeHtml(i.status)}</span></li>`).join('');
         }
         function renderFooter() { const el = document.getElementById('last-updated'); if (el) el.innerText = new Date().toLocaleString('pt-BR'); }
+        window.addEventListener('message', (event) => { if (event.data?.type === 'totvs-project-context-updated') reloadFromConfiguredSources(); });
+        window.addEventListener('storage', (event) => { if (event.key === 'totvs_cockpit_config') reloadFromConfiguredSources(); });
         document.addEventListener('DOMContentLoaded', () => { reloadFromConfiguredSources(); });
     </script>
 </body>
