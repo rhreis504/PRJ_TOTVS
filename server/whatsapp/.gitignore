@@ -1,4 +1,9 @@
-node_modules
-auth
-.wwebjs_auth
-.wwebjs_cache
+node_modules/
+auth/
+.wwebjs_auth/
+.wwebjs_cache/
+.env
+whatsapp-doctor-report.json
+whatsapp-doctor-report.txt
+whatsapp-service.log
+data/
