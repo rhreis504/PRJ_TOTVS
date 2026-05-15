@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "whatsapp": "node scripts/start-whatsapp-service.cjs",
-    "crm:wa": "node scripts/start-whatsapp-service.cjs"
+    "crm:wa": "node server/whatsapp/index.js",
+    "crm:wa:win": "cd server/whatsapp && npm install && npm start"
   }
 }

@@ -1,5 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const path = require('path');
 
 let client = null;
 let connected = false;
@@ -11,6 +12,8 @@ let lastError = null;
 let lastDisconnectedAt = null;
 let phoneNumber = null;
 
+const authPath = path.resolve(__dirname, 'auth');
+
 function getStatus() {
   return {
     ok: true,
@@ -21,16 +24,18 @@ function getStatus() {
     lastQrAt,
     lastReadyAt,
     lastDisconnectedAt,
-    lastError
+    lastError,
+    authPath
   };
 }
 
 function createClient() {
   console.log('[WhatsApp] Criando client...');
+  console.log('[WhatsApp] Auth path:', authPath);
 
   client = new Client({
     authStrategy: new LocalAuth({
-      dataPath: './auth'
+      dataPath: authPath
     }),
     puppeteer: {
       headless: true,
@@ -38,7 +43,9 @@ function createClient() {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote'
       ]
     }
   });
@@ -50,14 +57,15 @@ function createClient() {
 
     console.log('');
     console.log('====================================================');
-    console.log('[WhatsApp] Escaneie o QR Code abaixo com seu celular');
+    console.log('[WhatsApp] ESCANEIE O QR CODE ABAIXO');
+    console.log('WhatsApp > Aparelhos conectados > Conectar aparelho');
     console.log('====================================================');
     console.log('');
 
     qrcode.generate(qr, { small: true });
 
     console.log('');
-    console.log('Abra o WhatsApp no celular > Aparelhos conectados > Conectar aparelho.');
+    console.log('Aguardando leitura do QR Code...');
     console.log('');
   });
 
@@ -75,7 +83,7 @@ function createClient() {
 
     console.log('');
     console.log('====================================================');
-    console.log('[WhatsApp] Conectado com sucesso.');
+    console.log('[WhatsApp] CONECTADO COM SUCESSO');
     console.log('[WhatsApp] Número:', phoneNumber || 'não identificado');
     console.log('====================================================');
     console.log('');
@@ -99,12 +107,6 @@ function createClient() {
     lastDisconnectedAt = new Date().toISOString();
     lastError = reason || null;
     console.warn('[WhatsApp] Desconectado:', reason);
-  });
-
-  client.on('message', (msg) => {
-    if (!msg.fromMe) {
-      console.log('[WhatsApp] Mensagem recebida de', msg.from);
-    }
   });
 
   return client;
@@ -134,20 +136,34 @@ async function startClient() {
 }
 
 async function restartClient() {
-  await logoutClient({ keepAuth: true });
+  await disconnectClient();
   return startClient();
 }
 
-async function logoutClient(options = {}) {
-  const keepAuth = options.keepAuth === true;
-
+async function disconnectClient() {
   if (client) {
     try {
-      if (!keepAuth && connected) {
-        await client.logout();
-      }
+      await client.destroy();
     } catch (error) {
-      console.error('[WhatsApp] Erro ao executar logout:', error);
+      console.error('[WhatsApp] Erro ao destruir client:', error);
+    }
+  }
+
+  client = null;
+  connected = false;
+  initializing = false;
+  phoneNumber = null;
+  lastDisconnectedAt = new Date().toISOString();
+
+  return getStatus();
+}
+
+async function logoutClient() {
+  if (client) {
+    try {
+      await client.logout();
+    } catch (error) {
+      console.error('[WhatsApp] Erro no logout:', error);
     }
 
     try {
@@ -196,6 +212,7 @@ module.exports = {
   startClient,
   restartClient,
   logoutClient,
+  disconnectClient,
   getStatus,
   getChats
 };
