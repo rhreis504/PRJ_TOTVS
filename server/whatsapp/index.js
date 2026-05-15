@@ -15,10 +15,23 @@ const {
 const app = express();
 const PORT = Number(process.env.WA_SERVICE_PORT || 4545);
 
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Private-Network', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 app.use(cors({
   origin: true,
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -30,7 +43,8 @@ app.get('/health', (req, res) => {
     port: PORT,
     timestamp: new Date().toISOString(),
     cwd: process.cwd(),
-    node: process.version
+    node: process.version,
+    platform: process.platform
   });
 });
 
@@ -41,7 +55,6 @@ app.get('/status', (req, res) => {
 app.post('/connect', async (req, res) => {
   try {
     const status = await startClient();
-
     res.json({
       ...status,
       message: status.connected
@@ -94,7 +107,7 @@ app.post('/disconnect', async (req, res) => {
     const status = await disconnectClient();
     res.json({
       ...status,
-      message: 'Client desconectado localmente. Sessão preservada em ./auth.'
+      message: 'Client desconectado localmente. Sessão preservada.'
     });
   } catch (error) {
     console.error('[POST /disconnect] Erro:', error);
@@ -137,14 +150,19 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log('');
   console.log('====================================================');
-  console.log(`Cockpit WhatsApp Service rodando em http://localhost:${PORT}`);
-  console.log(`Health: http://localhost:${PORT}/health`);
+  console.log(`Cockpit WhatsApp Service rodando`);
+  console.log(`Localhost: http://localhost:${PORT}/health`);
+  console.log(`Loopback: http://127.0.0.1:${PORT}/health`);
   console.log(`Status: http://localhost:${PORT}/status`);
   console.log('====================================================');
   console.log('');
 
-  await startClient();
+  try {
+    await startClient();
+  } catch (error) {
+    console.error('[startup] WhatsApp não inicializou, mas /health continuará ativo:', error.message);
+  }
 });
