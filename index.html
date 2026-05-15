@@ -1583,6 +1583,7 @@
         let lastFetchErrors = {};
         let lastFetchMeta = {};
         let cachedTapProjects = [];
+        const TAP_ALL_PROJECTS_VALUE = '__ALL_TAP_PROJECTS__';
         let syncInProgressPromise = null;
 
         let roadmaps = [];
@@ -1626,7 +1627,12 @@
             if(config.activeProjectId && !config.projects.some(project => project.id === config.activeProjectId)) config.activeProjectId = '';
             if(!config.activeProjectId && config.projects.length) config.activeProjectId = config.projects[0].id;
             if(!Array.isArray(config.selectedProjectIds)) config.selectedProjectIds = [];
-            config.selectedProjectIds = config.selectedProjectIds.filter(projectId => config.projects.some(project => project.id === projectId));
+            const hadAllTapSelection = config.selectedProjectIds.includes(TAP_ALL_PROJECTS_VALUE);
+            config.selectedProjectIds = config.selectedProjectIds.filter(projectId => projectId === TAP_ALL_PROJECTS_VALUE || config.projects.some(project => project.id === projectId));
+            if(hadAllTapSelection) {
+                const allProjectIds = config.projects.map(project => project.id).filter(Boolean);
+                config.selectedProjectIds = [TAP_ALL_PROJECTS_VALUE, ...allProjectIds];
+            }
             if(!config.selectedProjectIds.length && config.activeProjectId) config.selectedProjectIds = [config.activeProjectId];
             config.supabase = { ...SUPABASE_DEFAULT_CONFIG, ...(config.supabase || {}) };
             const persistedUrlRef = extractProjectRefFromUrl(config.supabase.url) || '';
@@ -1646,7 +1652,11 @@
         normalizePersistedConfig();
         try { localStorage.setItem('totvs_cockpit_config', JSON.stringify(config)); } catch (_e) {}
         const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0] || { id: '', name: '', sources: defaultSources() };
-        const getSelectedProjects = () => config.projects.filter(p => config.selectedProjectIds.includes(p.id));
+        const getSelectedProjects = () => {
+            const projects = Array.isArray(config.projects) ? config.projects : [];
+            if((config.selectedProjectIds || []).includes(TAP_ALL_PROJECTS_VALUE)) return projects;
+            return projects.filter(p => config.selectedProjectIds.includes(p.id));
+        };
         const isUuidLike = (value = '') => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(`${value || ''}`.trim());
         const getDashboardProjectId = () => `${getActiveProject()?.id || config.activeProjectId || ''}`.trim();
         const isInactiveStatus = (value = '') => {
@@ -1738,11 +1748,14 @@
 
         function buildProjectContextParams() {
             const params = new URLSearchParams();
+            const selectedProjectIds = config.selectedProjectIds || [];
+            const isAllTapScope = selectedProjectIds.includes(TAP_ALL_PROJECTS_VALUE);
             params.set('primaryProject', config.activeProjectId || '');
-            params.set('projects', (config.selectedProjectIds || []).join(','));
+            params.set('projects', isAllTapScope ? config.projects.map(project => project.id).join(',') : selectedProjectIds.join(','));
+            if(isAllTapScope) params.set('tapScope', 'all');
             const activeProject = getActiveProject();
             const activeTapEntryId = config.activeTapEntryId || activeProject?.tapEntryId || '';
-            if(activeTapEntryId) params.set('tapEntry', activeTapEntryId);
+            if(activeTapEntryId && !isAllTapScope) params.set('tapEntry', activeTapEntryId);
             return params;
         }
 
@@ -2741,8 +2754,13 @@
             const sidebarSelect = document.getElementById('sidebar-project-select');
             if(sidebarSelect) {
                 const selectedIds = Array.from(sidebarSelect.selectedOptions).map(o => o.value);
-                config.selectedProjectIds = selectedIds.length ? selectedIds : [config.activeProjectId];
-                config.activeProjectId = config.selectedProjectIds[0];
+                if(selectedIds.includes(TAP_ALL_PROJECTS_VALUE)) {
+                    const allProjectIds = cachedTapProjects.map(project => project.projectId).filter(Boolean);
+                    config.selectedProjectIds = [TAP_ALL_PROJECTS_VALUE, ...new Set(allProjectIds)];
+                } else {
+                    config.selectedProjectIds = selectedIds.length ? selectedIds : [config.activeProjectId];
+                    config.activeProjectId = config.selectedProjectIds[0];
+                }
             }
             config.supabase.url = document.getElementById('supabase-url').value.trim();
             config.supabase.secret = document.getElementById('supabase-secret').value.trim();
@@ -3054,7 +3072,7 @@ ${hints}`);
             const tapIdentifier = firstTapValue(merged, ['identificacao', 'id', 'tap_payload_id']);
             return tapName || tapIdentifier || `${row.id || row.project_id || 'TAP sem identificação'}`;
         }
-        function applyTapProjectSelection(selectedId, tapProject = {}) {
+        function applyTapProjectSelection(selectedId, tapProject = {}, options = {}) {
             const tapEntryId = `${tapProject.tapEntryId || tapProject.id || ''}`.trim();
             const projectId = `${tapProject.projectId || tapProject.project_id || selectedId || ''}`.trim();
             if(!projectId) return;
@@ -3074,7 +3092,7 @@ ${hints}`);
                 label: projectName,
                 row: tapProject.row || null
             };
-            config.selectedProjectIds = [projectId];
+            if(!options.preserveAllSelection) config.selectedProjectIds = [projectId];
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
             notifyEmbeddedProjectContext();
         }
@@ -3091,13 +3109,24 @@ ${hints}`);
             }
             select.disabled = false;
             select.title = '';
-            select.innerHTML = tapProjects.map(project => `<option value="${escapeHtml(project.tapEntryId || project.id)}">${escapeHtml(project.label || project.id)}</option>`).join('');
+            const allOption = `<option value="${TAP_ALL_PROJECTS_VALUE}">TODOS</option>`;
+            const projectOptions = tapProjects.map(project => `<option value="${escapeHtml(project.tapEntryId || project.id)}">${escapeHtml(project.label || project.id)}</option>`).join('');
+            select.innerHTML = allOption + projectOptions;
 
+            const wasAllSelected = (config.selectedProjectIds || []).includes(TAP_ALL_PROJECTS_VALUE);
             let selectedTapProject = tapProjects.find(project => project.tapEntryId === config.activeTapEntryId)
                 || tapProjects.find(project => project.projectId === config.activeProjectId)
                 || tapProjects[0];
             const previousActiveProjectId = config.activeProjectId;
-            if(selectedTapProject) applyTapProjectSelection(selectedTapProject.tapEntryId || selectedTapProject.id, selectedTapProject);
+            if(wasAllSelected) {
+                const allProjectIds = [...new Set(tapProjects.map(project => project.projectId).filter(Boolean))];
+                config.selectedProjectIds = [TAP_ALL_PROJECTS_VALUE, ...allProjectIds];
+                if(selectedTapProject) {
+                    applyTapProjectSelection(selectedTapProject.tapEntryId || selectedTapProject.id, selectedTapProject, { preserveAllSelection: true });
+                }
+            } else if(selectedTapProject) {
+                applyTapProjectSelection(selectedTapProject.tapEntryId || selectedTapProject.id, selectedTapProject);
+            }
             renderTapProjectCards(tapProjects);
             if(previousActiveProjectId !== config.activeProjectId && !document.getElementById('page-config')?.classList.contains('hidden')) {
                 generateConfigRows({ skipTapRefresh: true });
@@ -3105,12 +3134,20 @@ ${hints}`);
             if(previousActiveProjectId !== config.activeProjectId) {
                 startSync();
             }
-            select.value = selectedTapProject?.tapEntryId || selectedTapProject?.id || '';
+            select.value = wasAllSelected ? TAP_ALL_PROJECTS_VALUE : (selectedTapProject?.tapEntryId || selectedTapProject?.id || '');
             select.onchange = async () => {
                 const selectedId = select.value;
-                const selectedTapProject = tapProjects.find(project => (project.tapEntryId || project.id) === selectedId) || {};
-                applyTapProjectSelection(selectedId, selectedTapProject);
-                showToast('Atualizando contexto da TAP...');
+                if(selectedId === TAP_ALL_PROJECTS_VALUE) {
+                    const allProjectIds = [...new Set(tapProjects.map(project => project.projectId).filter(Boolean))];
+                    config.selectedProjectIds = [TAP_ALL_PROJECTS_VALUE, ...allProjectIds];
+                    if(selectedTapProject) applyTapProjectSelection(selectedTapProject.tapEntryId || selectedTapProject.id, selectedTapProject, { preserveAllSelection: true });
+                    localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
+                    showToast('TODAS as TAPs foram selecionadas.');
+                } else {
+                    const selectedTapProject = tapProjects.find(project => (project.tapEntryId || project.id) === selectedId) || {};
+                    applyTapProjectSelection(selectedId, selectedTapProject);
+                    showToast('Atualizando contexto da TAP...');
+                }
                 generateConfigRows({ skipTapRefresh: true });
                 await loadFocusedProjects();
             };
