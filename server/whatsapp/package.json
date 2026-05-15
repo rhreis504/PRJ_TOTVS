@@ -4,18 +4,13 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js",
-    "crm:wa": "node index.js",
-    "doctor": "node whatsapp-doctor.cjs",
-    "fix": "node whatsapp-autofix.cjs"
+    "start": "node index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.18.3",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.26.0",
-    "puppeteer": "^23.11.1"
+    "whatsapp-web.js": "^1.26.0"
   }
 }
