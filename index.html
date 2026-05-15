@@ -3762,8 +3762,8 @@ ${hints}`);
 
         const WHATSAPP_API_BASES = getWhatsappApiBases();
         let WHATSAPP_API_BASE = WHATSAPP_API_BASES[0] || 'http://localhost:3031';
-        const WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE = 'Backend WhatsApp indisponível. Inicie o serviço com npm run whatsapp e aguarde o servidor em http://localhost:3031.';
-        const WHATSAPP_BACKEND_FOLDER_MESSAGE = 'Backend WhatsApp indisponível. Execute npm run whatsapp na pasta server/whatsapp.';
+        const WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE = 'Backend WhatsApp indisponível. Execute os comandos abaixo:\ncd server/whatsapp\nnpm install\nnpm start\nDepois acesse http://localhost:3031/health e tente novamente.';
+        const WHATSAPP_BACKEND_FOLDER_MESSAGE = WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE;
         const WHATSAPP_LOCAL_MOCK_STORAGE_KEY = 'totvs_whatsapp_local_mock_state';
         let whatsappChatsCache = [];
         let whatsappHistoryCache = [];
