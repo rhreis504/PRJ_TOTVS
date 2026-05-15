@@ -8,6 +8,8 @@ Serviço Node independente para manter a sessão do WhatsApp viva fora do ciclo 
 npm run crm:wa
 ```
 
+O comando acima verifica se as dependências do serviço existem em `server/whatsapp`, executa `npm install` somente quando elas estiverem ausentes e então inicia o backend local.
+
 ## Como executar manualmente
 
 ```bash
