@@ -3767,7 +3767,7 @@ ${hints}`);
 
         const WHATSAPP_API_BASES = getWhatsappApiBases();
         let WHATSAPP_API_BASE = 'http://localhost:4545';
-        const WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE = 'Serviço WhatsApp indisponível. O Cockpit não consegue iniciar serviços locais pelo navegador. Execute npm run wa:doctor na raiz do projeto ou abra server/whatsapp/check-whatsapp.bat. Depois acesse http://localhost:4545/health e tente novamente.';
+        const WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE = 'Serviço WhatsApp indisponível. Execute npm run crm:wa na raiz do projeto: este comando agora instala dependências, inicia o backend local e mantém o serviço em http://localhost:4545. Depois volte ao Cockpit e clique em Conectar.';
         const WHATSAPP_BACKEND_FOLDER_MESSAGE = WHATSAPP_BACKEND_UNAVAILABLE_MESSAGE;
         function isWhatsappNetworkFailure(message) {
             const normalized = String(message || '').toLowerCase();
@@ -3794,7 +3794,7 @@ ${hints}`);
                 updateWhatsappStatusUI(status);
                 notifyWhatsapp(`Serviço WhatsApp OK em ${WHATSAPP_API_BASE}. Health: ${health.ok ? 'ok' : 'falhou'}.`, 'info');
             } catch (error) {
-                const message = 'O Cockpit não consegue iniciar serviços locais pelo navegador. Execute npm run wa:doctor na raiz do projeto ou abra server/whatsapp/check-whatsapp.bat.';
+                const message = 'Backend WhatsApp offline. Execute npm run crm:wa na raiz do projeto; o comando instala e inicia tudo automaticamente.';
                 notifyWhatsapp(message, 'error');
                 console.error('[WhatsApp Doctor UI]', error);
             }
@@ -3886,14 +3886,11 @@ ${hints}`);
                     box.innerHTML = `
                         <div style="text-align:left; line-height:1.6;">
                             <strong>Serviço WhatsApp iniciado.</strong><br><br>
-                            O QR Code será exibido no terminal onde você executou o serviço.<br><br>
-                            Execute, se ainda não estiver rodando:<br>
+                            Aguarde alguns segundos: quando o WhatsApp gerar o QR Code, o Cockpit avisará e o QR Code aparecerá no terminal.<br><br>
+                            Se o backend ainda não estiver aberto, execute uma única vez na raiz do projeto:<br>
                             <code>npm run crm:wa</code><br><br>
-                            Ou:<br>
-                            <code>cd server/whatsapp && npm install && npm start</code><br><br>
                             Depois abra no celular:<br>
-                            WhatsApp > Aparelhos conectados > Conectar aparelho.<br><br>
-                            Depois de escanear, aguarde o status mudar para Conectado.
+                            WhatsApp > Aparelhos conectados > Conectar aparelho.
                         </div>
                     `;
                 }
@@ -3944,9 +3941,17 @@ ${hints}`);
                 try {
                     const status = await whatsappApi('/status');
                     updateWhatsappStatusUI(status);
+                    const box = document.getElementById('whatsapp-qr-box') || document.getElementById('whatsapp-qr-container');
                     if(status?.connected) {
-                        const box = document.getElementById('whatsapp-qr-box') || document.getElementById('whatsapp-qr-container');
                         if(box) box.innerHTML = '<div><strong>WhatsApp conectado com sucesso.</strong></div>';
+                    } else if(status?.status === 'qr' && box) {
+                        box.innerHTML = `
+                            <div style="text-align:left; line-height:1.6;">
+                                <strong>QR Code gerado.</strong><br><br>
+                                Escaneie o QR Code exibido no terminal onde o comando <code>npm run crm:wa</code> está rodando.<br><br>
+                                WhatsApp > Aparelhos conectados > Conectar aparelho.
+                            </div>
+                        `;
                     }
                 } catch (error) {
                     updateWhatsappStatusUI({ status: 'offline', connected: false, error: true });

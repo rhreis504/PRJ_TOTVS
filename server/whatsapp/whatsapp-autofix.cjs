@@ -29,8 +29,7 @@ const packageJsonContent = `{
     "dotenv": "^16.4.7",
     "express": "^4.18.3",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.26.0",
-    "puppeteer": "^23.11.1"
+    "whatsapp-web.js": "^1.26.0"
   }
 }
 `;
@@ -266,8 +265,7 @@ function ensurePackageJson() {
     dotenv: '^16.4.7',
     express: '^4.18.3',
     'qrcode-terminal': '^0.12.0',
-    'whatsapp-web.js': '^1.26.0',
-    puppeteer: '^23.11.1'
+    'whatsapp-web.js': '^1.26.0'
   };
   fs.writeFileSync(packagePath, `${JSON.stringify(parsed, null, 2)}\n`);
   log('package.json validado', true);
@@ -325,8 +323,17 @@ async function main() {
     fs.closeSync(fs.openSync(path.join(root, 'whatsapp-service.log'), 'a'));
     log('Arquivo whatsapp-service.log preparado', true);
 
-    log('Instalando dependências com npm install', true);
-    execSync('npm install', { cwd: root, stdio: 'inherit' });
+    const requiredModules = ['cors', 'dotenv', 'express', 'qrcode-terminal', 'whatsapp-web.js'];
+    const missingModules = requiredModules.filter(moduleName => {
+      try { require.resolve(moduleName, { paths: [root] }); return false; }
+      catch (_error) { return true; }
+    });
+    if (missingModules.length) {
+      log('Instalando dependências com npm install', true, `faltando: ${missingModules.join(', ')}`);
+      execSync('npm install', { cwd: root, stdio: 'inherit' });
+    } else {
+      log('Dependências já instaladas', true);
+    }
 
     let health = null;
     try {

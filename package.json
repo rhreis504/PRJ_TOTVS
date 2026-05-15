@@ -7,8 +7,8 @@
     "whatsapp": "node scripts/start-whatsapp-service.cjs",
     "wa:doctor": "node server/whatsapp/whatsapp-doctor.cjs",
     "wa:fix": "node server/whatsapp/whatsapp-autofix.cjs",
-    "wa:start": "cd server/whatsapp && npm start",
-    "crm:wa": "cd server/whatsapp && npm start",
-    "crm:wa:win": "cd server/whatsapp && npm install && npm start"
+    "wa:start": "node scripts/start-whatsapp-service.cjs",
+    "crm:wa": "node scripts/start-whatsapp-service.cjs",
+    "crm:wa:win": "node scripts/start-whatsapp-service.cjs"
   }
 }
