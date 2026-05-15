@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "whatsapp": "cd server/whatsapp && npm install && npm start",
-    "crm:wa": "node server/whatsapp/index.js"
+    "whatsapp": "npm --prefix server/whatsapp install && npm --prefix server/whatsapp start",
+    "crm:wa": "npm --prefix server/whatsapp install && npm --prefix server/whatsapp start"
   }
 }
