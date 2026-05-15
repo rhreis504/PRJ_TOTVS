@@ -988,6 +988,17 @@
                 || selectedProjects.length > 1;
         }
 
+        function getSelectedProjectCodes() {
+            const params = getUrlParams();
+            const cfg = getCockpitConfig();
+            const fromUrl = (params.get('projects') || '').split(',').map(project => project.trim()).filter(Boolean);
+            if(fromUrl.length) return [...new Set(fromUrl)];
+            const fromConfig = (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds : [])
+                .filter(project => project && project !== '__ALL_TAP_PROJECTS__');
+            if(fromConfig.length) return [...new Set(fromConfig)];
+            return [getPrimaryProjectCode()].filter(Boolean);
+        }
+
         function slugifyProjectCode(value = '') {
             return String(value || '')
                 .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -1249,7 +1260,11 @@
 
                 let rows = [];
                 if(isAllTapScope()) {
-                    rows = await tapSupabaseRequest(`${tapTable}?select=${legacyColumns}&order=created_at.desc.nullslast&limit=500`);
+                    const selectedProjectCodes = getSelectedProjectCodes();
+                    const projectFilter = selectedProjectCodes.length
+                        ? `&project_id=in.(${selectedProjectCodes.map(project => encodeURIComponent(project)).join(',')})`
+                        : '';
+                    rows = await tapSupabaseRequest(`${tapTable}?select=${legacyColumns}${projectFilter}&order=created_at.desc.nullslast&limit=500`);
                 } else if(selectedTapEntryId) {
                     rows = await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(selectedTapEntryId)}&select=${legacyColumns}&limit=1`);
                     if(!rows.length) {
