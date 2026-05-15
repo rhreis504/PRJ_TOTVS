@@ -527,6 +527,7 @@
     <script>
         let taps = [];
         let tapProjectContext = { code: null, id: null };
+        let tapProjectNameOverride = '';
         const TAP_BUILD_VERSION = 'tap-2026-05-05-v4';
         let lastErrorLog = 'Nenhum erro detalhado disponível.';
         let currentEditId = null;
@@ -978,6 +979,24 @@
             return params.get('primaryProject') || getCockpitConfig()?.activeProjectId || 'default';
         }
 
+        function isAllTapScope() {
+            const params = getUrlParams();
+            const selectedProjects = (params.get('projects') || '').split(',').map(project => project.trim()).filter(Boolean);
+            const cfg = getCockpitConfig();
+            return params.get('tapScope') === 'all'
+                || (cfg?.selectedProjectIds || []).includes('__ALL_TAP_PROJECTS__')
+                || selectedProjects.length > 1;
+        }
+
+        function slugifyProjectCode(value = '') {
+            return String(value || '')
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .slice(0, 80) || `tap-${Date.now()}`;
+        }
+
         function getSelectedTapEntryId() {
             const params = getUrlParams();
             const cfg = getCockpitConfig();
@@ -1145,7 +1164,7 @@
             const project = getProjectConfigByCode(projectCode);
             const payload = {
                 code: projectCode,
-                name: (project?.name || projectCode).trim() || projectCode
+                name: (tapProjectNameOverride || project?.name || projectCode).trim() || projectCode
             };
             const rows = await tapSupabaseRequest(`${projectsTable}?on_conflict=code`, 'POST', [payload]);
             const createdId = rows?.[0]?.id;
@@ -1181,8 +1200,8 @@
             return tapProjectContext.id;
         }
 
-        async function runSupabaseHealthCheck() {
-            const projectId = await resolveTapProjectId({ createIfMissing: true });
+        async function runSupabaseHealthCheck(projectIdOverride = null) {
+            const projectId = projectIdOverride || await resolveTapProjectId({ createIfMissing: true });
             const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
             await tapSupabaseRequest(`${tapTable}?project_id=eq.${projectId}&select=id&limit=1`);
             return { projectId };
@@ -1229,7 +1248,9 @@
                 ].join(',');
 
                 let rows = [];
-                if(selectedTapEntryId) {
+                if(isAllTapScope()) {
+                    rows = await tapSupabaseRequest(`${tapTable}?select=${legacyColumns}&order=created_at.desc.nullslast&limit=500`);
+                } else if(selectedTapEntryId) {
                     rows = await tapSupabaseRequest(`${tapTable}?id=eq.${encodeURIComponent(selectedTapEntryId)}&select=${legacyColumns}&limit=1`);
                     if(!rows.length) {
                         const cached = getSelectedTapProjectCache();
@@ -1436,7 +1457,15 @@
             };
 
             try {
-                const { projectId } = await runSupabaseHealthCheck();
+                const existingTap = currentEditId ? taps.find(tap => tap.id === currentEditId) : null;
+                let targetProjectId = existingTap?._projectId || null;
+                if(!targetProjectId && isAllTapScope() && tapData.nomeProjeto) {
+                    tapProjectNameOverride = tapData.nomeProjeto;
+                    tapProjectContext = { code: `tap-${slugifyProjectCode(tapData.nomeProjeto)}`, id: null };
+                } else {
+                    tapProjectNameOverride = '';
+                }
+                const { projectId } = await runSupabaseHealthCheck(targetProjectId);
                 const tapTable = getCockpitConfig()?.supabase?.tapTable || 'tap_entries';
                 const tapEntryRow = await buildTapEntryRequestRow(tapData, projectId, tapTable);
                 if (currentEditId) {
