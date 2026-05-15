@@ -7,8 +7,30 @@ let lastQrDataUrl = null;
 let connected = false;
 let status = 'disconnected';
 let phoneNumber = null;
+let lastError = null;
+let lastQrAt = null;
+let lastConnectedAt = null;
+let lastDisconnectedAt = null;
+
+function buildStatus(extra = {}) {
+  return {
+    ok: true,
+    connected,
+    status,
+    phoneNumber,
+    hasQr: Boolean(lastQrDataUrl),
+    qrDataUrl: lastQrDataUrl,
+    lastQrAt,
+    lastConnectedAt,
+    lastDisconnectedAt,
+    lastError,
+    ...extra
+  };
+}
 
 function createClient() {
+  console.log('[WhatsApp] Criando client...');
+
   client = new Client({
     authStrategy: new LocalAuth({
       clientId: 'totvs-cockpit'
@@ -28,37 +50,49 @@ function createClient() {
   });
 
   client.on('qr', async (qr) => {
-    lastQrDataUrl = await qrcode.toDataURL(qr);
-    connected = false;
-    status = 'qr_ready';
-    console.log('QR Code real do WhatsApp gerado.');
+    try {
+      lastQrDataUrl = await qrcode.toDataURL(qr);
+      connected = false;
+      status = 'qr_ready';
+      lastQrAt = new Date().toISOString();
+      lastError = null;
+
+      console.log('[WhatsApp] QR Code real gerado.');
+    } catch (error) {
+      lastError = error.message;
+      status = 'error';
+      console.error('[WhatsApp] Falha ao converter QR Code:', error);
+    }
   });
 
   client.on('authenticated', () => {
     status = 'authenticated';
-    console.log('WhatsApp autenticado.');
-  });
-
-  client.on('ready', async () => {
-    connected = true;
-    status = 'connected';
-    lastQrDataUrl = null;
-
-    try {
-      const info = client.info;
-      phoneNumber = info?.wid?.user || null;
-    } catch (error) {
-      phoneNumber = null;
-    }
-
-    console.log('WhatsApp conectado com sucesso.');
+    lastError = null;
+    console.log('[WhatsApp] Autenticado.');
   });
 
   client.on('auth_failure', (message) => {
     connected = false;
     status = 'auth_failure';
+    lastError = message || 'Falha de autenticação.';
+    console.error('[WhatsApp] Falha de autenticação:', message);
+  });
+
+  client.on('ready', () => {
+    connected = true;
+    status = 'connected';
     lastQrDataUrl = null;
-    console.error('Falha de autenticação WhatsApp:', message);
+    lastConnectedAt = new Date().toISOString();
+    lastError = null;
+
+    try {
+      phoneNumber = client.info?.wid?.user || null;
+    } catch (error) {
+      phoneNumber = null;
+    }
+
+    console.log('[WhatsApp] Conectado com sucesso.');
+    console.log('[WhatsApp] Número:', phoneNumber || 'não identificado');
   });
 
   client.on('disconnected', (reason) => {
@@ -66,15 +100,20 @@ function createClient() {
     status = 'disconnected';
     lastQrDataUrl = null;
     initializing = false;
-    console.log('WhatsApp desconectado:', reason);
+    lastDisconnectedAt = new Date().toISOString();
+
+    console.log('[WhatsApp] Desconectado:', reason);
   });
 
   return client;
 }
 
-async function connect() {
+async function connectWhatsapp() {
+  console.log('[WhatsApp] Solicitação de conexão recebida.');
+
   if (connected) {
-    return getStatus();
+    console.log('[WhatsApp] Já conectado.');
+    return buildStatus();
   }
 
   if (!client) {
@@ -84,47 +123,50 @@ async function connect() {
   if (!initializing) {
     initializing = true;
     status = 'initializing';
+    lastError = null;
 
-    client.initialize()
-      .catch((error) => {
-        console.error('Falha ao inicializar WhatsApp:', error);
-        status = 'error';
-        initializing = false;
-        client = null;
-      });
+    console.log('[WhatsApp] Inicializando client...');
+
+    client.initialize().catch((error) => {
+      console.error('[WhatsApp] Erro ao inicializar:', error);
+      status = 'error';
+      lastError = error.message || String(error);
+      initializing = false;
+    });
+  } else {
+    console.log('[WhatsApp] Client já está inicializando.');
   }
 
   const startedAt = Date.now();
+  const timeoutMs = 30000;
 
-  while (!lastQrDataUrl && !connected && Date.now() - startedAt < 20000) {
+  while (!lastQrDataUrl && !connected && status !== 'error' && Date.now() - startedAt < timeoutMs) {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  return {
-    connected,
-    status: connected ? 'connected' : (lastQrDataUrl ? 'qr_ready' : status),
-    phoneNumber,
-    hasQr: Boolean(lastQrDataUrl),
-    qrDataUrl: lastQrDataUrl
-  };
+  if (!lastQrDataUrl && !connected && status !== 'error') {
+    console.log('[WhatsApp] QR ainda não disponível após timeout inicial.');
+    return buildStatus({
+      status: status || 'waiting_qr',
+      message: 'QR Code ainda não disponível. Consulte /status ou chame /connect novamente.'
+    });
+  }
+
+  return buildStatus();
 }
 
-function getStatus() {
-  return {
-    connected,
-    status,
-    phoneNumber,
-    hasQr: Boolean(lastQrDataUrl),
-    qrDataUrl: lastQrDataUrl
-  };
+function getWhatsappStatus() {
+  return buildStatus();
 }
 
-async function disconnect() {
+async function disconnectWhatsapp() {
+  console.log('[WhatsApp] Solicitação de desconexão recebida.');
+
   if (client) {
     try {
       await client.destroy();
     } catch (error) {
-      console.error('Erro ao destruir client WhatsApp:', error);
+      console.error('[WhatsApp] Erro ao destruir client:', error);
     }
   }
 
@@ -134,37 +176,39 @@ async function disconnect() {
   connected = false;
   status = 'disconnected';
   phoneNumber = null;
+  lastDisconnectedAt = new Date().toISOString();
 
-  return getStatus();
+  return buildStatus();
 }
 
-async function getChats() {
+async function getWhatsappChats() {
   if (!client || !connected) {
     return {
+      ok: true,
       chats: [],
-      status: getStatus()
+      status: buildStatus({
+        message: 'WhatsApp ainda não conectado.'
+      })
     };
   }
 
   const chats = await client.getChats();
 
   return {
+    ok: true,
     chats: chats.map(chat => ({
       id: chat.id?._serialized,
       name: chat.name || chat.formattedTitle || chat.id?._serialized,
       type: chat.isGroup ? 'group' : 'contact',
-      participantCount: chat.isGroup ? chat.participants?.length || 0 : null,
-      enabled: false,
-      project_id: null,
-      can_analyze_ai: false
+      participantCount: chat.isGroup ? chat.participants?.length || 0 : null
     })),
-    status: getStatus()
+    status: buildStatus()
   };
 }
 
 module.exports = {
-  connect,
-  getStatus,
-  disconnect,
-  getChats
+  connectWhatsapp,
+  getWhatsappStatus,
+  disconnectWhatsapp,
+  getWhatsappChats
 };

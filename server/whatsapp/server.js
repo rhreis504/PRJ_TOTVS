@@ -4,24 +4,17 @@ const express = require('express');
 const cors = require('cors');
 
 const {
-  connect,
-  getStatus,
-  disconnect,
-  getChats
+  connectWhatsapp,
+  getWhatsappStatus,
+  disconnectWhatsapp,
+  getWhatsappChats
 } = require('./whatsappClient');
 
 const app = express();
 const PORT = Number(process.env.WHATSAPP_PORT || 3031);
 
 app.use(cors({
-  origin: [
-    'http://localhost',
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:5173'
-  ],
+  origin: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 }));
@@ -32,21 +25,23 @@ app.get('/health', (req, res) => {
   res.json({
     ok: true,
     service: 'whatsapp',
-    port: PORT
+    port: PORT,
+    timestamp: new Date().toISOString()
   });
 });
 
 app.get('/status', (req, res) => {
-  res.json(getStatus());
+  res.json(getWhatsappStatus());
 });
 
 app.post('/connect', async (req, res) => {
   try {
-    const result = await connect();
+    const result = await connectWhatsapp();
     res.json(result);
   } catch (error) {
-    console.error('Erro em /connect:', error);
+    console.error('[POST /connect] Erro:', error);
     res.status(500).json({
+      ok: false,
       message: error.message || 'Falha ao conectar WhatsApp.'
     });
   }
@@ -54,11 +49,12 @@ app.post('/connect', async (req, res) => {
 
 app.post('/disconnect', async (req, res) => {
   try {
-    const result = await disconnect();
+    const result = await disconnectWhatsapp();
     res.json(result);
   } catch (error) {
-    console.error('Erro em /disconnect:', error);
+    console.error('[POST /disconnect] Erro:', error);
     res.status(500).json({
+      ok: false,
       message: error.message || 'Falha ao desconectar WhatsApp.'
     });
   }
@@ -66,31 +62,27 @@ app.post('/disconnect', async (req, res) => {
 
 app.get('/chats', async (req, res) => {
   try {
-    const result = await getChats();
+    const result = await getWhatsappChats();
     res.json(result);
   } catch (error) {
-    console.error('Erro em /chats:', error);
+    console.error('[GET /chats] Erro:', error);
     res.status(500).json({
+      ok: false,
       message: error.message || 'Falha ao listar conversas.'
     });
   }
 });
 
-
 app.use((req, res) => {
   res.status(404).json({
-    message: 'Rota não encontrada no serviço WhatsApp.'
-  });
-});
-
-app.use((error, req, res, next) => {
-  console.error('Erro inesperado no serviço WhatsApp:', error);
-  res.status(500).json({
-    message: error.message || 'Falha inesperada no serviço WhatsApp.'
+    ok: false,
+    message: `Rota não encontrada: ${req.method} ${req.path}`
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`WhatsApp history service listening on ${PORT}`);
+  console.log('====================================================');
+  console.log(`WhatsApp service running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log('====================================================');
 });
