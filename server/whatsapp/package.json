@@ -1,18 +1,18 @@
 {
-  "name": "totvs-cockpit-whatsapp-service",
+  "name": "cockpit-whatsapp-service",
   "version": "1.0.0",
   "private": true,
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "whatsapp": "node server.js"
+    "start": "node index.js",
+    "dev": "node index.js",
+    "crm:wa": "node index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.18.3",
-    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.26.0"
   }
 }
