@@ -351,11 +351,13 @@
       const getSelectedProjectCodes = () => {
         const cfg = getCockpitConfig();
         const urlParams = getUrlProjectParams();
-        if (urlParams.selectedProjects.length) return [...new Set(urlParams.selectedProjects)];
-        const configSelected = (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds : [])
-          .filter(project => project && project !== '__ALL_TAP_PROJECTS__');
-        if (configSelected.length) return [...new Set(configSelected)];
-        return [urlParams.primaryProject || cfg.activeProjectId || (Array.isArray(cfg.projects) && cfg.projects[0]?.id) || 'default'];
+        const activeProject = `${urlParams.primaryProject || cfg.activeProjectId || ''}`.trim();
+        if (activeProject) return [activeProject];
+        const firstUrlProject = (urlParams.selectedProjects || []).find(project => project && project !== '__ALL_TAP_PROJECTS__');
+        if (firstUrlProject) return [firstUrlProject];
+        const firstConfigProject = (Array.isArray(cfg?.selectedProjectIds) ? cfg.selectedProjectIds : [])
+          .find(project => project && project !== '__ALL_TAP_PROJECTS__');
+        return [firstConfigProject || (Array.isArray(cfg.projects) && cfg.projects[0]?.id) || 'default'];
       };
       const getPrimaryProjectCode = () => getSelectedProjectCodes()[0] || 'default';
       const getProjectConfigByCode = (projectCode) => {

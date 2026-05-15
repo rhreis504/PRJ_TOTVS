@@ -1653,14 +1653,14 @@
         try { localStorage.setItem('totvs_cockpit_config', JSON.stringify(config)); } catch (_e) {}
         const getActiveProject = () => config.projects.find(p => p.id === config.activeProjectId) || config.projects[0] || { id: '', name: '', sources: defaultSources() };
         const getSelectedProjects = () => {
-            const projects = Array.isArray(config.projects) ? config.projects : [];
-            if((config.selectedProjectIds || []).includes(TAP_ALL_PROJECTS_VALUE)) return projects;
-            const selectedIds = Array.isArray(config.selectedProjectIds) ? config.selectedProjectIds : [];
-            const selected = projects.filter(p => selectedIds.includes(p.id));
-            return selected.length ? selected : (getActiveProject()?.id ? [getActiveProject()] : []);
+            const activeProject = getActiveProject();
+            return activeProject?.id ? [activeProject] : [];
         };
-        const isAllProjectsScope = () => (config.selectedProjectIds || []).includes(TAP_ALL_PROJECTS_VALUE);
-        const getScopedProjectIds = () => getSelectedProjects().map(project => `${project?.id || ''}`.trim()).filter(Boolean);
+        const isAllProjectsScope = () => false;
+        const getScopedProjectIds = () => {
+            const activeProjectId = `${getActiveProject()?.id || config.activeProjectId || ''}`.trim();
+            return activeProjectId ? [activeProjectId] : [];
+        };
         function persistProjectScope(projectId, options = {}) {
             const selectedId = `${projectId || ''}`.trim();
             if(selectedId) config.activeProjectId = selectedId;
@@ -1748,6 +1748,7 @@
             const target = document.getElementById('page-' + id);
             if(target) target.classList.remove('hidden');
             if(el) el.classList.add('active');
+            refreshEmbeddedPageContext(id);
             
             if(id === 'treinamentos') renderRoadmapList();
             if(id === 'agenda') renderAgendaList();
@@ -1764,18 +1765,17 @@
 
         function buildProjectContextParams() {
             const params = new URLSearchParams();
-            const selectedProjectIds = config.selectedProjectIds || [];
-            const isAllTapScope = selectedProjectIds.includes(TAP_ALL_PROJECTS_VALUE);
-            params.set('primaryProject', config.activeProjectId || '');
-            params.set('projects', isAllTapScope ? config.projects.map(project => project.id).join(',') : selectedProjectIds.join(','));
-            if(isAllTapScope) params.set('tapScope', 'all');
+            const activeProjectId = `${config.activeProjectId || getActiveProject()?.id || ''}`.trim();
+            params.set('primaryProject', activeProjectId);
+            params.set('projects', activeProjectId);
             const activeProject = getActiveProject();
             const activeTapEntryId = config.activeTapEntryId || activeProject?.tapEntryId || '';
-            if(activeTapEntryId && !isAllTapScope) params.set('tapEntry', activeTapEntryId);
+            if(activeTapEntryId) params.set('tapEntry', activeTapEntryId);
             return params;
         }
 
         function notifyEmbeddedProjectContext() {
+            ['status', 'onepage', 'tap', 'pendencias', 'cronograma', 'riscos'].forEach(pageId => refreshEmbeddedPageContext(pageId));
             const params = buildProjectContextParams();
             const payload = {
                 type: 'totvs-project-context-updated',
@@ -1786,6 +1786,23 @@
             document.querySelectorAll('iframe').forEach(frame => {
                 try { frame.contentWindow?.postMessage(payload, window.location.origin); } catch (_e) {}
             });
+        }
+
+        function refreshEmbeddedPageContext(pageId = '') {
+            const embeddedFiles = {
+                status: 'status_report.html',
+                onepage: 'onepage_executivo.html',
+                tap: 'tap.html',
+                pendencias: 'pendencias.html',
+                cronograma: 'cronograma.html',
+                riscos: 'riscos.html'
+            };
+            const fileName = embeddedFiles[pageId];
+            if(!fileName) return;
+            const iframe = document.querySelector(`#page-${pageId} iframe`);
+            if(!iframe) return;
+            const srcWithProjects = `${fileName}?${buildProjectContextParams().toString()}`;
+            if(iframe.getAttribute('src') !== srcWithProjects) iframe.setAttribute('src', srcWithProjects);
         }
 
         function openStaticPage(pageId, fileName, el) {
@@ -1949,8 +1966,9 @@
                 })
                 .catch(error => console.warn(`Falha ao carregar KPIs do dashboard para o escopo ${scopeSignatureAtRequest}; mantendo dados das fontes configuradas.`, error));
 
-            safeSetText('val-trein-periodo', agenda.length);
-            safeSetText('val-trein-ministrados', agenda.filter(a => a.status === 'completed').length);
+            const scopedAgendaForKpi = getActiveScopedItems(agenda);
+            safeSetText('val-trein-periodo', scopedAgendaForKpi.length);
+            safeSetText('val-trein-ministrados', scopedAgendaForKpi.filter(a => a.status === 'completed').length);
             safeSetText('val-trein-cancelados', 0);
             safeSetText('val-trein-reagendados', 0);
 
@@ -1963,12 +1981,22 @@
             lucide.createIcons();
         }
 
+        function getActiveScopedItems(items = []) {
+            const activeProjectId = `${getActiveProject()?.id || config.activeProjectId || ''}`.trim();
+            return (items || []).filter(item => `${item.projectId || ''}`.trim() === activeProjectId);
+        }
+        function withActiveProjectScope(item = {}) {
+            const activeProject = getActiveProject();
+            return { ...item, projectId: activeProject?.id || config.activeProjectId || '', projectName: activeProject?.name || '' };
+        }
+
         // --- AGENDA DE REUNIÕES ---
         function renderReunioesList() {
             const grid = document.getElementById('reunioes-grid');
             if(!grid) return;
             
-            grid.innerHTML = reunioes.map(r => {
+            const scopedReunioes = getActiveScopedItems(reunioes);
+            grid.innerHTML = scopedReunioes.map(r => {
                 const status = r.status || 'Agendado';
                 const badgeClass = `badge-${status.toLowerCase()}`;
                 
@@ -2001,7 +2029,7 @@
         }
 
         function editReuniao(id) {
-            const r = reunioes.find(x => x.id == id);
+            const r = getActiveScopedItems(reunioes).find(x => x.id == id);
             if(!r) return;
             
             document.getElementById('re-id').value = r.id;
@@ -2025,7 +2053,7 @@
             e.preventDefault();
             const id = document.getElementById('re-id').value;
             
-            const rData = {
+            const rData = withActiveProjectScope({
                 id: id ? parseInt(id) : Date.now(),
                 title: document.getElementById('re-title').value,
                 type: document.getElementById('re-type').value,
@@ -2034,7 +2062,7 @@
                 date: document.getElementById('re-date').value,
                 time: document.getElementById('re-time').value,
                 link: document.getElementById('re-link').value
-            };
+            });
             
             if(id) {
                 const idx = reunioes.findIndex(x => x.id == id);
@@ -2053,7 +2081,8 @@
         function renderAgendaList() {
             const grid = document.getElementById('agenda-grid');
             if(!grid) return;
-            grid.innerHTML = agenda.map(a => `
+            const scopedAgenda = getActiveScopedItems(agenda);
+            grid.innerHTML = scopedAgenda.map(a => `
                 <div class="training-card agenda-card">
                     <h4 class="agenda-title">${a.title}</h4>
                     <p class="agenda-subtitle">Módulo: ${a.system} | Instrutor: ${a.instructor}</p>
@@ -2073,7 +2102,7 @@
         function closeAgendaModal() { document.getElementById('agenda-modal').style.display = 'none'; }
         function saveAgenda(e) {
             e.preventDefault();
-            const a = {
+            const a = withActiveProjectScope({
                 id: Date.now(),
                 title: document.getElementById('ag-title').value,
                 system: document.getElementById('ag-system').value,
@@ -2083,18 +2112,19 @@
                 link: document.getElementById('ag-link').value,
                 capacity: document.getElementById('ag-capacity').value,
                 status: 'upcoming'
-            };
+            });
             agenda.push(a);
             localStorage.setItem('totvs_agenda', JSON.stringify(agenda));
             showToast("Agendamento de treinamento concluído!"); closeAgendaModal(); renderAgendaList();
         }
-        function deleteAgenda(id) { agenda = agenda.filter(a => a.id != id); localStorage.setItem('totvs_agenda', JSON.stringify(agenda)); renderAgendaList(); }
+        function deleteAgenda(id) { const activeProjectId = `${getActiveProject()?.id || config.activeProjectId || ''}`.trim(); agenda = agenda.filter(a => !(a.id == id && `${a.projectId || ''}`.trim() === activeProjectId)); localStorage.setItem('totvs_agenda', JSON.stringify(agenda)); renderAgendaList(); }
 
         // --- ROTEIROS ---
         function renderRoadmapList() {
             const cont = document.getElementById('roadmap-list-container');
             if(!cont) return;
-            cont.innerHTML = roadmaps.map(r => `
+            const scopedRoadmaps = getActiveScopedItems(roadmaps);
+            cont.innerHTML = scopedRoadmaps.map(r => `
                 <div class="training-card" onclick="openRoadmap('${r.id}')">
                     <div class="card-actions">
                         <span class="badge">Grade Documentada</span>
@@ -2118,7 +2148,7 @@
             addRoadmapRow(); lucide.createIcons();
         }
         function openRoadmap(id) {
-            const r = roadmaps.find(rm => rm.id == id); if(!r) return;
+            const r = getActiveScopedItems(roadmaps).find(rm => rm.id == id); if(!r) return;
             currentRoadmapId = id;
             document.getElementById('edit-client-name').value = r.clientName || "";
             document.getElementById('edit-client-code').value = r.clientCode || "";
@@ -2180,7 +2210,7 @@
                     obs: tr.querySelector('.row-obs').value
                 });
             });
-            const rData = {
+            const rData = withActiveProjectScope({
                 id: currentRoadmapId,
                 clientName: document.getElementById('edit-client-name').value,
                 clientCode: document.getElementById('edit-client-code').value,
@@ -2193,13 +2223,13 @@
                 signature: document.getElementById('edit-signature') ? document.getElementById('edit-signature').value : '',
                 approvedBy: document.getElementById('edit-approved-by').value,
                 items
-            };
+            });
             const idx = roadmaps.findIndex(rm => rm.id == currentRoadmapId);
             if(idx > -1) roadmaps[idx] = rData; else roadmaps.push(rData);
             localStorage.setItem('totvs_roadmaps', JSON.stringify(roadmaps));
             showToast("Roteiro gravado com sucesso no sistema!"); closeEditor(); renderRoadmapList();
         }
-        function deleteRoadmap(id) { roadmaps = roadmaps.filter(r => r.id != id); localStorage.setItem('totvs_roadmaps', JSON.stringify(roadmaps)); renderRoadmapList(); }
+        function deleteRoadmap(id) { const activeProjectId = `${getActiveProject()?.id || config.activeProjectId || ''}`.trim(); roadmaps = roadmaps.filter(r => !(r.id == id && `${r.projectId || ''}`.trim() === activeProjectId)); localStorage.setItem('totvs_roadmaps', JSON.stringify(roadmaps)); renderRoadmapList(); }
         function closeEditor() { document.getElementById('roadmap-editor').style.display = 'none'; }
 
         // --- DATA SYNC ---
@@ -2779,7 +2809,10 @@
                     const allProjectIds = cachedTapProjects.map(project => project.projectId).filter(Boolean);
                     config.selectedProjectIds = [TAP_ALL_PROJECTS_VALUE, ...new Set(allProjectIds)];
                 } else {
-                    config.selectedProjectIds = selectedIds.length ? selectedIds : [config.activeProjectId];
+                    const selectedProjectIds = selectedIds
+                        .map(selectedId => cachedTapProjects.find(project => (project.tapEntryId || project.id) === selectedId)?.projectId || selectedId)
+                        .filter(Boolean);
+                    config.selectedProjectIds = selectedProjectIds.length ? selectedProjectIds : [config.activeProjectId];
                     config.activeProjectId = config.selectedProjectIds[0];
                 }
             }
