@@ -1928,22 +1928,82 @@
                 return !isInactiveStatus(statusValue || '');
             }).length;
         }
+        function countActiveSupabaseSourceRows(rows = [], sourceType = '') {
+            const statusIndexByKey = { pendencias: 16, riscos: 5, gaps: 5 };
+            const statusIndex = statusIndexByKey[sourceType];
+            if(!['pendencias', 'riscos', 'gaps'].includes(sourceType)) return rows.length;
+            return rows.filter(entry => !isInactiveStatus((Array.isArray(entry?.row_data) ? entry.row_data?.[statusIndex] : entry?.row_data?.status) || '')).length;
+        }
+        function summarizeTrainingRows(rows = []) {
+            const asSearchText = row => {
+                const value = row?.row_data !== undefined ? row.row_data : row;
+                const cells = Array.isArray(value) ? value : Object.values(value || {});
+                return cells.map(cell => normalizeStakeholderText(cell)).join(' ');
+            };
+            const scheduled = rows.length;
+            const completed = rows.filter(row => /concluid|completed|ministrad|realizad/.test(asSearchText(row))).length;
+            const canceled = rows.filter(row => /cancelad|cancelled|canceled/.test(asSearchText(row))).length;
+            const rescheduled = rows.filter(row => /reagend|reschedul/.test(asSearchText(row))).length;
+            return { scheduled, completed, canceled, rescheduled };
+        }
+        function getSupabaseProjectFilter(ids = []) {
+            const safeIds = ids.map(id => `${id || ''}`.trim()).filter(Boolean).map(encodeURIComponent);
+            if(!safeIds.length) return '';
+            return safeIds.length === 1 ? `eq.${safeIds[0]}` : `in.(${safeIds.join(',')})`;
+        }
+        async function resolveSupabaseProjectId(project, options = {}) {
+            const rawId = `${project?.id || ''}`.trim();
+            if(!rawId) return null;
+            if(isUuidLike(rawId) && !options.verifyExisting) return rawId;
+            if(isUuidLike(rawId)) {
+                const existingById = await supabaseRequest(`projects?id=eq.${encodeURIComponent(rawId)}&limit=1`);
+                if(existingById[0]?.id) return existingById[0].id;
+            }
+            const existingByCode = await supabaseRequest(`projects?code=eq.${encodeURIComponent(rawId)}&limit=1`);
+            if(existingByCode[0]?.id) return existingByCode[0].id;
+            if(!options.createIfMissing) return null;
+            const payload = { code: rawId, name: project?.name || rawId };
+            if(isUuidLike(rawId)) payload.id = rawId;
+            const created = await supabaseRequest('projects', 'POST', [payload]);
+            return created[0]?.id || null;
+        }
+        async function resolveSupabaseProjectIds(projectIds = []) {
+            const projectsById = new Map((config.projects || []).map(project => [`${project.id || ''}`.trim(), project]));
+            const resolved = await Promise.all((projectIds || []).map(projectId => resolveSupabaseProjectId(projectsById.get(`${projectId || ''}`.trim()) || { id: projectId })));
+            return [...new Set(resolved.filter(Boolean))];
+        }
         async function loadProjectDashboardStatsFromSupabase(projectIds) {
-            const ids = (Array.isArray(projectIds) ? projectIds : [projectIds]).map(id => `${id || ''}`.trim()).filter(Boolean);
-            if(!ids.length) throw new Error('Project ID não definido para carregar o dashboard.');
-            const projectFilter = ids.length === 1
-                ? `eq.${encodeURIComponent(ids[0])}`
-                : `in.(${ids.map(id => encodeURIComponent(id)).join(',')})`;
-            const [issuesResult, risksResult, gapsResult] = await Promise.allSettled([
+            const ids = await resolveSupabaseProjectIds(Array.isArray(projectIds) ? projectIds : [projectIds]);
+            if(!ids.length) throw new Error('Project ID não definido no Supabase para carregar o dashboard.');
+            const projectFilter = getSupabaseProjectFilter(ids);
+            const [sourceRowsResult, issuesResult, risksResult, gapsResult] = await Promise.allSettled([
+                supabaseRequest(`source_rows?select=source_type,row_data&project_id=${projectFilter}&source_type=in.(pendencias,riscos,gaps,stakeholders,treinamentos)&limit=10000`),
                 supabaseRequest(`issues?select=id,status&project_id=${projectFilter}&limit=10000`),
                 supabaseRequest(`risks?select=id,status,life_cycle_status,analysis_status&project_id=${projectFilter}&limit=10000`),
                 supabaseRequest(`gaps?select=id,status&project_id=${projectFilter}&limit=10000`)
             ]);
             const stats = {};
-            if(issuesResult.status === 'fulfilled') stats.pendencias = countActiveSupabaseRows(issuesResult.value, ['status']);
-            if(risksResult.status === 'fulfilled') stats.riscos = countActiveSupabaseRows(risksResult.value, ['life_cycle_status', 'status', 'analysis_status']);
-            if(gapsResult.status === 'fulfilled') stats.gaps = countActiveSupabaseRows(gapsResult.value, ['status']);
-            const rejected = [issuesResult, risksResult, gapsResult].find(result => result.status === 'rejected');
+            if(sourceRowsResult.status === 'fulfilled') {
+                const byType = (sourceRowsResult.value || []).reduce((acc, row) => {
+                    const type = row.source_type || '';
+                    if(!acc[type]) acc[type] = [];
+                    acc[type].push(row);
+                    return acc;
+                }, {});
+                stats.pendencias = countActiveSupabaseSourceRows(byType.pendencias || [], 'pendencias');
+                stats.riscos = countActiveSupabaseSourceRows(byType.riscos || [], 'riscos');
+                stats.gaps = countActiveSupabaseSourceRows(byType.gaps || [], 'gaps');
+                stats.stakeholders = countActiveSupabaseSourceRows(byType.stakeholders || [], 'stakeholders');
+                const trainingStats = summarizeTrainingRows(byType.treinamentos || []);
+                stats.treinPeriodo = trainingStats.scheduled;
+                stats.treinMinistrados = trainingStats.completed;
+                stats.treinCancelados = trainingStats.canceled;
+                stats.treinReagendados = trainingStats.rescheduled;
+            }
+            if(issuesResult.status === 'fulfilled' && (issuesResult.value || []).length) stats.pendencias = countActiveSupabaseRows(issuesResult.value, ['status']);
+            if(risksResult.status === 'fulfilled' && (risksResult.value || []).length) stats.riscos = countActiveSupabaseRows(risksResult.value, ['life_cycle_status', 'status', 'analysis_status']);
+            if(gapsResult.status === 'fulfilled' && (gapsResult.value || []).length) stats.gaps = countActiveSupabaseRows(gapsResult.value, ['status']);
+            const rejected = [sourceRowsResult, issuesResult, risksResult, gapsResult].find(result => result.status === 'rejected');
             if(rejected && Object.keys(stats).length === 0) throw rejected.reason;
             return stats;
         }
@@ -1963,14 +2023,19 @@
                     if(Number.isFinite(stats.pendencias)) safeSetText('val-pendencias', stats.pendencias);
                     if(Number.isFinite(stats.riscos)) safeSetText('val-riscos', stats.riscos);
                     if(Number.isFinite(stats.gaps)) safeSetText('val-gaps', stats.gaps);
+                    if(Number.isFinite(stats.stakeholders)) safeSetText('val-stakeholders', stats.stakeholders);
+                    if(Number.isFinite(stats.treinPeriodo)) safeSetText('val-trein-periodo', stats.treinPeriodo);
+                    if(Number.isFinite(stats.treinMinistrados)) safeSetText('val-trein-ministrados', stats.treinMinistrados);
+                    if(Number.isFinite(stats.treinCancelados)) safeSetText('val-trein-cancelados', stats.treinCancelados);
+                    if(Number.isFinite(stats.treinReagendados)) safeSetText('val-trein-reagendados', stats.treinReagendados);
                 })
-                .catch(error => console.warn(`Falha ao carregar KPIs do dashboard para o escopo ${scopeSignatureAtRequest}; mantendo dados das fontes configuradas.`, error));
+                .catch(error => console.warn(`Falha ao carregar KPIs do dashboard para o escopo ${scopeSignatureAtRequest}; mantendo os últimos dados oficiais carregados.`, error));
 
-            const scopedAgendaForKpi = getActiveScopedItems(agenda);
-            safeSetText('val-trein-periodo', scopedAgendaForKpi.length);
-            safeSetText('val-trein-ministrados', scopedAgendaForKpi.filter(a => a.status === 'completed').length);
-            safeSetText('val-trein-cancelados', 0);
-            safeSetText('val-trein-reagendados', 0);
+            const localTrainingStats = dataStore.treinamentos?.length ? summarizeTrainingRows(dataStore.treinamentos) : { scheduled: 0, completed: 0, canceled: 0, rescheduled: 0 };
+            safeSetText('val-trein-periodo', localTrainingStats.scheduled);
+            safeSetText('val-trein-ministrados', localTrainingStats.completed);
+            safeSetText('val-trein-cancelados', localTrainingStats.canceled);
+            safeSetText('val-trein-reagendados', localTrainingStats.rescheduled);
 
             const healthBadge = document.getElementById('health-badge');
             if(healthBadge) {
@@ -2491,15 +2556,75 @@
             });
             return [...byBusinessKey.values()];
         }
-        async function syncAll() {
+        async function loadProjectRowsFromSupabase(project, keys = Object.keys(project?.sources || {})) {
+            const runtime = getSupabaseRuntimeConfig();
+            if(!runtime.baseUrl || !runtime.credential) return { loaded: false, rowsByKey: {}, projectId: null };
+            const projectId = await resolveSupabaseProjectId(project);
+            if(!projectId) return { loaded: false, rowsByKey: {}, projectId: null };
+            const rowsByKey = Object.fromEntries((keys || []).map(key => [key, []]));
+            const encodeSupabaseFilterValue = (value = '') => encodeURIComponent(`${value || ''}`);
+            const results = await Promise.allSettled((keys || []).map(async key => {
+                const rows = await supabaseRequest(`source_rows?select=source_type,row_data,source_row_number&project_id=eq.${encodeSupabaseFilterValue(projectId)}&source_type=eq.${encodeSupabaseFilterValue(key)}&order=source_row_number.asc.nullslast&limit=10000`);
+                return [key, (rows || []).map(row => Array.isArray(row.row_data) ? row.row_data : Object.values(row.row_data || {}))];
+            }));
+            let totalRows = 0;
+            results.forEach((result, index) => {
+                const key = keys[index];
+                if(result.status === 'fulfilled') {
+                    const [sourceKey, rows] = result.value;
+                    rowsByKey[sourceKey] = rows;
+                    totalRows += rows.length;
+                    lastFetchErrors[sourceKey] = '';
+                    lastFetchMeta[sourceKey] = { connected: true, matrixRows: rows.length, dataRows: rows.length, hasHeader: false, range: 'Supabase', mode: 'supabase' };
+                    lastSyncStatus[sourceKey] = { ok: true, total: rows.length, ...lastFetchMeta[sourceKey], readError: '', warning: 'Fonte oficial: Supabase. CSV é usado apenas para carga inicial.' };
+                } else {
+                    lastFetchErrors[key] = String(result.reason?.message || result.reason || 'Falha ao ler Supabase');
+                    lastFetchMeta[key] = { connected: false, matrixRows: 0, dataRows: 0, hasHeader: false, range: 'Supabase', mode: 'supabase' };
+                    lastSyncStatus[key] = { ok: false, total: 0, ...lastFetchMeta[key], readError: lastFetchErrors[key], warning: '' };
+                }
+            });
+            return { loaded: totalRows > 0, rowsByKey, projectId };
+        }
+        async function loadAllProjectDataFromSupabase(selectedProjects = getSelectedProjects()) {
+            const allKeys = new Set();
+            selectedProjects.forEach(project => Object.keys(project.sources || {}).forEach(k => allKeys.add(k)));
+            const keys = [...allKeys];
+            const aggregatedStore = Object.fromEntries(keys.map(k => [k, []]));
+            let loadedAny = false;
+            for(const project of selectedProjects) {
+                const projectKeys = Object.keys(project.sources || {});
+                const result = await loadProjectRowsFromSupabase(project, projectKeys);
+                if(result.loaded) loadedAny = true;
+                projectKeys.forEach(k => {
+                    aggregatedStore[k] = aggregatedStore[k].concat(result.rowsByKey[k] || []);
+                });
+            }
+            if(!loadedAny) return false;
+            keys.forEach(k => dataStore[k] = aggregatedStore[k] || []);
+            const lastSyncEl = document.getElementById('last-sync-time');
+            if(lastSyncEl) lastSyncEl.innerText = new Date().toLocaleTimeString();
+            updateDashboardStats();
+            if(!document.getElementById('page-stakeholders')?.classList.contains('hidden')) renderStkTable();
+            renderSyncStatus();
+            return true;
+        }
+        async function syncAll(options = {}) {
             if(syncInProgressPromise) return syncInProgressPromise;
-            syncInProgressPromise = syncAllInternal().finally(() => { syncInProgressPromise = null; });
+            syncInProgressPromise = syncAllInternal(options).finally(() => { syncInProgressPromise = null; });
             return syncInProgressPromise;
         }
-        async function syncAllInternal() {
+        async function syncAllInternal(options = {}) {
             const selectedProjects = getSelectedProjects();
             if(!selectedProjects.length) return;
             const activeProjectBeforeSync = config.activeProjectId;
+            if(!options.forceCsvImport) {
+                try {
+                    const loadedFromSupabase = await loadAllProjectDataFromSupabase(selectedProjects);
+                    if(loadedFromSupabase) return;
+                } catch (error) {
+                    console.warn('Falha ao carregar dados oficiais do Supabase; tentando carga inicial via CSV.', error);
+                }
+            }
             const allKeys = new Set();
             selectedProjects.forEach(project => Object.keys(project.sources || {}).forEach(k => allKeys.add(k)));
             const keys = [...allKeys];
@@ -2518,8 +2643,21 @@
             if(activeProjectBeforeSync && config.projects.some(project => project.id === activeProjectBeforeSync)) {
                 config.activeProjectId = activeProjectBeforeSync;
             }
+            const loadedAfterImport = await loadAllProjectDataFromSupabase(selectedProjects).catch(error => {
+                console.warn('Carga inicial gravada, mas a releitura do Supabase falhou; o dashboard não usará CSV como fonte oficial.', error);
+                return false;
+            });
+            if(loadedAfterImport) return;
+            const runtime = getSupabaseRuntimeConfig();
+            if(runtime.baseUrl && runtime.credential) {
+                keys.forEach(k => dataStore[k] = []);
+                updateDashboardStats();
+                renderSyncStatus();
+                return;
+            }
             keys.forEach(k => dataStore[k] = aggregatedStore[k] || []);
-            document.getElementById('last-sync-time').innerText = new Date().toLocaleTimeString();
+            const lastSyncEl = document.getElementById('last-sync-time');
+            if(lastSyncEl) lastSyncEl.innerText = new Date().toLocaleTimeString();
             updateDashboardStats();
             if(!document.getElementById('page-stakeholders')?.classList.contains('hidden')) renderStkTable();
         }
@@ -2777,16 +2915,19 @@
                 const total = Number.isFinite(st.dataRows) ? st.dataRows : st.total;
                 const headerNote = st.hasHeader ? ` • ${Math.max(matrixRows - total, 0)} cabeçalho` : '';
                 setLabel(dataLabel?.closest('.sync-status-label'), dataLabel, `<i data-lucide="table" size="14"></i> ${matrixRows} linhas no range / ${total} registros de dados${headerNote}`, st.readError ? 'status-error' : 'status-ok');
-                if(st.connected && !st.readError) setLabel(connLabel?.closest('.sync-status-label'), connLabel, `<i data-lucide="check-circle" size="14"></i> Conectado ao CSV`, 'status-ok');
+                if(st.connected && !st.readError) {
+                    const sourceLabel = st.mode === 'supabase' ? 'Supabase' : 'CSV';
+                    setLabel(connLabel?.closest('.sync-status-label'), connLabel, `<i data-lucide="check-circle" size="14"></i> Conectado ao ${sourceLabel}`, 'status-ok');
+                }
                 else setLabel(connLabel?.closest('.sync-status-label'), connLabel, `<i data-lucide="x-circle" size="14"></i> Falha na leitura`, 'status-error');
                 const msg = (st.readError || st.warning || 'Sem erros de leitura.').replace(/\s+/g, ' ').slice(0, 220);
                 setLabel(errorLabel?.closest('.sync-status-label'), errorLabel, `${st.readError ? '<i data-lucide="alert-circle" size="14"></i>' : '<i data-lucide="info" size="14"></i>'} ${msg}`, st.readError ? 'status-error' : (st.warning ? 'status-muted' : 'status-ok'));
                 lucide.createIcons();
             });
         }
-        function startSync() {
+        function startSync(options = {}) {
             clearInterval(timerInterval);
-            syncAll();
+            syncAll(options);
             timerInterval = setInterval(() => { syncAll(); }, config.interval * 60 * 1000);
         }
         function saveConfig(options = {}) {
@@ -2820,7 +2961,7 @@
             config.supabase.secret = document.getElementById('supabase-secret').value.trim();
             localStorage.setItem('totvs_cockpit_config', JSON.stringify(config));
             showToast("Configurações sistêmicas atualizadas.");
-            if(!options.silentSync) startSync();
+            if(!options.silentSync) startSync({ forceCsvImport: true });
         }
         function toggleDbConfiguratorHelp() {
             const help = document.getElementById('dbconf-help');
@@ -3285,8 +3426,8 @@ ${hints}`);
             }
             try {
                 saveConfig({ silentSync: true });
-                await syncAll();
-                showToast('Configurações salvas e pendências enviadas para a tabela Issues.');
+                await syncAll({ forceCsvImport: true });
+                showToast('Configurações salvas, importadas do CSV e relidas pelo Supabase.');
                 closeDataSourcesModal();
             } catch (e) {
                 showToast(`Falha ao salvar configurações: ${String(e.message || e).slice(0, 160)}`);
